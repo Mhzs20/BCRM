@@ -4,7 +4,65 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4ac206d8-c298-4112-9480-adbd3c2a2d0c" name="Changes" comment="" />
+    <list default="true" id="4ac206d8-c298-4112-9480-adbd3c2a2d0c" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/.editorconfig" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/.env.example" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/.gitattributes" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/Controller.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/app/Models/User.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/app/Providers/AppServiceProvider.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/artisan" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/bootstrap/app.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/bootstrap/cache/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/bootstrap/providers.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/composer.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/composer.lock" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/config/app.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/config/auth.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/config/cache.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/config/database.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/config/filesystems.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/config/logging.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/config/mail.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/config/queue.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/config/services.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/config/session.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/database/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/database/factories/UserFactory.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/0001_01_01_000000_create_users_table.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/0001_01_01_000001_create_cache_table.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/0001_01_01_000002_create_jobs_table.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/database/seeders/DatabaseSeeder.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/package.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/phpunit.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/public/.htaccess" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/public/favicon.ico" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/public/index.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/public/robots.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/resources/css/app.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/resources/js/app.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/resources/js/bootstrap.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/resources/views/welcome.blade.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/routes/console.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/routes/web.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/storage/app/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/storage/app/private/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/storage/app/public/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/storage/framework/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/storage/framework/cache/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/storage/framework/cache/data/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/storage/framework/sessions/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/storage/framework/testing/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/storage/framework/views/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/storage/logs/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/tests/Feature/ExampleTest.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/tests/TestCase.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/tests/Unit/ExampleTest.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Backend/vite.config.js" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -13,6 +71,9 @@
   <component name="ComposerSettings" synchronizationState="SYNCHRONIZE">
     <pharConfigPath>$PROJECT_DIR$/composer.json</pharConfigPath>
     <execution />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="PhpWorkspaceProjectConfiguration" interpreter_name="C:/wamp64/bin/php/php8.3.14/php.exe">
     <include_path>
@@ -129,26 +190,27 @@
       <path value="$PROJECT_DIR$/vendor/fakerphp/faker" />
     </include_path>
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 5
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5
+}</component>
   <component name="ProjectId" id="2wxAsVosJxvNM56P3LVbUeDoVoh" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration name="Main" type="PHPUnitRunConfigurationType" factoryName="PHPUnit">
       <TestRunner configuration_file="$PROJECT_DIR$/phpunit.xml" scope="XML" use_alternative_configuration_file="true" />
@@ -170,7 +232,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1746973059132</updated>
-      <workItem from="1746973069000" duration="2076000" />
+      <workItem from="1746973069000" duration="2772000" />
     </task>
     <servers />
   </component>
