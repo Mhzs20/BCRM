@@ -3,7 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-
+use Illuminate\Validation\Rules\Password;
 class CompleteProfileRequest extends FormRequest
 {
     /**
@@ -25,13 +25,14 @@ class CompleteProfileRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:255',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
             'avatar' => 'nullable|image|max:2048',
-            'business_name' => 'sometimes|string|max:255',
-            'business_category_id' => 'sometimes|exists:business_categories,id',
-            'business_subcategory_id' => 'sometimes|exists:business_subcategories,id',
-            'province_id' => 'sometimes|exists:provinces,id',
-            'city_id' => 'sometimes|exists:cities,id',
+            'business_name' => 'required|string|max:255',
+            'business_category_id' => 'required|exists:business_categories,id',
+            'business_subcategory_id' => 'nullable|exists:business_subcategories,id',
+            'province_id' => 'required|exists:provinces,id',
+            'city_id' => 'required|exists:cities,id',
+            'address' => 'required|string|max:1000',
         ];
     }
 
@@ -49,10 +50,16 @@ class CompleteProfileRequest extends FormRequest
             'password.confirmed' => 'تکرار رمز عبور مطابقت ندارد',
             'avatar.image' => 'فایل آپلود شده باید تصویر باشد',
             'avatar.max' => 'حداکثر حجم تصویر ۲ مگابایت است',
+            'business_name.required' => 'وارد کردن نام کسب و کار (سالن) الزامی است.',
+            'business_category_id.required' => 'انتخاب دسته‌بندی کسب و کار الزامی است.',
             'business_category_id.exists' => 'دسته‌بندی کسب و کار انتخاب شده معتبر نیست.',
             'business_subcategory_id.exists' => 'زیرمجموعه کسب و کار انتخاب شده معتبر نیست.',
+            'province_id.required' => 'انتخاب استان الزامی است.',
             'province_id.exists' => 'استان انتخاب شده معتبر نیست.',
+            'city_id.required' => 'انتخاب شهر الزامی است.',
             'city_id.exists' => 'شهر انتخاب شده معتبر نیست.',
+            'address.required' => 'وارد کردن آدرس سالن الزامی است.',
+            'address.max' => 'آدرس سالن نمی‌تواند بیشتر از ۱۰۰۰ کاراکتر باشد.',
         ];
     }
 }

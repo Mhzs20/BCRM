@@ -4,26 +4,27 @@ namespace App\Http\Controllers;
 
 use App\Models\Salon;
 use App\Models\City;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Http\Requests\StoreSalonRequest;
+use App\Http\Requests\UpdateSalonRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class SalonController extends Controller
 {
     /**
-     *     /**
-     * 
-     * /** @var \App\Models\User $user
-     *  */
-    
+
+     */
     public function getUserSalons(): JsonResponse
     {
         try {
             $user = Auth::user();
-            $salons = $user->salons;
+            $salons = $user->salons()->with(['businessCategory', 'businessSubcategory', 'province', 'city'])->get();
 
             return response()->json([
                 'status' => 'success',
@@ -31,83 +32,36 @@ class SalonController extends Controller
                 'data' => $salons
             ]);
         } catch (\Exception $e) {
+            Log::error("Error fetching user salons for user ID " . (Auth::id() ?? 'unknown') . ": " . $e->getMessage());
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage(),
+                'message' => 'خطا در دریافت لیست سالن‌ها.',
                 'data' => null
-            ], 400);
+            ], 500);
         }
     }
 
     /**
-     * ایجاد سالن جدید
      */
-    public function createSalon(Request $request): JsonResponse
+    public function createSalon(StoreSalonRequest $request): JsonResponse // استفاده از FormRequest
     {
+
+
+        DB::beginTransaction();
         try {
-            $validator = Validator::make($request->all(), [
-                'name' => 'required|string|max:255',
-                'business_category_id' => 'required|exists:business_categories,id',
-                'business_subcategory_id' => 'required|exists:business_subcategories,id',
-                'province_id' => 'required|exists:provinces,id',
-                'city_id' => 'required|exists:cities,id',
-                'image' => 'nullable|image|max:2048',
-            ], [
-                'name.required' => 'نام سالن الزامی است',
-                'business_category_id.required' => 'انتخاب دسته‌بندی کسب و کار الزامی است',
-                'business_category_id.exists' => 'دسته‌بندی کسب و کار انتخاب شده معتبر نیست',
-                'business_subcategory_id.required' => 'انتخاب زیرمجموعه کسب و کار الزامی است',
-                'business_subcategory_id.exists' => 'زیرمجموعه کسب و کار انتخاب شده معتبر نیست',
-                'province_id.required' => 'انتخاب استان الزامی است',
-                'province_id.exists' => 'استان انتخاب شده معتبر نیست',
-                'city_id.required' => 'انتخاب شهر الزامی است',
-                'city_id.exists' => 'شهر انتخاب شده معتبر نیست',
-                'image.image' => 'فایل آپلود شده باید تصویر باشد',
-                'image.max' => 'حداکثر حجم تصویر ۲ مگابایت است',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'اطلاعات وارد شده نامعتبر است',
-                    'errors' => $validator->errors(),
-                    'data' => null
-                ], 422);
-            }
-            
-            // بررسی تطابق استان و شهر
-            $city = City::find($request->city_id);
-            if ($city->province_id != $request->province_id) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'شهر انتخاب شده با استان مطابقت ندارد',
-                    'data' => null
-                ], 422);
-            }
-
-            DB::beginTransaction();
-
             $user = Auth::user();
-            $salonData = [
-                'name' => $request->name,
-                'user_id' => $user->id,
-                'business_category_id' => $request->business_category_id,
-                'business_subcategory_id' => $request->business_subcategory_id,
-                'province_id' => $request->province_id,
-                'city_id' => $request->city_id,
-                'credit_score' => 0,
-            ];
+            $validatedData = $request->validated();
+            $validatedData['user_id'] = $user->id; // مالکیت به کاربر فعلی اختصاص داده می‌شود
+            $validatedData['credit_score'] = $validatedData['credit_score'] ?? 0;
 
-            if ($request->hasFile('image')) {
-                $image = $request->file('image');
-                $imageName = time() . '_' . $image->getClientOriginalName();
-                $image->storeAs('public/salon_images', $imageName);
-                $salonData['image'] = 'salon_images/' . $imageName;
+            if ($request->hasFile('image') && $request->file('image')->isValid()) {
+                $path = $request->file('image')->store('public/salon_images');
+                $validatedData['image'] = Storage::url($path);
             }
 
-            $salon = Salon::create($salonData);
+            $salon = Salon::create($validatedData);
 
-            if (!$user->active_salon_id) {
+            if (!$user->active_salon_id && $salon) {
                 $user->active_salon_id = $salon->id;
                 $user->save();
             }
@@ -117,126 +71,76 @@ class SalonController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'سالن با موفقیت ایجاد شد.',
-                'data' => $salon
-            ]);
+                'data' => $salon->load(['businessCategory', 'businessSubcategory', 'province', 'city'])
+            ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error("Salon creation failed for user ID " . (Auth::id() ?? 'unknown') . ": " . $e->getMessage() . "\n" . $e->getTraceAsString());
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage(),
+                'message' => 'خطا در ایجاد سالن: ' . $e->getMessage(),
                 'data' => null
-            ], 400);
+            ], 500);
         }
     }
 
     /**
-     * ویرایش اطلاعات یک سالن
      */
-    public function updateSalon(Request $request, int $id): JsonResponse
+    public function updateSalon(UpdateSalonRequest $request, Salon $salon): JsonResponse // استفاده از FormRequest و Route Model Binding
     {
+
+
+        DB::beginTransaction();
         try {
-            $validator = Validator::make($request->all(), [
-                'name' => 'required|string|max:255',
-                'business_category_id' => 'required|exists:business_categories,id',
-                'business_subcategory_id' => 'required|exists:business_subcategories,id',
-                'province_id' => 'required|exists:provinces,id',
-                'city_id' => 'required|exists:cities,id',
-                'image' => 'nullable|image|max:2048',
-            ], [
-                'name.required' => 'نام سالن الزامی است',
-                'business_category_id.required' => 'انتخاب دسته‌بندی کسب و کار الزامی است',
-                'business_category_id.exists' => 'دسته‌بندی کسب و کار انتخاب شده معتبر نیست',
-                'business_subcategory_id.required' => 'انتخاب زیرمجموعه کسب و کار الزامی است',
-                'business_subcategory_id.exists' => 'زیرمجموعه کسب و کار انتخاب شده معتبر نیست',
-                'province_id.required' => 'انتخاب استان الزامی است',
-                'province_id.exists' => 'استان انتخاب شده معتبر نیست',
-                'city_id.required' => 'انتخاب شهر الزامی است',
-                'city_id.exists' => 'شهر انتخاب شده معتبر نیست',
-                'image.image' => 'فایل آپلود شده باید تصویر باشد',
-                'image.max' => 'حداکثر حجم تصویر ۲ مگابایت است',
-            ]);
+            $validatedData = $request->validated();
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'اطلاعات وارد شده نامعتبر است',
-                    'errors' => $validator->errors(),
-                    'data' => null
-                ], 422);
-            }
-            
-            // بررسی تطابق استان و شهر
-            $city = City::find($request->city_id);
-            if ($city->province_id != $request->province_id) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'شهر انتخاب شده با استان مطابقت ندارد',
-                    'data' => null
-                ], 422);
-            }
-
-            DB::beginTransaction();
-
-            $user = Auth::user();
-            $salon = Salon::where('id', $id)->where('user_id', $user->id)->first();
-
-            if (!$salon) {
-                DB::rollBack();
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'سالن مورد نظر یافت نشد یا متعلق به شما نیست.',
-                    'data' => null
-                ], 404);
-            }
-
-            $salonData = [
-                'name' => $request->name,
-                'business_category_id' => $request->business_category_id,
-                'business_subcategory_id' => $request->business_subcategory_id,
-                'province_id' => $request->province_id,
-                'city_id' => $request->city_id,
-            ];
-
-            if ($request->hasFile('image')) {
+            if ($request->hasFile('image') && $request->file('image')->isValid()) {
                 if ($salon->image) {
-                    Storage::delete('public/' . $salon->image);
+                    $oldImagePath = str_replace(Storage::url(''), 'public/', $salon->image);
+                    if (Storage::exists($oldImagePath)) {
+                        Storage::delete($oldImagePath);
+                    }
                 }
-
-                $image = $request->file('image');
-                $imageName = time() . '_' . $image->getClientOriginalName();
-                $image->storeAs('public/salon_images', $imageName);
-                $salonData['image'] = 'salon_images/' . $imageName;
+                $path = $request->file('image')->store('public/salon_images');
+                $validatedData['image'] = Storage::url($path);
+            } elseif ($request->boolean('remove_image') && $salon->image) {
+                $oldImagePath = str_replace(Storage::url(''), 'public/', $salon->image);
+                if (Storage::exists($oldImagePath)) {
+                    Storage::delete($oldImagePath);
+                }
+                $validatedData['image'] = null;
             }
 
-            $salon->update($salonData);
-
+            $salon->update($validatedData);
             DB::commit();
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'سالن با موفقیت ویرایش شد.',
-                'data' => $salon
+                'data' => $salon->fresh()->load(['businessCategory', 'businessSubcategory', 'province', 'city'])
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error("Salon update failed for ID {$salon->id}: " . $e->getMessage() . "\n" . $e->getTraceAsString());
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage(),
+                'message' => 'خطا در ویرایش سالن: ' . $e->getMessage(),
                 'data' => null
-            ], 400);
+            ], 500);
         }
     }
 
     /**
-     * دریافت سالن فعال کاربر
+
      */
     public function getActiveSalon(): JsonResponse
     {
         try {
             $user = Auth::user();
+            $activeSalon = $user->activeSalon()->with(['businessCategory', 'businessSubcategory', 'province', 'city'])->first();
 
-            if (!$user->active_salon_id || !$user->salons()->where('id', $user->active_salon_id)->exists()) {
-                $firstSalon = $user->salons()->first();
+            if (!$activeSalon) {
+                $firstSalon = $user->salons()->with(['businessCategory', 'businessSubcategory', 'province', 'city'])->first();
                 if (!$firstSalon) {
                     return response()->json([
                         'status' => 'error',
@@ -244,61 +148,115 @@ class SalonController extends Controller
                         'data' => null
                     ], 404);
                 }
-
                 $user->active_salon_id = $firstSalon->id;
                 $user->save();
-                $salon = $firstSalon;
-            } else {
-                $salon = Salon::find($user->active_salon_id);
+                $activeSalon = $firstSalon;
             }
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'سالن فعال با موفقیت دریافت شد.',
-                'data' => $salon
+                'data' => $activeSalon
             ]);
         } catch (\Exception $e) {
+            Log::error("Error fetching active salon for user ID " . (Auth::id() ?? 'unknown') . ": " . $e->getMessage());
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage(),
+                'message' => 'خطا در دریافت سالن فعال: ' . $e->getMessage(),
                 'data' => null
-            ], 400);
+            ], 500);
         }
     }
 
     /**
-     * 
-     * /** @var \App\Models\User $user
-     *  */
-     
-    public function selectActiveSalon(int $id): JsonResponse
+     */
+    public function selectActiveSalon(Salon $salon): JsonResponse
     {
+        $this->authorize('selectActive', $salon);
+
         try {
             $user = Auth::user();
-            $salon = Salon::where('id', $id)->where('user_id', $user->id)->first();
-
-            if (!$salon) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'سالن مورد نظر یافت نشد یا متعلق به شما نیست.',
-                    'data' => null
-                ], 404);
-            }
-
             $user->active_salon_id = $salon->id;
             $user->save();
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'سالن فعال با موفقیت انتخاب شد.',
-                'data' => $salon
+                'data' => $salon->load(['businessCategory', 'businessSubcategory', 'province', 'city'])
             ]);
         } catch (\Exception $e) {
+            Log::error("Select active salon failed for salon ID {$salon->id}, user ID " . (Auth::id() ?? 'unknown') . ": " . $e->getMessage());
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage(),
+                'message' => 'خطا در انتخاب سالن فعال: ' . $e->getMessage(),
                 'data' => null
-            ], 400);
+            ], 500);
+        }
+    }
+
+    /**
+     */
+    public function getSalon(Salon $salon): JsonResponse
+    {
+        $this->authorize('view', $salon);
+        try {
+            return response()->json([
+                'status' => 'success',
+                'data' => $salon->load(['businessCategory', 'businessSubcategory', 'province', 'city'])
+            ]);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            Log::warning("SalonController@getSalon access denied for user ID " . Auth::id() . " to salon ID {$salon->id}: " . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'شما اجازه دسترسی به این سالن را ندارید.'], 403);
+        } catch (\Exception $e) {
+            Log::error("Error in SalonController@getSalon for salon ID {$salon->id}: " . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'خطا در نمایش اطلاعات سالن.'], 500);
+        }
+    }
+
+    /**
+     */
+    public function deleteSalon(Salon $salon): JsonResponse
+    {
+        $this->authorize('delete', $salon);
+        DB::beginTransaction();
+        try {
+            User::where('active_salon_id', $salon->id)->update(['active_salon_id' => null]);
+
+            if ($salon->image) {
+                $imagePath = str_replace(Storage::url(''), 'public/', $salon->image);
+                if (Storage::exists($imagePath)) {
+                    Storage::delete($imagePath);
+                }
+            }
+            // مدیریت حذف منابع وابسته (مشتریان، پرسنل، نوبت‌ها و ...) باید در اینجا یا با استفاده از model events انجام شود.
+            // مثال:
+            // $salon->appointments()->delete();
+            // $salon->customers()->delete();
+            // $salon->staff()->delete();
+            // $salon->services()->delete();
+            // $salon->payments()->delete();
+            // $salon->smsTemplates()->delete();
+            // $salon->activityLogs()->delete();
+
+            $salon->delete();
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'سالن مورد نظر با موفقیت حذف شد'
+            ], 200);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            DB::rollBack();
+            Log::warning("SalonController@deleteSalon access denied for user ID " . Auth::id() . " to salon ID {$salon->id}: " . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'شما اجازه حذف این سالن را ندارید.'], 403);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("Salon deletion failed for ID {$salon->id}: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'خطا در حذف سالن: ' . $e->getMessage(),
+                'data' => null
+            ], 500);
         }
     }
 }
