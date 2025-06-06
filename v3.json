@@ -1,0 +1,754 @@
+{
+  "info": {
+    "_postman_id": "YOUR_UNIQUE_COLLECTION_ID_HERE",
+    "name": "BCAI Project API - Full Collection (Generated)",
+    "description": "A comprehensive Postman collection for testing all APIs in the BCAI project. \n**Important:** Review and adjust request bodies, path variables, and ensure your Postman environment variables (`baseURL`, `authToken`, `testMobileNumber`, etc.) are correctly set up. \nLogo path in 'Complete Profile' needs to be updated. \nMissing specific UpdateRequest files for some resources mean request bodies are inferred; verify these.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "description": "Handles user registration, login, OTP, profile completion, and session management.",
+      "item": [
+        {
+          "name": "Check User Existence",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"mobile\": \"{{testMobileNumber}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseURL}}/auth/check-user",
+              "host": ["{{baseURL}}"],
+              "path": ["auth", "check-user"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register (Send OTP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"mobile\": \"{{testMobileNumber}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseURL}}/auth/register",
+              "host": ["{{baseURL}}"],
+              "path": ["auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "if (response.data && response.data.access_token_profile) {",
+                  "    pm.environment.set(\"profileAuthToken\", response.data.access_token_profile);",
+                  "    console.log('Profile auth token set: ' + response.data.access_token_profile);",
+                  "} else {",
+                  "    console.error('Could not set profileAuthToken. Response:', response);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"mobile\": \"{{testMobileNumber}}\",\n    \"otp\": \"{{testOtp}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseURL}}/auth/verify-otp",
+              "host": ["{{baseURL}}"],
+              "path": ["auth", "verify-otp"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Profile & Create Salon",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "if (response.data && response.data.access_token) {",
+                  "    pm.environment.set(\"authToken\", response.data.access_token);",
+                  "    console.log('Auth token set: ' + response.data.access_token);",
+                  "}",
+                  "if (response.data && response.data.salon && response.data.salon.id) {",
+                  "    pm.environment.set(\"selectedSalonId\", response.data.salon.id);",
+                  "    console.log('Selected salon ID set: ' + response.data.salon.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{profileAuthToken}}"}
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {"key": "first_name", "value": "تست", "type": "text"},
+                {"key": "last_name", "value": "کاربر", "type": "text"},
+                {"key": "password", "value": "{{testPassword}}", "type": "text"},
+                {"key": "password_confirmation", "value": "{{testPassword}}", "type": "text"},
+                {"key": "business_name", "value": "کسب و کار آزمایشی", "type": "text"},
+                {"key": "salon_name", "value": "سالن آزمایشی", "type": "text"},
+                {"key": "business_category_id", "value": "1", "description": "Replace with valid ID from /business-categories", "type": "text"},
+                {"key": "business_subcategory_id", "value": "1", "description": "Replace with valid ID from /business-categories/{id}/subcategories", "type": "text"},
+                {"key": "province_id", "value": "1", "description": "Replace with valid ID from /provinces", "type": "text"},
+                {"key": "city_id", "value": "1", "description": "Replace with valid ID from /provinces/{id}/cities", "type": "text"},
+                {"key": "address", "value": "تهران، خیابان آزادی، پلاک ۱۱۰", "type": "text"},
+                {"key": "phone_number", "value": "02166554433", "type": "text"},
+                {"key": "bio", "value": "این یک سالن آزمایشی برای تست API است.", "type": "text"},
+                {"key": "logo", "type": "file", "src": "/path/to/your/sample_logo.png", "description": "IMPORTANT: Update this path to a real image file on your system."}
+              ]
+            },
+            "url": {
+              "raw": "{{baseURL}}/auth/complete-profile",
+              "host": ["{{baseURL}}"],
+              "path": ["auth", "complete-profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "if (response.data && response.data.access_token) {",
+                  "    pm.environment.set(\"authToken\", response.data.access_token);",
+                  "    console.log('Auth token set after login: ' + response.data.access_token);",
+                  "}",
+                  "if (response.data && response.data.multiple_salons === true && response.data.salons && response.data.salons.length > 0) {",
+                  "    pm.environment.set(\"firstSalonIdToSelect\", response.data.salons[0].id);",
+                  "    console.log('Multiple salons found. First salon ID for selection: ' + response.data.salons[0].id);",
+                  "    console.log('Salons list:', response.data.salons);",
+                  "} else if (response.data && !response.data.multiple_salons && response.data.salon && response.data.salon.id) {",
+                  "    pm.environment.set(\"selectedSalonId\", response.data.salon.id);",
+                  "    console.log('Single salon found or default. Selected salon ID set: ' + response.data.salon.id);",
+                  "} else if (response.data && response.data.multiple_salons === false && response.data.salon && response.data.salon.id) {",
+                  "    pm.environment.set(\"selectedSalonId\", response.data.salon.id);",
+                  "    console.log('Single salon explicitly. Selected salon ID set: ' + response.data.salon.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"mobile\": \"{{testMobileNumber}}\",\n    \"password\": \"{{testPassword}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseURL}}/auth/login",
+              "host": ["{{baseURL}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Select Salon",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "if (response.data && response.data.access_token) {",
+                  "    pm.environment.set(\"authToken\", response.data.access_token);",
+                  "    console.log('Auth token updated with selected salon: ' + response.data.access_token);",
+                  "    // Assuming the new token reflects the selected salon ID for subsequent requests",
+                  "    // If you need to set selectedSalonId from the *request* body (which is unlikely here):",
+                  "    // const requestBody = JSON.parse(pm.request.body.raw);",
+                  "    // pm.environment.set(\"selectedSalonId\", requestBody.salon_id);",
+                  "}",
+                  "// If selected salon ID is directly in response data (outside access_token):",
+                  "if (response.data && response.data.selected_salon_id) {",
+                  "     pm.environment.set(\"selectedSalonId\", response.data.selected_salon_id);",
+                  "     console.log('Selected salon ID explicitly set from response: ' + response.data.selected_salon_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"salon_id\": {{firstSalonIdToSelect}} \n}",
+              "options": {"raw": {"language": "json"}},
+              "description": "Use a valid salon ID obtained from the login response if multiple_salons was true. {{firstSalonIdToSelect}} is a placeholder."
+            },
+            "url": {
+              "raw": "{{baseURL}}/auth/select-salon",
+              "host": ["{{baseURL}}"],
+              "path": ["auth", "select-salon"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Authenticated User",
+          "protocolProfileBehavior": {"disableBodyPruning": true},
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseURL}}/auth/user",
+              "host": ["{{baseURL}}"],
+              "path": ["auth", "user"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot Password (Send OTP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"mobile\": \"{{testMobileNumber}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseURL}}/auth/forgot-password",
+              "host": ["{{baseURL}}"],
+              "path": ["auth", "forgot-password"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"mobile\": \"{{testMobileNumber}}\",\n    \"otp\": \"{{testOtp}}\",\n    \"password\": \"{{testPassword}}New\",\n    \"password_confirmation\": \"{{testPassword}}New\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseURL}}/auth/reset-password",
+              "host": ["{{baseURL}}"],
+              "path": ["auth", "reset-password"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.environment.unset(\"authToken\");",
+                  "pm.environment.unset(\"profileAuthToken\");",
+                  "pm.environment.unset(\"selectedSalonId\");",
+                  "console.log('Tokens and selectedSalonId cleared.');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseURL}}/auth/logout",
+              "host": ["{{baseURL}}"],
+              "path": ["auth", "logout"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Salons",
+      "description": "Manage salon details. Most endpoints require authentication and a selected salon.",
+      "item": [
+        {
+          "name": "Get My Salons List",
+          "protocolProfileBehavior": {"disableBodyPruning": true},
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseURL}}/salons",
+              "host": ["{{baseURL}}"],
+              "path": ["salons"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Salon Details (by ID)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// This script tries to use 'selectedSalonId' if 'salonId' is not directly set as a path variable in Postman's UI for this request.",
+                  "// You can set a specific 'salonIdForRequest' in environment or collection vars if needed.",
+                  "if (!pm.variables.get(\"salonId\")) {",
+                  "    const salonIdToUse = pm.environment.get(\"selectedSalonId\") || pm.collectionVariables.get(\"defaultSalonIdForTesting\");",
+                  "    if (salonIdToUse) {",
+                  "        pm.variables.set(\"salonId\", salonIdToUse);",
+                  "    } else {",
+                  "        console.warn(\"Path variable 'salonId' for Get Salon Details is not set. Please ensure 'selectedSalonId' or a default is available.\");",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "protocolProfileBehavior": {"disableBodyPruning": true},
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseURL}}/salons/{{salonId}}",
+              "host": ["{{baseURL}}"],
+              "path": ["salons", "{{salonId}}"],
+              "variable": [
+                {"key": "salonId", "value": "{{selectedSalonId}}", "description": "ID of the salon to retrieve. Defaults to 'selectedSalonId' from environment if not overridden."}
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Salon Details (by ID)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"business_name\": \"کسب و کار آپدیت شده\",\n    \"salon_name\": \"سالن آپدیت شده\",\n    \"business_category_id\": 1,\n    \"business_subcategory_id\": 1,\n    \"province_id\": 1,\n    \"city_id\": 1,\n    \"address\": \"آدرس آپدیت شده\",\n    \"phone_number\": \"02199998888\",\n    \"bio\": \"بیوگرافی آپدیت شده برای سالن.\"\n    // \"logo\": \"To update logo, this endpoint would need to support multipart/form-data and you'd send a file. The current SalonController@update doesn't explicitly show logo update handling separate from general fields. Check controller logic if logo update is needed here or via a dedicated endpoint.\"\n}",
+              "options": {"raw": {"language": "json"}},
+              "description": "Update fields as needed. Note: There isn't a dedicated UpdateSalonRequest. Fields are inferred from CompleteProfileRequest/Salon model. Logo update via this JSON body might not work; typically requires form-data and specific handling in controller."
+            },
+            "url": {
+              "raw": "{{baseURL}}/salons/{{salonId}}",
+              "host": ["{{baseURL}}"],
+              "path": ["salons", "{{salonId}}"],
+              "variable": [
+                {"key": "salonId", "value": "{{selectedSalonId}}", "description": "ID of the salon to update. Defaults to 'selectedSalonId'."}
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Business Data (Categories, Locations)",
+      "item": [
+        {
+          "name": "Get All Business Categories",
+          "protocolProfileBehavior": {"disableBodyPruning": true},
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Accept", "value": "application/json"}],
+            "url": {
+              "raw": "{{baseURL}}/business-categories",
+              "host": ["{{baseURL}}"],
+              "path": ["business-categories"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Subcategories of a Category",
+          "protocolProfileBehavior": {"disableBodyPruning": true},
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Accept", "value": "application/json"}],
+            "url": {
+              "raw": "{{baseURL}}/business-categories/{{categoryId}}/subcategories",
+              "host": ["{{baseURL}}"],
+              "path": ["business-categories", "{{categoryId}}", "subcategories"],
+              "variable": [{"key": "categoryId", "value": "1", "description": "ID of the parent business category"}]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Provinces",
+          "protocolProfileBehavior": {"disableBodyPruning": true},
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Accept", "value": "application/json"}],
+            "url": {
+              "raw": "{{baseURL}}/provinces",
+              "host": ["{{baseURL}}"],
+              "path": ["provinces"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Cities of a Province",
+          "protocolProfileBehavior": {"disableBodyPruning": true},
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Accept", "value": "application/json"}],
+            "url": {
+              "raw": "{{baseURL}}/provinces/{{provinceId}}/cities",
+              "host": ["{{baseURL}}"],
+              "path": ["provinces", "{{provinceId}}", "cities"],
+              "variable": [{"key": "provinceId", "value": "1", "description": "ID of the parent province"}]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Services",
+      "description": "Manage services for the selected salon. Requires authentication.",
+      "item": [
+        {
+          "name": "List Services",
+          "protocolProfileBehavior": {"disableBodyPruning": true},
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseURL}}/services",
+              "host": ["{{baseURL}}"],
+              "path": ["services"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Service",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const response = pm.response.json();",
+                  "if (response.data && response.data.id) {",
+                  "    pm.environment.set(\"createdServiceId\", response.data.id);",
+                  "    console.log('Created Service ID set: ' + response.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"سرویس جدید آزمایشی\",\n    \"duration_minutes\": 60,\n    \"price\": 150000,\n    \"description\": \"توضیحات برای سرویس جدید آزمایشی.\"\n}",
+              "options": {"raw": {"language": "json"}},
+              "description": "Body based on StoreServiceRequest.php"
+            },
+            "url": {
+              "raw": "{{baseURL}}/services",
+              "host": ["{{baseURL}}"],
+              "path": ["services"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Service Details",
+          "protocolProfileBehavior": {"disableBodyPruning": true},
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseURL}}/services/{{serviceId}}",
+              "host": ["{{baseURL}}"],
+              "path": ["services", "{{serviceId}}"],
+              "variable": [{"key": "serviceId", "value": "{{createdServiceId}}", "description": "ID of the service (e.g., from create response or list)"}]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Service",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"سرویس آپدیت شده\",\n    \"duration_minutes\": 75,\n    \"price\": 160000,\n    \"description\": \"توضیحات آپدیت شده برای سرویس.\"\n}",
+              "options": {"raw": {"language": "json"}},
+              "description": "Body based on UpdateServiceRequest.php"
+            },
+            "url": {
+              "raw": "{{baseURL}}/services/{{serviceId}}",
+              "host": ["{{baseURL}}"],
+              "path": ["services", "{{serviceId}}"],
+              "variable": [{"key": "serviceId", "value": "{{createdServiceId}}", "description": "ID of the service to update"}]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Service",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseURL}}/services/{{serviceId}}",
+              "host": ["{{baseURL}}"],
+              "path": ["services", "{{serviceId}}"],
+              "variable": [{"key": "serviceId", "value": "{{createdServiceId}}", "description": "ID of the service to delete"}]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Staff",
+      "description": "Manage staff for the selected salon. Requires authentication.",
+      "item": [
+        {"name": "List Staff", "request": { "method": "GET", "url": "{{baseURL}}/staff", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}]}},
+        {"name": "Create Staff", "request": { "method": "POST", "url": "{{baseURL}}/staff", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "raw", "raw": "{\n \"name\": \"پرسنل نمونه\",\n \"mobile\": \"09001234567\",\n \"services\": [1, 2] \n /* Check StoreStaffRequest.php for exact fields (services array of IDs) */ \n}"}}},
+        {"name": "Get Staff Details", "request": { "method": "GET", "url": "{{baseURL}}/staff/{{staffId}}", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}]}},
+        {"name": "Update Staff", "request": { "method": "PUT", "url": "{{baseURL}}/staff/{{staffId}}", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "raw", "raw": "{\n \"name\": \"پرسنل آپدیت شده\",\n \"mobile\": \"09007654321\",\n \"services\": [3]\n /* Check UpdateStaffRequest.php for exact fields */ \n}"}}},
+        {"name": "Delete Staff", "request": { "method": "DELETE", "url": "{{baseURL}}/staff/{{staffId}}", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}]}}
+      ]
+    },
+    {
+      "name": "Customers",
+      "description": "Manage customers for the selected salon. Requires authentication.",
+      "item": [
+        {"name": "List Customers", "request": { "method": "GET", "url": "{{baseURL}}/customers", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}]}},
+        {"name": "Create Customer", "request": { "method": "POST", "url": "{{baseURL}}/customers", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "raw", "raw": "{\n \"name\": \"مشتری نمونه\",\n \"mobile\": \"09112233445\",\n \"birth_date\": \"1990-05-15\"\n /* Check StoreCustomerRequest.php */ \n}"}}},
+        {"name": "Get Customer Details", "request": { "method": "GET", "url": "{{baseURL}}/customers/{{customerId}}", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}]}},
+        {"name": "Update Customer", "request": { "method": "PUT", "url": "{{baseURL}}/customers/{{customerId}}", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "raw", "raw": "{\n \"name\": \"مشتری آپدیت شده\",\n \"mobile\": \"09554433221\",\n \"birth_date\": \"1992-08-20\"\n /* Check UpdateCustomerRequest.php */ \n}"}}},
+        {"name": "Delete Customer", "request": { "method": "DELETE", "url": "{{baseURL}}/customers/{{customerId}}", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}]}}
+      ]
+    },
+    {
+      "name": "Appointments",
+      "description": "Manage appointments for the selected salon. Requires authentication.",
+      "item": [
+        {"name": "List Appointments", "request": { "method": "GET", "url": "{{baseURL}}/appointments?date=YYYY-MM-DD", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}]}},
+        {"name": "Create Appointment", "request": { "method": "POST", "url": "{{baseURL}}/appointments", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "raw", "raw": "{\n \"customer_id\": 1,\n \"staff_id\": 1,\n \"service_id\": 1,\n \"appointment_time\": \"YYYY-MM-DD HH:MM:SS\",\n \"notes\": \"یادداشت تست\"\n /* Check StoreAppointmentRequest.php */ \n}"}}},
+        {"name": "Get Appointment Details", "request": { "method": "GET", "url": "{{baseURL}}/appointments/{{appointmentId}}", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}]}},
+        {"name": "Update Appointment", "request": { "method": "PUT", "url": "{{baseURL}}/appointments/{{appointmentId}}", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "raw", "raw": "{\n \"customer_id\": 1,\n \"staff_id\": 1,\n \"service_id\": 1,\n \"appointment_time\": \"YYYY-MM-DD HH:MM:SS\",\n \"status\": \"confirmed\",\n \"notes\": \"یادداشت آپدیت شده\"\n /* Check UpdateAppointmentRequest.php */ \n}"}}},
+        {"name": "Delete Appointment", "request": { "method": "DELETE", "url": "{{baseURL}}/appointments/{{appointmentId}}", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}]}}
+      ]
+    },
+    {
+      "name": "SMS Management",
+      "description": "Manage user SMS balance and salon SMS templates. Requires authentication.",
+      "item": [
+        {
+          "name": "Get User SMS Balance",
+          "protocolProfileBehavior": {"disableBodyPruning": true},
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseURL}}/user-sms-balance",
+              "host": ["{{baseURL}}"],
+              "path": ["user-sms-balance"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Salon SMS Templates",
+          "protocolProfileBehavior": {"disableBodyPruning": true},
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseURL}}/salon-sms-templates",
+              "host": ["{{baseURL}}"],
+              "path": ["salon-sms-templates"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Store/Update Salon SMS Template",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"template_type\": \"appointment_reminder\",\n    \"content\": \"مشتری گرامی {{customer_name}}، یادآوری نوبت شما در {{appointment_date}} ساعت {{appointment_time}}. سالن {{salon_name}}\",\n    \"is_active\": true\n}",
+              "options": {"raw": {"language": "json"}},
+              "description": "Template types: appointment_confirmation, appointment_reminder, birthday_greeting, custom_message etc. Check SalonSmsTemplateController."
+            },
+            "url": {
+              "raw": "{{baseURL}}/salon-sms-templates",
+              "host": ["{{baseURL}}"],
+              "path": ["salon-sms-templates"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Payments Received",
+      "description": "Manage payments received for appointments. Requires authentication.",
+      "item": [
+        {"name": "List Payments Received", "request": { "method": "GET", "url": "{{baseURL}}/payments-received", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}]}},
+        {"name": "Create Payment Received", "request": { "method": "POST", "url": "{{baseURL}}/payments-received", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "raw", "raw": "{\n \"appointment_id\": 1,\n \"amount\": 100000,\n \"payment_method\": \"cash\",\n \"payment_date\": \"YYYY-MM-DD\",\n \"notes\": \"پرداخت نقدی\"\n /* Check StorePaymentRequest.php */ \n}"}}},
+        {"name": "Get Payment Received Details", "request": { "method": "GET", "url": "{{baseURL}}/payments-received/{{paymentId}}", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}]}},
+        {"name": "Update Payment Received", "request": { "method": "PUT", "url": "{{baseURL}}/payments-received/{{paymentId}}", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "raw", "raw": "{\n \"appointment_id\": 1,\n \"amount\": 120000,\n \"payment_method\": \"card\",\n \"payment_date\": \"YYYY-MM-DD\",\n \"notes\": \"پرداخت با کارت، ویرایش شده\"\n /* Check UpdatePaymentRequest.php */ \n}"}}},
+        {"name": "Delete Payment Received", "request": { "method": "DELETE", "url": "{{baseURL}}/payments-received/{{paymentId}}", "header": [{"key": "Authorization", "value": "Bearer {{authToken}}"}]}}
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Endpoints for dashboard statistics. Requires authentication.",
+      "item": [
+        {
+          "name": "Get Dashboard Stats",
+          "protocolProfileBehavior": {"disableBodyPruning": true},
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Accept", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseURL}}/dashboard",
+              "host": ["{{baseURL}}"],
+              "path": ["dashboard"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {"key": "baseURL", "value": "http://localhost:8000/api", "type": "string"},
+    {"key": "authToken", "value": "", "type": "string"},
+    {"key": "profileAuthToken", "value": "", "type": "string"},
+    {"key": "selectedSalonId", "value": "1", "type": "string", "description": "Updated by login/select salon scripts"},
+    {"key": "firstSalonIdToSelect", "value": "1", "type": "string", "description": "Used in login test script if multiple salons exist"},
+    {"key": "testMobileNumber", "value": "09120000000", "type": "string"},
+    {"key": "testOtp", "value": "123456", "type": "string"},
+    {"key": "testPassword", "value": "P@$$wOrd123", "type": "string"},
+    {"key": "createdServiceId", "value": "1", "type": "string", "description": "Updated by Create Service script"},
+    {"key": "salonId", "value": "{{selectedSalonId}}", "type": "string", "description": "Generic salon ID, often defaults to selectedSalonId"},
+    {"key": "staffId", "value": "1", "type": "string"},
+    {"key": "customerId", "value": "1", "type": "string"},
+    {"key": "appointmentId", "value": "1", "type": "string"},
+    {"key": "paymentId", "value": "1", "type": "string"},
+    {"key": "categoryId", "value": "1", "type": "string"},
+    {"key": "provinceId", "value": "1", "type": "string"},
+    {"key": "cityId", "value": "1", "type": "string"}
+  ]
+}

@@ -24,7 +24,7 @@ return new class extends Migration
             $table->unsignedBigInteger('business_subcategory_id')->nullable();
             $table->unsignedBigInteger('active_salon_id')->nullable();
             $table->timestamps();
-            
+
         });
     }
 
