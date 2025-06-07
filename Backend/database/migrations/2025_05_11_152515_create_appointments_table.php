@@ -27,7 +27,7 @@ return new class extends Migration
             $table->boolean('deposit_paid')->default(false);
             $table->timestamp('reminder_sms_sent_at')->nullable();
             $table->timestamp('survey_sms_sent_at')->nullable();
-            $table->foreignId('feedback_id')->nullable()->constrained('customer_feedback')->onDelete('set null');
+            $table->unsignedBigInteger('feedback_id')->nullable();
             $table->softDeletes();
             $table->timestamps();
         });
