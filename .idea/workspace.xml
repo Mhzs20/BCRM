@@ -4,105 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4ac206d8-c298-4112-9480-adbd3c2a2d0c" name="Changes" comment="create salon controller">
-      <change afterPath="$PROJECT_DIR$/Backend/app/Console/kernel.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/AgeRangeController.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/AppointmentController.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/CustomerController.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/CustomerGroupController.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/DashboardController.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/HowIntroducedController.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/JobController.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/PaymentController.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/SalonSmsTemplateController.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/ServiceController.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/StaffController.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/UserSmsBalanceController.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/CalendarQueryRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/GetAvailableSlotsRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/ImportCustomersContactsRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/ImportCustomersExcelRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreAgeRangeRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreAppointmentRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreCustomerGroupRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreCustomerRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreHowIntroducedRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreJobRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/StorePaymentRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreSalonRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreServiceRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreStaffRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdateAgeRangeRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdateAppointmentRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdateCustomerGroupRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdateCustomerRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdateHowIntroducedRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdateJobRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdatePaymentRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdateSalonRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdateServiceRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdateStaffRequest.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Imports/CustomersImport.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Models/ActivityLog.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Models/AgeRange.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Models/Appointment.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Models/Customer.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Models/CustomerGroup.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Models/HowIntroduced.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Models/Job.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Models/Payment.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Models/SalonSmsTemplate.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Models/Service.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Models/SmsTransaction.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Models/Staff.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Models/StaffSchedule.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Models/UserSmsBalance.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Policies/AppointmentPolicy.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Policies/CustomerPolicy.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Policies/SalonPolicy.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Policies/ServicePolicy.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Policies/StaffPolicy.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Providers/AuthServiceProvider.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Services/AppointmentBookingService.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/app/Services/SmsService.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/bcrmv2.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/config/jwt.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_05_26_150451_create_activity_logs_table.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_05_26_174033_create_user_sms_balances_table.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_05_27_152908_create_salon_sms_templates_table.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_06_03_114538_create_how_introduceds_table.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_06_03_114651_create_customer_groups_table.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_06_03_114729_create_jobs_table.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_06_03_114812_create_age_ranges_table.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_06_03_114851_add_selectable_foreign_keys_to_customers_table.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_06_03_140443_add_deleted_at_to_customers_table.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_06_03_171745_add_duration_minutes_to_services_table.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_06_03_171944_add_working_hours_to_staff_table.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_06_03_172035_create_staff_schedules_table.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_06_03_172112_create_appointment_service_table.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_06_03_172212_create_service_staff_table.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_06_06_102002_add_soft_deletes_to_services_table.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/v3.json" afterDir="false" />
+    <list default="true" id="4ac206d8-c298-4112-9480-adbd3c2a2d0c" name="Changes" comment="fixed first fazz">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Controllers/AuthController.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/AuthController.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Controllers/Controller.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/Controller.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Controllers/SalonController.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/SalonController.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Requests/CompleteProfileRequest.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/CompleteProfileRequest.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Requests/RegisterRequest.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/RegisterRequest.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/app/Models/Salon.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Models/Salon.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/app/Models/User.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Models/User.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/app/Providers/AppServiceProvider.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Providers/AppServiceProvider.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/app/Services/AuthService.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Services/AuthService.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/composer.json" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/composer.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/composer.lock" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/config/app.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/config/app.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/database/migrations/2025_05_11_152405_create_users_table.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_05_11_152405_create_users_table.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/database/migrations/2025_05_11_152423_create_salons_table.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_05_11_152423_create_salons_table.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/database/migrations/2025_05_11_152432_create_salon_staff_table.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_05_11_152432_create_salon_staff_table.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/database/migrations/2025_05_11_152447_create_customers_table.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_05_11_152447_create_customers_table.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/database/migrations/2025_05_11_152503_create_appointments_table.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/database/migrations/2025_05_11_153045_create_sms_transactions_table.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_05_11_153045_create_sms_transactions_table.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/routes/api.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/routes/api.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/database/migrations/2025_05_22_105557_create_business_categories_table.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_05_11_152421_create_business_categories_table.php" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -690,14 +594,21 @@
       <option name="project" value="LOCAL" />
       <updated>1748171262708</updated>
     </task>
-    <option name="localTasksCounter" value="35" />
+    <task id="LOCAL-00035" summary="fixed first fazz">
+      <option name="closed" value="true" />
+      <created>1749215759733</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1749215759733</updated>
+    </task>
+    <option name="localTasksCounter" value="36" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fixed defaultStringLength for db" />
     <MESSAGE value="fixed login time session" />
     <MESSAGE value="create auth controller" />
     <MESSAGE value="create auth service" />
@@ -722,6 +633,7 @@
     <MESSAGE value="create RouteServiceProvider" />
     <MESSAGE value="create salon model" />
     <MESSAGE value="create salon controller" />
-    <option name="LAST_COMMIT_MESSAGE" value="create salon controller" />
+    <MESSAGE value="fixed first fazz" />
+    <option name="LAST_COMMIT_MESSAGE" value="fixed first fazz" />
   </component>
 </project>
