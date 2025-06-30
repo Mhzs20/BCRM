@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class UserSmsBalanceController extends Controller
 {
@@ -31,7 +32,7 @@ class UserSmsBalanceController extends Controller
     {
         $packages = SmsPackage::where('is_active', true)
             ->orderBy('price')
-            ->get(['id', 'name', 'sms_count', 'price', 'description']);
+            ->get(['id', 'name', 'sms_count', 'price', 'description', 'purchase_link']);
         return response()->json(['data' => $packages]);
     }
 

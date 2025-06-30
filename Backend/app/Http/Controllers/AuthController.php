@@ -9,7 +9,6 @@ use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\ResetPasswordRequest;
 use App\Http\Requests\VerifyOtpRequest;
-
 use App\Services\AuthService;
 use App\Services\SmsService;
 use App\Models\User;
@@ -107,7 +106,7 @@ class AuthController extends Controller
         try {
             DB::beginTransaction();
             /** @var \App\Models\User $user */
-            $user = Auth::user(); // یا $request->user();
+            $user = Auth::user();
 
             $updatedUser = $this->authService->completeProfile($user, $request->validated());
             Log::info("AuthController::completeProfile - Profile completed for user ID: {$updatedUser->id}");
@@ -119,7 +118,7 @@ class AuthController extends Controller
                 'message' => 'پروفایل با موفقیت تکمیل شد.',
                 'data' => [
                     'user' => $updatedUser->load('activeSalon', 'salons', 'smsBalance'),
-                    'salon' => $updatedUser->activeSalon // این از load بالا می‌آید
+                    'salon' => $updatedUser->activeSalon
                 ]
             ]);
         } catch (\Exception $e) {
@@ -238,7 +237,7 @@ class AuthController extends Controller
             Log::error("AuthController::refreshToken - Exception for user ID " . (Auth::check() ? Auth::id() : 'Guest') . ": " . $e->getMessage());
             return response()->json([
                 'status' => 'error',
-                'message' => 'امکان تازه‌سازی توکن وجود ندارد: ' . $e->getMessage(), // پیام عمومی‌تر برای کاربر
+                'message' => 'امکان تازه‌سازی توکن وجود ندارد: ' . $e->getMessage(),
                 'data' => null
             ], 401);
         }
@@ -265,34 +264,40 @@ class AuthController extends Controller
             ], 500);
         }
     }
-
     public function checkUser(CheckUserRequest $request): JsonResponse
     {
-        Log::info("AuthController::checkUser - Request for mobile: {$request->mobile}");
+        $mobile = $request->input('mobile');
+        Log::info("AuthController::checkUser - Request for mobile: {$mobile}");
+
         try {
-            $result = $this->authService->checkUser($request->mobile);
-            Log::info("AuthController::checkUser - Result for mobile {$request->mobile}: " . json_encode($result));
+            $result = $this->authService->checkUser($mobile);
+
+            Log::info("AuthController::checkUser - Result for mobile {$mobile}: " . json_encode($result));
+
             return response()->json([
                 'status' => 'success',
                 'message' => $result['message'],
                 'data' => [
-                    'mobile' => $request->mobile,
-                    'user_exists' => $result['exists'],
-                    'has_password' => $result['has_password'],
-                    'next_step' => $result['exists'] ?
-                        ($result['has_password'] ? 'login' : 'verify_otp_or_complete_profile') : // تغییر next_step
-                        'register'
+                    'mobile' => $mobile,
+                    'next_step' => $result['status']
                 ]
             ]);
         } catch (\Exception $e) {
-            Log::error("AuthController::checkUser - Exception for mobile {$request->mobile}: " . $e->getMessage());
+            Log::error("AuthController::checkUser - Exception for mobile {$mobile}: " . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
                 'data' => null
-            ], 400);
+            ], 500);
         }
     }
-
-
+    public function me(Request $request)
+    {
+        $user = $request->user();
+        $user->load('salons', 'smsBalance');
+        return response()->json([
+            'success' => true,
+            'data' => $user
+        ]);
+    }
 }

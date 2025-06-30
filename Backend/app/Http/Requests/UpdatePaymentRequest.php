@@ -12,10 +12,13 @@ class UpdatePaymentRequest extends FormRequest
     {
         $salon = $this->route('salon');
         $payment = $this->route('payment');
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
         return Auth::check() &&
             $salon &&
             $payment &&
-            Auth::user()->salons()->where('id', $salon->id)->exists() &&
+            $user->salons()->where('id', $salon->id)->exists() &&
             $payment->salon_id == $salon->id;
     }
 
@@ -25,7 +28,6 @@ class UpdatePaymentRequest extends FormRequest
         return [
             'customer_id' => [
                 'sometimes',
-                'required',
                 'integer',
                 Rule::exists('customers', 'id')->where(function ($query) use ($salonId) {
                     $query->where('salon_id', $salonId);
@@ -39,9 +41,9 @@ class UpdatePaymentRequest extends FormRequest
                     $query->where('salon_id', $salonId);
                 }),
             ],
-            'date' => 'sometimes|required|string|size:10|regex:/^[1-4]\d{3}\/(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])$/',
-            'amount' => 'sometimes|required|numeric|min:0',
-            'description' => 'sometimes|required|string|max:1000',
+            'date' => 'sometimes|string|size:10|regex:/^[1-4]\d{3}\/(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])$/',
+            'amount' => 'sometimes|numeric|min:0',
+            'description' => 'sometimes|string|max:1000',
         ];
     }
     public function messages(): array

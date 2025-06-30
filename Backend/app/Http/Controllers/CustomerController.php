@@ -76,9 +76,19 @@ class CustomerController extends Controller
         $this->authorize('update', $customer);
 
         try {
-            $customer->update($request->validated());
+            $validatedData = $request->validated();
+
+            // Filter validated data to only include keys present in the request input.
+            $updateData = collect($validatedData)->filter(function ($value, $key) use ($request) {
+                return $request->exists($key);
+            })->toArray();
+
+            if (!empty($updateData)) {
+                $customer->update($updateData);
+            }
             $customer->refresh()->load(['howIntroduced', 'customerGroup', 'job', 'ageRange']);
             return response()->json(['message' => 'اطلاعات مشتری با موفقیت به‌روزرسانی شد.', 'data' => $customer]);
+
         } catch (\Exception $e) {
             Log::error('Customer update failed: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در به‌روزرسانی اطلاعات مشتری.'], 500);

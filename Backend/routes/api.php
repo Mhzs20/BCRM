@@ -16,6 +16,8 @@ use App\Http\Controllers\HowIntroducedController;
 use App\Http\Controllers\CustomerGroupController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\AgeRangeController;
+use App\Http\Controllers\SmsPackageController;
+use App\Http\Controllers\SettingController;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -70,7 +72,7 @@ Route::middleware('auth:api')->group(function () {
 
             Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete'])->name('customers.bulkDelete');
             Route::get('customers/{customer}/appointments', [CustomerController::class, 'listCustomerAppointments'])->name('customers.appointments');
-            Route::get('customers/search', [CustomerController::class, 'search'])->name('customers.search');
+//            Route::get('customers/search', [CustomerController::class, 'search'])->name('customers.search');
             Route::post('customers/import/excel', [CustomerController::class, 'importExcel'])->name('customers.import.excel');
             Route::post('customers/import/contacts', [CustomerController::class, 'importContacts'])->name('customers.import.contacts');
             Route::apiResource('customers', CustomerController::class)->except(['create', 'edit']);
@@ -113,6 +115,13 @@ Route::middleware('auth:api')->group(function () {
         Route::post('purchase-package', [UserSmsBalanceController::class, 'purchasePackage'])->name('packages.purchase');
     });
 
+});
+
+Route::middleware(['auth:api', 'superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
+    Route::apiResource('sms-packages', SmsPackageController::class);
+    Route::apiResource('sms-templates', SalonSmsTemplateController::class);
+    Route::get('settings', [SettingController::class, 'index']);
+    Route::post('settings', [SettingController::class, 'store']);
 });
 
 Route::fallback(function(){

@@ -31,6 +31,7 @@ class StoreServiceRequest extends FormRequest
             'staff_ids.*' => ['integer', Rule::exists('salon_staff', 'id')->where(function ($query) use ($salonId) {
                 return $query->where('salon_id', $salonId);
             })], // Validate staff IDs belong to the salon
+            'repair_date' => ['nullable', 'date'],
         ];
     }
 
@@ -48,6 +49,7 @@ class StoreServiceRequest extends FormRequest
             'staff_ids.array' => 'شناسه‌های پرسنل باید به صورت آرایه باشند.',
             'staff_ids.*.integer' => 'شناسه پرسنل باید عددی باشد.',
             'staff_ids.*.exists' => 'یک یا چند پرسنل انتخاب شده نامعتبر است یا به این سالن تعلق ندارد.',
+            'repair_date.date' => 'تاریخ ترمیم باید یک تاریخ معتبر باشد.',
         ];
     }
 }

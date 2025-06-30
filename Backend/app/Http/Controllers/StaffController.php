@@ -15,43 +15,43 @@ class StaffController extends Controller
     public function index(Request $request, Salon $salon)
     {
         $this->authorize('viewAny', [Staff::class, $salon]);
-
         $query = $salon->staff()->with(['services:id,name', 'schedules']);
-
         if ($request->filled('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }
-
         $staffMembers = $query->orderBy($request->input('sort_by', 'full_name'), $request->input('sort_direction', 'asc'))
             ->paginate($request->input('per_page', 15));
-
         return response()->json($staffMembers);
     }
 
     public function store(StoreStaffRequest $request, Salon $salon)
     {
         $validatedData = $request->validated();
-
-        if ($request->hasFile('profile_image')) {
-            $validatedData['profile_image'] = $request->file('profile_image')->store('staff_profiles', 'public');
-        }
-
         try {
-            $staff = $salon->staff()->create($validatedData);
-
+            $staffData = collect($validatedData)->except(['service_ids', 'schedules'])->toArray();
+            if ($request->hasFile('profile_image')) {
+                $staffData['profile_image'] = $request->file('profile_image')->store('staff_profiles', 'public');
+            }
+            $staff = $salon->staff()->create($staffData);
             if (!empty($validatedData['service_ids'])) {
                 $staff->services()->sync($validatedData['service_ids']);
             }
-
             if (!empty($validatedData['schedules'])) {
-                $staff->schedules()->createMany($validatedData['schedules']);
+                $this->syncSchedules($staff, $validatedData['schedules']);
             }
-
             $staff->load(['services:id,name', 'schedules']);
-            return response()->json(['message' => 'پرسنل با موفقیت ایجاد شد.', 'data' => $staff], 201);
+            return response()->json([
+                'success' => true,
+                'message' => 'پرسنل جدید با موفقیت ثبت شد.',
+                'data' => $staff
+            ], 201);
         } catch (\Exception $e) {
             Log::error('Staff store failed: ' . $e->getMessage());
-            return response()->json(['message' => 'خطا در ایجاد پرسنل.'], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'عملیات ثبت پرسنل با خطا مواجه شد. لطفا دوباره تلاش کنید.',
+                'error' => config('app.debug') ? $e->getMessage() : 'An unexpected error occurred.'
+            ], 500);
         }
     }
 
@@ -66,42 +66,51 @@ class StaffController extends Controller
     {
         $validatedData = $request->validated();
 
+        // Filter validated data to only include keys present in the request input or files.
+        $updateData = collect($validatedData)->filter(function ($value, $key) use ($request) {
+            return $request->exists($key) || $request->hasFile($key);
+        })->toArray();
+
         if ($request->hasFile('profile_image')) {
             if ($staff->profile_image) {
                 Storage::disk('public')->delete($staff->profile_image);
             }
-            $validatedData['profile_image'] = $request->file('profile_image')->store('staff_profiles', 'public');
+            $updateData['profile_image'] = $request->file('profile_image')->store('staff_profiles', 'public');
         } elseif ($request->input('remove_profile_image') == true) {
             if ($staff->profile_image) {
                 Storage::disk('public')->delete($staff->profile_image);
             }
-            $validatedData['profile_image'] = null;
+            $updateData['profile_image'] = null;
         }
 
         try {
-            $staff->update($validatedData);
+            $staff->update(collect($updateData)->except(['service_ids', 'schedules'])->toArray());
 
-            if (isset($validatedData['service_ids'])) {
-                $staff->services()->sync($validatedData['service_ids']);
+            if (array_key_exists('service_ids', $updateData)) {
+                $staff->services()->sync($updateData['service_ids']);
             }
-
-            if (isset($validatedData['schedules'])) {
-                $staff->schedules()->delete(); // Delete old schedules
-                $staff->schedules()->createMany($validatedData['schedules']); // Create new ones
+            if (array_key_exists('schedules', $updateData)) {
+                $this->syncSchedules($staff, $updateData['schedules']);
             }
-
             $staff->refresh()->load(['services:id,name', 'schedules']);
-            return response()->json(['message' => 'اطلاعات پرسنل با موفقیت به‌روزرسانی شد.', 'data' => $staff]);
+            return response()->json([
+                'success' => true,
+                'message' => 'اطلاعات پرسنل با موفقیت به‌روزرسانی شد.',
+                'data' => $staff
+            ]);
         } catch (\Exception $e) {
             Log::error('Staff update failed: ' . $e->getMessage());
-            return response()->json(['message' => 'خطا در به‌روزرسانی اطلاعات پرسنل.'], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'عملیات به‌روزرسانی با خطا مواجه شد. لطفا دوباره تلاش کنید.',
+                'error' => config('app.debug') ? $e->getMessage() : 'An unexpected error occurred.'
+            ], 500);
         }
     }
 
     public function destroy(Salon $salon, Staff $staff)
     {
         $this->authorize('delete', $staff);
-
         try {
             if ($staff->appointments()->whereIn('status', ['confirmed', 'pending'])->exists()) {
                 return response()->json(['message' => 'این پرسنل دارای نوبت‌های فعال است و قابل حذف نیست.'], 403);
@@ -115,5 +124,44 @@ class StaffController extends Controller
             Log::error('Staff delete failed: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در حذف پرسنل.'], 500);
         }
+    }
+
+    private function syncSchedules(Staff $staff, array $schedulesData)
+    {
+        $staff->schedules()->delete();
+        $newSchedules = [];
+        foreach ($schedulesData as $day => $details) {
+            if (isset($details['start'], $details['end'])) {
+                $newSchedules[] = [
+                    'day_of_week' => $day,
+                    'start_time'  => $details['start'],
+                    'end_time'    => $details['end'],
+                    'is_active'   => $details['active'] ?? false,
+                ];
+            }
+        }
+        if (!empty($newSchedules)) {
+            $staff->schedules()->createMany($newSchedules);
+        }
+    }
+    public function getBookingList(Request $request, Salon $salon)
+    {
+        $this->authorize('viewAny', [Staff::class, $salon]);
+
+        $staffIds = $salon->staff()->pluck('id');
+
+        $query = \App\Models\Appointment::whereIn('staff_id', $staffIds);
+
+        // Eager load related data for better performance
+        $query->with(['client:id,full_name', 'staff:id,full_name', 'services:id,name']);
+
+        if ($request->has('date')) {
+            $query->whereDate('appointment_datetime', $request->date);
+        }
+
+        $bookings = $query->orderBy('appointment_datetime', 'desc')
+            ->paginate($request->input('per_page', 20));
+
+        return response()->json($bookings);
     }
 }

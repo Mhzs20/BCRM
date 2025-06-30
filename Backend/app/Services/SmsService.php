@@ -10,6 +10,7 @@ use App\Models\Appointment;
 use App\Models\Customer;
 use App\Models\Service;
 use App\Models\SalonSmsTemplate;
+use App\Models\Setting;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Morilog\Jalali\Jalalian;
@@ -20,12 +21,16 @@ class SmsService
     protected $apiKey;
     protected $senderNumber;
     protected $apiUrl;
+    protected $smsCharacterLimit;
 
     public function __construct()
     {
         $this->apiKey = env('SMS_API_KEY', 'YOUR_DEFAULT_KEY_IF_NOT_SET');
         $this->senderNumber = env('SMS_SENDER_NUMBER', 'YOUR_DEFAULT_SENDER_IF_NOT_SET');
         $this->apiUrl = env('SMS_API_URL', 'YOUR_DEFAULT_API_URL_IF_NOT_SET');
+        $smsCharacterLimitSetting = Setting::where('key', 'sms_character_limit')->first();
+        $this->smsCharacterLimit = $smsCharacterLimitSetting ? (int)$smsCharacterLimitSetting->value : 70;
+
 
         if (env('APP_ENV') !== 'testing' && (!$this->apiKey || !$this->senderNumber || !$this->apiUrl || $this->apiKey === 'YOUR_DEFAULT_KEY_IF_NOT_SET')) {
             Log::warning('SMS Service is not configured properly in .env file. SMS sending will be simulated.');
@@ -120,7 +125,8 @@ class SmsService
 
             // کسر از موجودی فقط در صورت ارسال موفق (واقعی یا شبیه‌سازی شده)
             if (str_starts_with($status, 'sent')) {
-                $userSmsBalance->decrement('balance');
+                $smsCount = $this->calculateSmsCount($message);
+                $userSmsBalance->decrement('balance', $smsCount);
             }
 
             $this->logTransaction($salonOwner->id, $receptor, $message, $status, $eventType, $salon->id, $customerId, $appointmentId, $externalResponse);
@@ -225,7 +231,8 @@ class SmsService
             }
 
             if (str_starts_with($status, 'sent')) {
-                $userSmsBalance->decrement('balance');
+                $smsCount = $this->calculateSmsCount($message);
+                $userSmsBalance->decrement('balance', $smsCount);
             }
             $this->logTransaction($userToCharge->id, $mobile, $message, $status, 'otp_verification', null, null, null, 'OTP Simulated/Sent');
             return true;
@@ -354,5 +361,47 @@ class SmsService
             $customer->id,
             $appointment->id
         );
+    }
+
+    public function sendCustomMessage(User $user, string $receptor, string $message): bool
+    {
+        $userSmsBalance = UserSmsBalance::firstOrCreate(
+            ['user_id' => $user->id],
+            ['balance' => 0]
+        );
+
+        $smsCount = $this->calculateSmsCount($message);
+
+        if ($userSmsBalance->balance < $smsCount) {
+            Log::warning("User ID {$user->id} has insufficient SMS balance to send custom message to {$receptor}.");
+            return false;
+        }
+
+        try {
+            if (env('APP_ENV') !== 'production' || !$this->apiKey || $this->apiKey === 'YOUR_DEFAULT_KEY_IF_NOT_SET') {
+                Log::info("[SMS SIMULATION - CUSTOM] To: {$receptor} | Message: {$message}");
+                $status = 'sent_simulated_custom';
+            } else {
+                // Real send logic here
+                $status = 'sent_production_simulated_custom';
+            }
+
+            if (str_starts_with($status, 'sent')) {
+                $userSmsBalance->decrement('balance', $smsCount);
+            }
+
+            $this->logTransaction($user->id, $receptor, $message, $status, 'custom', null, null, null, 'Custom message simulated/sent.');
+            return true;
+        } catch (\Exception $e) {
+            Log::error("Custom SMS sending error to {$receptor}: " . $e->getMessage());
+            $this->logTransaction($user->id, $receptor, $message, 'error_custom', 'custom', null, null, null, $e->getMessage());
+            return false;
+        }
+    }
+
+    public function calculateSmsCount(string $message): int
+    {
+        $characterCount = mb_strlen($message);
+        return (int)ceil($characterCount / $this->smsCharacterLimit);
     }
 }
