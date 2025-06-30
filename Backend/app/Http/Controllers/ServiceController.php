@@ -16,13 +16,10 @@ class ServiceController extends Controller
      */
     public function index(Request $request, Salon $salon)
     {
-
         $this->authorize('viewAny', [Service::class, $salon]);
-
         $services = $salon->services()
-        ->orderBy($request->input('sort_by', 'name'), $request->input('sort_direction', 'asc'))
+            ->orderBy($request->input('sort_by', 'name'), $request->input('sort_direction', 'asc'))
             ->paginate($request->input('per_page', 15));
-
         return response()->json($services);
     }
 
@@ -31,38 +28,27 @@ class ServiceController extends Controller
      */
     public function store(StoreServiceRequest $request, Salon $salon)
     {
-
-
         try {
             $service = $salon->services()->create($request->validated());
-
             return response()->json(['message' => 'خدمت با موفقیت ایجاد شد.', 'data' => $service], 201);
         } catch (\Exception $e) {
             Log::error('Service store failed: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در ایجاد خدمت.'], 500);
         }
     }
-
     /**
      * Display the specified service.
      */
     public function show(Salon $salon, Service $service)
     {
         $this->authorize('view', $service);
-
         $service->load('staff:id,full_name');
         return response()->json($service);
     }
-
-    /**
-     * Update the specified service in storage.
-     */
     public function update(UpdateServiceRequest $request, Salon $salon, Service $service)
     {
-
         try {
             $service->update($request->validated());
-
             $service->refresh()->load('staff:id,full_name');
             return response()->json(['message' => 'اطلاعات خدمت با موفقیت به‌روزرسانی شد.', 'data' => $service]);
         } catch (\Exception $e) {
@@ -70,14 +56,9 @@ class ServiceController extends Controller
             return response()->json(['message' => 'خطا در به‌روزرسانی اطلاعات خدمت.'], 500);
         }
     }
-
-    /**
-     * Remove the specified service from storage.
-     */
     public function destroy(Salon $salon, Service $service)
     {
-        $this->authorize('delete', $service);
-
+        $this->authorize('delete', 'service');
         try {
             $service->delete();
             return response()->json(null, 204);
@@ -90,15 +71,22 @@ class ServiceController extends Controller
     /**
      * Get a list of active services suitable for booking.
      */
+    /**
+     * Get a list of active services with their booking statistics.
+     */
     public function getBookingList(Request $request, Salon $salon)
     {
-
         $this->authorize('viewAny', [Service::class, $salon]);
 
         $services = $salon->services()
             ->where('is_active', true)
+            ->withCount([
+                'appointments as total_bookings_count',
+                'appointments as active_bookings_count' => function ($query) {
+                    $query->whereIn('status', ['confirmed', 'pending']);
+                }
+            ])
             ->orderBy('name', 'asc')
-            ->select(['id', 'name', 'price', 'duration_minutes', 'description'])
             ->get();
 
         return response()->json(['data' => $services]);

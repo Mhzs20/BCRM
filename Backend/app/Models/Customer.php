@@ -10,25 +10,35 @@ class Customer extends Model
 {
     use HasFactory, SoftDeletes;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
         'salon_id',
         'name',
         'phone_number',
-        'email',
         'birth_date',
+        'gender',
         'address',
+        'notes',
+        'emergency_contact',
         'how_introduced_id',
         'customer_group_id',
         'job_id',
         'age_range_id',
-        'gender',
-        'description',
+        'city_id',
     ];
 
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
     protected $casts = [
         'birth_date' => 'date',
     ];
-
 
     public function salon()
     {
@@ -42,21 +52,26 @@ class Customer extends Model
 
     public function howIntroduced()
     {
-        return $this->belongsTo(HowIntroduced::class, 'how_introduced_id');
+        return $this->belongsTo(HowIntroduced::class);
     }
 
     public function customerGroup()
     {
-        return $this->belongsTo(CustomerGroup::class, 'customer_group_id');
+        return $this->belongsTo(CustomerGroup::class);
     }
 
     public function job()
     {
-        return $this->belongsTo(Job::class, 'job_id');
+        return $this->belongsTo(Job::class);
     }
 
     public function ageRange()
     {
-        return $this->belongsTo(AgeRange::class, 'age_range_id');
+        return $this->belongsTo(AgeRange::class);
+    }
+
+    public function city()
+    {
+        return $this->belongsTo(City::class);
     }
 }

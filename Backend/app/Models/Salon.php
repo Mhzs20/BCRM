@@ -25,16 +25,22 @@ class Salon extends Model
     protected $fillable = [
         'user_id',
         'name',
-        'mobile',
-        'phone',
-        'address',
-        'logo',
-        'description',
-        'status',
         'business_category_id',
         'business_subcategory_id',
         'province_id',
         'city_id',
+        'address',
+        'mobile',
+        'phone',
+        'website',
+        'instagram',
+        'telegram',
+        'whatsapp',
+        'location',
+        'image',
+        'description',
+        'is_active',
+        'credit_score',
     ];
 
     protected $casts = [

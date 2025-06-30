@@ -13,11 +13,6 @@ class Appointment extends Model
 {
     use HasFactory, SoftDeletes;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'salon_id',
         'customer_id',
@@ -35,13 +30,7 @@ class Appointment extends Model
         'survey_sms_sent_at',
         'feedback_id',
     ];
-    // =================================================================
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
         'appointment_date' => 'date',
         'deposit_required' => 'boolean',
@@ -52,11 +41,6 @@ class Appointment extends Model
         'total_duration' => 'integer',
     ];
 
-    /**
-     * The dates that should be mutated to instances of Carbon.
-     *
-     * @var array
-     */
     protected $dates = ['deleted_at'];
 
     // Relationships
@@ -80,11 +64,6 @@ class Appointment extends Model
         return $this->belongsToMany(Service::class, 'appointment_service')
             ->withPivot('price_at_booking', 'duration_at_booking')
             ->withTimestamps();
-    }
-
-    public function feedback(): BelongsTo
-    {
-         return $this->belongsTo(CustomerFeedback::class, 'feedback_id');
     }
 
     // Accessors

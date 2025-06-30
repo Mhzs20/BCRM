@@ -18,13 +18,12 @@ use Morilog\Jalali\Jalalian;
 
 class AppointmentController extends Controller
 {
+    // ... (تمام متدهای دیگر بدون تغییر باقی می‌مانند) ...
     protected AppointmentBookingService $appointmentBookingService;
-
     public function __construct(AppointmentBookingService $appointmentBookingService)
     {
         $this->appointmentBookingService = $appointmentBookingService;
     }
-
     public function index(Request $request, $salon_id)
     {
         $appointments = Appointment::where('salon_id', $salon_id)
@@ -32,21 +31,16 @@ class AppointmentController extends Controller
             ->orderBy($request->input('sort_by', 'appointment_date'), $request->input('sort_direction', 'desc'))
             ->orderBy('start_time', $request->input('sort_direction', 'desc'))
             ->paginate($request->input('per_page', 15));
-
         return response()->json($appointments);
     }
-
     public function store(StoreAppointmentRequest $request, $salon_id)
     {
         $validatedData = $request->validated();
-
         if (isset($validatedData['appointment_date'])) {
             $validatedData['appointment_date'] = Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validatedData['appointment_date']))
                 ->toCarbon()
                 ->format('Y-m-d');
         }
-        // =========================================================
-
         $customer = null;
         DB::beginTransaction();
         try {
@@ -68,7 +62,6 @@ class AppointmentController extends Controller
                 DB::rollBack();
                 return response()->json(['message' => 'اطلاعات مشتری برای ثبت نوبت ناقص است.'], 422);
             }
-
             $appointmentDetails = $this->appointmentBookingService->prepareAppointmentData(
                 $salon_id,
                 $customer->id,
@@ -78,7 +71,6 @@ class AppointmentController extends Controller
                 $validatedData['start_time'],
                 $validatedData['notes'] ?? null
             );
-
             $finalAppointmentData = array_merge(
                 $appointmentDetails['appointment_data'],
                 [
@@ -87,7 +79,6 @@ class AppointmentController extends Controller
                     'deposit_paid' => $validatedData['deposit_paid'] ?? false,
                 ]
             );
-
             if (!$this->appointmentBookingService->isSlotStillAvailable(
                 $salon_id,
                 $validatedData['staff_id'],
@@ -98,17 +89,13 @@ class AppointmentController extends Controller
                 DB::rollBack();
                 return response()->json(['message' => 'متاسفانه این زمان به تازگی پر شده است. لطفا زمان دیگری انتخاب کنید.'], 409);
             }
-
             $appointment = Appointment::create($finalAppointmentData);
-
             if (!empty($appointmentDetails['service_pivot_data'])) {
                 $appointment->services()->attach($appointmentDetails['service_pivot_data']);
             }
-
             DB::commit();
             $appointment->load(['customer', 'staff', 'services']);
             return response()->json(['message' => 'نوبت با موفقیت ثبت شد.', 'data' => $appointment], 201);
-
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
             Log::error('Appointment store failed - Model not found: ' . $e->getMessage());
@@ -125,7 +112,9 @@ class AppointmentController extends Controller
         if ($appointment->salon_id != $salon_id) {
             return response()->json(['message' => 'نوبت یافت نشد.'], 404);
         }
-        $appointment->load(['customer', 'staff', 'services', 'feedback']);
+
+        $appointment->load(['customer', 'staff', 'services']);
+
         return response()->json($appointment);
     }
 
@@ -134,13 +123,11 @@ class AppointmentController extends Controller
         if ($appointment->salon_id != $salon_id) {
             return response()->json(['message' => 'نوبت یافت نشد.'], 404);
         }
-
         $validatedData = $request->validated();
         DB::beginTransaction();
         try {
             $updateData = [];
             $recalculateAppointmentDetails = false;
-
             $triggerRecalculationFields = ['service_ids', 'staff_id', 'appointment_date', 'start_time'];
             foreach ($triggerRecalculationFields as $field) {
                 if (isset($validatedData[$field])) {
@@ -148,22 +135,17 @@ class AppointmentController extends Controller
                     break;
                 }
             }
-
             if ($recalculateAppointmentDetails) {
                 $currentServiceIds = $appointment->services->pluck('id')->toArray();
                 $newServiceIds = $validatedData['service_ids'] ?? $currentServiceIds;
                 $newStaffId = $validatedData['staff_id'] ?? $appointment->staff_id;
-
                 $newDate = $appointment->appointment_date->format('Y-m-d');
                 if (isset($validatedData['appointment_date'])) {
                     $newDate = Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validatedData['appointment_date']))
                         ->toCarbon()
                         ->format('Y-m-d');
                 }
-
-
                 $newStartTime = $validatedData['start_time'] ?? Carbon::parse($appointment->start_time)->format('H:i');
-
                 if (!$this->appointmentBookingService->isSlotStillAvailable(
                     $salon_id,
                     $newStaffId,
@@ -175,7 +157,6 @@ class AppointmentController extends Controller
                     DB::rollBack();
                     return response()->json(['message' => 'زمان انتخابی جدید با نوبت دیگری تداخل دارد.'], 409);
                 }
-
                 $appointmentDetails = $this->appointmentBookingService->prepareAppointmentData(
                     $salon_id,
                     $appointment->customer_id,
@@ -185,32 +166,26 @@ class AppointmentController extends Controller
                     $newStartTime,
                     $validatedData['notes'] ?? $appointment->notes
                 );
-
                 $updateData = array_merge(
                     $validatedData,
                     $appointmentDetails['appointment_data']
                 );
-
                 if (isset($validatedData['service_ids'])) {
                     $appointment->services()->sync($appointmentDetails['service_pivot_data']);
                 }
             } else {
                 $updateData = $validatedData;
             }
-
             $appointment->update($updateData);
             DB::commit();
-
             $appointment->refresh()->load(['customer', 'staff', 'services']);
             return response()->json(['message' => 'نوبت با موفقیت به‌روزرسانی شد.', 'data' => $appointment]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Appointment update failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return response()->json(['message' => 'خطا در به‌روزرسانی نوبت رخ داد.', 'error_details_for_debug' => $e->getMessage()], 500);
         }
     }
-
     public function destroy($salon_id, Appointment $appointment)
     {
         if ($appointment->salon_id != $salon_id) {
@@ -219,17 +194,14 @@ class AppointmentController extends Controller
         $appointment->delete();
         return response()->json(['message' => 'نوبت با موفقیت حذف شد.'], 200);
     }
-
     public function getAvailableSlots(GetAvailableSlotsRequest $request, $salon_id)
     {
         $validated = $request->validated();
-
         if (isset($validated['date'])) {
             $validated['date'] = Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validated['date']))
                 ->toCarbon()
                 ->format('Y-m-d');
         }
-
         try {
             $availableSlots = $this->appointmentBookingService->findAvailableSlots(
                 $salon_id,
@@ -243,26 +215,21 @@ class AppointmentController extends Controller
             return response()->json(['message' => 'خطا در دریافت ساعات خالی: ' . $e->getMessage()], 500);
         }
     }
-
     public function getCalendarAppointments(CalendarQueryRequest $request, $salon_id)
     {
         $validated = $request->validated();
-
         if (isset($validated['start_date'])) {
             $validated['start_date'] = Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validated['start_date']))->toCarbon();
         }
         if (isset($validated['end_date'])) {
             $validated['end_date'] = Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validated['end_date']))->toCarbon();
         }
-
         $query = Appointment::where('salon_id', $salon_id)
             ->whereBetween('appointment_date', [$validated['start_date'], $validated['end_date']])
             ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name,duration_minutes']);
-
         if (!empty($validated['staff_id'])) {
             $query->where('staff_id', $validated['staff_id']);
         }
-
         $appointments = $query->orderBy('appointment_date')->orderBy('start_time')->get();
         return response()->json(['data' => $appointments]);
     }
