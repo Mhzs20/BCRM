@@ -31,7 +31,6 @@ class User extends Authenticatable implements JWTSubject
         'is_verified',
         'profile_completed',
     ];
-
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -128,9 +127,10 @@ class User extends Authenticatable implements JWTSubject
         if ($roleName === 'salon_owner' && $this->activeSalon()->exists()) {
             return true;
         }
-        if ($roleName === 'admin' && $this->email === 'admin@example.com') { // این فقط یک مثال است!
+        if ($roleName === 'admin' && $this->email === 'admin@example.com') {
             return true;
         }
         return false;
     }
+
 }

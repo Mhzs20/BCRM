@@ -11,15 +11,23 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use App\Services\SmsService;
 class AuthService
 {
+    protected SmsService $smsService;
+
+    public function __construct(SmsService $smsService)
+    {
+        $this->smsService = $smsService;
+    }
+
     /**
      * generateOtp
      *
      * @param string $mobile
      * @return string
      */
-    public static function generateOtp(string $mobile): string
+    public function generateOtp(string $mobile): string
     {
         $cacheKey = 'otp_attempts_' . $mobile;
         $attempts = Cache::get($cacheKey, 0);
@@ -27,21 +35,23 @@ class AuthService
         if ($attempts >= 3) {
             throw new \Exception('محدودیت ارسال کد تایید. لطفا ۵ دقیقه دیگر تلاش کنید.');
         }
-        Cache::put($cacheKey, $attempts + 1, now()->addMinutes(5)); // زمان انقضای کش برای محدودیت
+        Cache::put($cacheKey, $attempts + 1, now()->addMinutes(5));
 
         $otp = (string)mt_rand(1000, 9999);
         $expirationMinutes = (int)env('OTP_EXPIRATION_MINUTES_INT', 2);
         $expiresAt = now()->addMinutes($expirationMinutes);
 
-        Log::info("AuthService::generateOtp - Generating OTP for mobile: {$mobile}. OTP: {$otp}. ExpiresAt (Carbon object): " . $expiresAt->toDateTimeString());
+        Log::info("AuthService::generateOtp - Generating OTP for mobile: {$mobile}. OTP: {$otp}.");
 
-        User::updateOrCreate(
+        $user = User::updateOrCreate(
             ['mobile' => $mobile],
             [
                 'otp_code' => $otp,
-                'otp_expires_at' => $expiresAt // شیء Carbon به Eloquent پاس داده می‌شود
+                'otp_expires_at' => $expiresAt
             ]
         );
+
+        $this->smsService->sendOtp($mobile, $otp, $user);
 
         return $otp;
     }
@@ -226,17 +236,32 @@ class AuthService
         $user = User::where('mobile', $mobile)->first();
 
         if (!$user) {
+            $this->generateOtp($mobile);
             return [
-                'exists' => false,
-                'has_password' => false,
-                'message' => 'کاربر جدید'
+                'status' => 'new_user',
+                'message' => 'کاربر یافت نشد. کد تایید برای شروع ثبت‌نام ارسال شد.'
+            ];
+        }
+
+        if (is_null($user->password)) {
+            $this->generateOtp($user->mobile);
+            return [
+                'status' => 'incomplete_profile',
+                'message' => 'ثبت‌نام شما ناقص است. کد تایید برای تکمیل فرآیند ارسال شد.'
+            ];
+        }
+
+        if (empty($user->name) || empty($user->business_category_id)) {
+            $this->generateOtp($user->mobile);
+            return [
+                'status' => 'complete_profile_required',
+                'message' => 'پروفایل شما کامل نیست. کد تایید برای ادامه ارسال شد.'
             ];
         }
 
         return [
-            'exists' => true,
-            'has_password' => !empty($user->password),
-            'message' => !empty($user->password) ? 'کاربر با رمز عبور' : 'کاربر بدون رمز عبور (نیاز به تکمیل پروفایل یا تنظیم رمز)'
+            'status' => 'login_required',
+            'message' => 'کاربر یافت شد. لطفا رمز عبور را برای ورود وارد کنید.'
         ];
     }
 }

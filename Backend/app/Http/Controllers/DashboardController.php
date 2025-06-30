@@ -174,4 +174,35 @@ class DashboardController extends Controller
             'salon' => $salon ? $salon->toArray() : null,
         ]);
     }
+    public function allSalonAppointments(Request $request)
+    {
+        // 1. Get the authenticated user
+        $user = Auth::user();
+
+        // 2. Get the IDs of all salons owned by this user
+        $salonIds = $user->salons()->pluck('id');
+
+        // 3. Start building the query for appointments in those salons
+        $query = Appointment::whereIn('salon_id', $salonIds)
+            ->with(['salon:id,name', 'customer:id,name', 'staff:id,full_name', 'services:id,name']);
+
+        // 4. (Optional) Add filters based on request parameters
+        if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->has('start_date') && $request->has('end_date')) {
+            // You might need to convert Jalali dates here if they are sent from the frontend
+            $startDate = $request->start_date;
+            $endDate = $request->end_date;
+            $query->whereBetween('appointment_date', [$startDate, $endDate]);
+        }
+
+        // 5. Order and paginate the results
+        $appointments = $query->orderBy('appointment_date', 'desc')
+            ->orderBy('start_time', 'desc')
+            ->paginate($request->input('per_page', 20));
+
+        return response()->json($appointments);
+    }
 }

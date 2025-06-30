@@ -33,7 +33,7 @@ class StoreAppointmentRequest extends FormRequest
                 'required',
                 Rule::exists('salon_staff', 'id')->where('salon_id', $salonId)->where('is_active', true)
             ],
-            'appointment_date' => ['required', 'j_date_format:Y-m-d', 'j_after_or_equal:today'],
+            'appointment_date' => ['required', 'jdate_format:Y-m-d', 'j_after_or_equal:today'],
             'start_time' => ['required', 'date_format:H:i'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'status' => ['nullable', 'string', Rule::in(['pending_confirmation', 'confirmed', 'cancelled', 'completed', 'no_show'])],
@@ -52,10 +52,13 @@ class StoreAppointmentRequest extends FormRequest
     public function messages()
     {
         return [
-            'appointment_date.j_date_format' => 'فرمت تاریخ شمسی صحیح نیست (مثال: 1404-03-18).',
+            'appointment_date.jdate_format' => 'فرمت تاریخ شمسی صحیح نیست. لطفا از فرمت Y-m-d (مثال: 1404-03-18) استفاده کنید.',
             'appointment_date.j_after_or_equal' => 'تاریخ نوبت نمی‌تواند در گذشته باشد.',
-            'start_time.required' => 'ساعت شروع نوبت الزامی است.',
-            'start_time.date_format' => 'فرمت ساعت شروع نوبت صحیح نیست (مثال: 09:00).',
+            'start_time.required' => 'وارد کردن ساعت شروع نوبت الزامی است.',
+            'start_time.date_format' => 'فرمت ساعت شروع نوبت صحیح نیست. لطفا از فرمت HH:MM (مثال: 09:00) استفاده کنید.',
+            'new_customer.name.required_without' => 'در صورت عدم انتخاب مشتری، وارد کردن نام مشتری جدید الزامی است.',
+            'new_customer.phone_number.required_without' => 'در صورت عدم انتخاب مشتری، وارد کردن شماره تلفن مشتری جدید الزامی است.',
+            'service_ids.required' => 'انتخاب حداقل یک سرویس الزامی است.',
         ];
     }
 }

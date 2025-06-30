@@ -3,17 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Salon;
-use App\Models\City;
-use App\Models\User;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use App\Http\Requests\StoreSalonRequest;
 use App\Http\Requests\UpdateSalonRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use App\Models\User;
 
 class SalonController extends Controller
 {
@@ -22,52 +19,30 @@ class SalonController extends Controller
      */
     public function getUserSalons(): JsonResponse
     {
-        try {
-            $user = Auth::user();
-            $salons = $user->salons()->with(['businessCategory', 'businessSubcategory', 'province', 'city'])->get();
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'لیست سالن‌ها با موفقیت دریافت شد.',
-                'data' => $salons
-            ]);
-        } catch (\Exception $e) {
-            Log::error("Error fetching user salons for user ID " . (Auth::id() ?? 'unknown') . ": " . $e->getMessage());
-            return response()->json([
-                'status' => 'error',
-                'message' => 'خطا در دریافت لیست سالن‌ها.',
-                'data' => null
-            ], 500);
-        }
+        $user = Auth::user();
+        $salons = $user->salons()->with(['businessCategory', 'businessSubcategory', 'province', 'city'])->get();
+        return response()->json(['status' => 'success', 'data' => $salons]);
     }
 
-    /**
-     */
-    public function createSalon(StoreSalonRequest $request): JsonResponse // استفاده از FormRequest
+    public function createSalon(StoreSalonRequest $request): JsonResponse
     {
-
-
         DB::beginTransaction();
         try {
-            $user = Auth::user();
             $validatedData = $request->validated();
-            $validatedData['user_id'] = $user->id; // مالکیت به کاربر فعلی اختصاص داده می‌شود
-            $validatedData['credit_score'] = $validatedData['credit_score'] ?? 0;
+            $validatedData['user_id'] = Auth::id();
 
-            if ($request->hasFile('image') && $request->file('image')->isValid()) {
+            if ($request->hasFile('image')) {
                 $path = $request->file('image')->store('public/salon_images');
                 $validatedData['image'] = Storage::url($path);
             }
 
             $salon = Salon::create($validatedData);
 
-            if (!$user->active_salon_id && $salon) {
-                $user->active_salon_id = $salon->id;
-                $user->save();
+            if (!Auth::user()->active_salon_id) {
+                Auth::user()->update(['active_salon_id' => $salon->id]);
             }
 
             DB::commit();
-
             return response()->json([
                 'status' => 'success',
                 'message' => 'سالن با موفقیت ایجاد شد.',
@@ -75,62 +50,59 @@ class SalonController extends Controller
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error("Salon creation failed for user ID " . (Auth::id() ?? 'unknown') . ": " . $e->getMessage() . "\n" . $e->getTraceAsString());
+            Log::error("Salon Creation Failed: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return response()->json([
                 'status' => 'error',
-                'message' => 'خطا در ایجاد سالن: ' . $e->getMessage(),
-                'data' => null
+                'message' => 'مشکلی در هنگام ایجاد سالن رخ داد. لطفاً با پشتیبانی تماس بگیرید.'
             ], 500);
         }
     }
-
-    /**
-     */
-    public function updateSalon(UpdateSalonRequest $request, Salon $salon): JsonResponse // استفاده از FormRequest و Route Model Binding
+    public function updateSalon(UpdateSalonRequest $request, Salon $salon): JsonResponse
     {
-
-
-        DB::beginTransaction();
         try {
             $validatedData = $request->validated();
 
-            if ($request->hasFile('image') && $request->file('image')->isValid()) {
-                if ($salon->image) {
-                    $oldImagePath = str_replace(Storage::url(''), 'public/', $salon->image);
-                    if (Storage::exists($oldImagePath)) {
-                        Storage::delete($oldImagePath);
-                    }
-                }
-                $path = $request->file('image')->store('public/salon_images');
-                $validatedData['image'] = Storage::url($path);
-            } elseif ($request->boolean('remove_image') && $salon->image) {
-                $oldImagePath = str_replace(Storage::url(''), 'public/', $salon->image);
-                if (Storage::exists($oldImagePath)) {
-                    Storage::delete($oldImagePath);
-                }
-                $validatedData['image'] = null;
+            if (empty($validatedData) && !$request->hasFile('image') && !$request->boolean('remove_image')) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'هیچ اطلاعات جدیدی برای ویرایش ارسال نشده است.',
+                    'data' => $salon->load(['businessCategory', 'businessSubcategory', 'province', 'city'])
+                ]);
             }
 
+            if ($request->boolean('remove_image')) {
+                if ($salon->image) {
+                    Storage::delete(str_replace('/storage', 'public', $salon->image));
+                    $validatedData['image'] = null;
+                }
+            }
+
+            if ($request->hasFile('image')) {
+                if ($salon->image) {
+                    Storage::delete(str_replace('/storage', 'public', $salon->image));
+                }
+                $imagePath = $request->file('image')->store('public/salon_images');
+                $validatedData['image'] = str_replace('public', '/storage', $imagePath);
+            }
+
+            unset($validatedData['remove_image']);
+
             $salon->update($validatedData);
-            DB::commit();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'سالن با موفقیت ویرایش شد.',
-                'data' => $salon->fresh()->load(['businessCategory', 'businessSubcategory', 'province', 'city'])
+                'message' => 'اطلاعات سالن با موفقیت ویرایش شد.',
+                'data' => $salon->load(['businessCategory', 'businessSubcategory', 'province', 'city'])
             ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error("Salon update failed for ID {$salon->id}: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+
+        } catch (Exception $e) {
+            Log::error("Salon Update Failed for ID {$salon->id}: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return response()->json([
                 'status' => 'error',
-                'message' => 'خطا در ویرایش سالن: ' . $e->getMessage(),
-                'data' => null
+                'message' => 'خطایی در هنگام ویرایش اطلاعات سالن رخ داد.'
             ], 500);
         }
-    }
-
-    /**
+    }    /**
 
      */
     public function getActiveSalon(): JsonResponse
@@ -193,16 +165,32 @@ class SalonController extends Controller
             ], 500);
         }
     }
-
     /**
      */
     public function getSalon(Salon $salon): JsonResponse
     {
         $this->authorize('view', $salon);
+
         try {
+            $salon->load(['businessCategory', 'businessSubcategory', 'province', 'city'])
+                ->loadCount(['customers', 'appointments']);
+
+            $user = Auth::user();
+            $smsBalance = $user->smsBalance;
+
+            $expiresInDays = null;
+            if ($smsBalance && $smsBalance->package_expires_at) {
+                $expiresInDays = max(0, Carbon::now()->diffInDays($smsBalance->package_expires_at, false));
+            }
+
+            $salonData = $salon->toArray();
+
+            $salonData['sms_balance'] = $smsBalance ? $smsBalance->balance : 0;
+            $salonData['sms_package_expires_in_days'] = $expiresInDays;
+
             return response()->json([
                 'status' => 'success',
-                'data' => $salon->load(['businessCategory', 'businessSubcategory', 'province', 'city'])
+                'data' => $salonData
             ]);
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
             Log::warning("SalonController@getSalon access denied for user ID " . Auth::id() . " to salon ID {$salon->id}: " . $e->getMessage());

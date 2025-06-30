@@ -77,10 +77,8 @@ class StoreCustomerRequest extends FormRequest
             'profile_image.image' => 'فایل پروفایل باید یک تصویر باشد.',
             'profile_image.mimes' => 'فرمت تصویر پروفایل معتبر نیست (jpeg,png,jpg,gif,webp).',
             'profile_image.max' => 'حجم تصویر پروفایل نباید بیشتر از 2 مگابایت باشد.',
-            // تغییر پیام برای تاریخ تولد جلالی
             'birth_date.jdate_format' => 'فرمت تاریخ تولد نامعتبر است. لطفاً از فرمت YYYY/MM/DD استفاده کنید (مثال: 1370/01/01).',
             'gender.in' => 'مقدار جنسیت نامعتبر است (male, female, other).',
-
             'how_introduced_id.integer' => 'نحوه آشنایی انتخاب شده نامعتبر است.',
             'how_introduced_id.exists' => 'نحوه آشنایی انتخاب شده برای این سالن موجود نیست.',
             'job_id.integer' => 'شغل انتخاب شده نامعتبر است.',

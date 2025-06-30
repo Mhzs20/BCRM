@@ -70,7 +70,7 @@ Route::middleware('auth:api')->group(function () {
 
             Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete'])->name('customers.bulkDelete');
             Route::get('customers/{customer}/appointments', [CustomerController::class, 'listCustomerAppointments'])->name('customers.appointments');
-            Route::get('customers/search', [CustomerController::class, 'search'])->name('customers.search');
+//            Route::get('customers/search', [CustomerController::class, 'search'])->name('customers.search');
             Route::post('customers/import/excel', [CustomerController::class, 'importExcel'])->name('customers.import.excel');
             Route::post('customers/import/contacts', [CustomerController::class, 'importContacts'])->name('customers.import.contacts');
             Route::apiResource('customers', CustomerController::class)->except(['create', 'edit']);

@@ -4,9 +4,33 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4ac206d8-c298-4112-9480-adbd3c2a2d0c" name="Changes" comment="fixed first fazz">
+    <list default="true" id="4ac206d8-c298-4112-9480-adbd3c2a2d0c" name="Changes" comment="debug">
+      <change afterPath="$PROJECT_DIR$/Backend/composer.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Backend/database/migrations/2025_05_22_105557_create_business_categories_table.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/database/migrations/2025_05_11_152421_create_business_categories_table.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Controllers/AppointmentController.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/AppointmentController.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Controllers/AuthController.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/AuthController.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Controllers/CustomerController.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/CustomerController.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Controllers/DashboardController.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/DashboardController.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Controllers/SalonController.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/SalonController.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Controllers/ServiceController.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/ServiceController.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Controllers/StaffController.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Controllers/StaffController.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Requests/GetAvailableSlotsRequest.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/GetAvailableSlotsRequest.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreAppointmentRequest.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreAppointmentRequest.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreCustomerRequest.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreCustomerRequest.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreSalonRequest.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreSalonRequest.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreStaffRequest.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/StoreStaffRequest.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdateCustomerRequest.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdateCustomerRequest.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdateSalonRequest.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdateSalonRequest.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdateStaffRequest.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Http/Requests/UpdateStaffRequest.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Models/Appointment.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Models/Appointment.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Models/Customer.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Models/Customer.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Models/Salon.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Models/Salon.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Models/Service.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Models/Service.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Models/Staff.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Models/Staff.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Models/User.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Models/User.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Providers/AppServiceProvider.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Providers/AppServiceProvider.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/app/Services/AuthService.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/app/Services/AuthService.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Backend/routes/api.php" beforeDir="false" afterPath="$PROJECT_DIR$/Backend/routes/api.php" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -25,6 +49,11 @@
     </option>
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="#3-salons" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="PhpWorkspaceProjectConfiguration" interpreter_name="C:/wamp64/bin/php/php8.3.14/php.exe">
@@ -279,7 +308,8 @@
   &quot;keyToString&quot;: {
     &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;#3-salons&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;#3-debug-auth&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -321,6 +351,13 @@
       <updated>1746973059132</updated>
       <workItem from="1746973069000" duration="2772000" />
       <workItem from="1748168174900" duration="2512000" />
+      <workItem from="1749660116802" duration="7413000" />
+      <workItem from="1750007838368" duration="7204000" />
+      <workItem from="1750156534710" duration="3718000" />
+      <workItem from="1750245174627" duration="3090000" />
+      <workItem from="1750619797806" duration="3446000" />
+      <workItem from="1750763545103" duration="751000" />
+      <workItem from="1751132404201" duration="32841000" />
     </task>
     <task id="LOCAL-00001" summary="create user  table migrations">
       <option name="closed" value="true" />
@@ -602,18 +639,61 @@
       <option name="project" value="LOCAL" />
       <updated>1749215759733</updated>
     </task>
-    <option name="localTasksCounter" value="36" />
+    <task id="LOCAL-00036" summary="renamed migrate for server">
+      <option name="closed" value="true" />
+      <created>1749296389707</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1749296389707</updated>
+    </task>
+    <task id="LOCAL-00037" summary="Fix: Reorder provinces and cities migrations">
+      <option name="closed" value="true" />
+      <created>1749296730927</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1749296730927</updated>
+    </task>
+    <task id="LOCAL-00038" summary="Fix: Reorder  migrations">
+      <option name="closed" value="true" />
+      <created>1749300109488</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1749300109488</updated>
+    </task>
+    <task id="LOCAL-00039" summary="Fix: Reorder  migrations">
+      <option name="closed" value="true" />
+      <created>1749300404383</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1749300404383</updated>
+    </task>
+    <task id="LOCAL-00040" summary="Fix: migrations">
+      <option name="closed" value="true" />
+      <created>1749300697501</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1749300697501</updated>
+    </task>
+    <task id="LOCAL-00041" summary="Fix: migrations">
+      <option name="closed" value="true" />
+      <created>1749300891075</created>
+      <option name="number" value="00041" />
+      <option name="presentableId" value="LOCAL-00041" />
+      <option name="project" value="LOCAL" />
+      <updated>1749300891075</updated>
+    </task>
+    <option name="localTasksCounter" value="42" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fixed login time session" />
-    <MESSAGE value="create auth controller" />
-    <MESSAGE value="create auth service" />
-    <MESSAGE value="make seeder for business categories" />
-    <MESSAGE value="make model for business categories" />
     <MESSAGE value="make controller for business categories" />
     <MESSAGE value="make controller for business sub categories" />
     <MESSAGE value="made controller for business sub categories" />
@@ -634,6 +714,11 @@
     <MESSAGE value="create salon model" />
     <MESSAGE value="create salon controller" />
     <MESSAGE value="fixed first fazz" />
-    <option name="LAST_COMMIT_MESSAGE" value="fixed first fazz" />
+    <MESSAGE value="renamed migrate for server" />
+    <MESSAGE value="Fix: Reorder provinces and cities migrations" />
+    <MESSAGE value="Fix: Reorder  migrations" />
+    <MESSAGE value="Fix: migrations" />
+    <MESSAGE value="debug" />
+    <option name="LAST_COMMIT_MESSAGE" value="debug" />
   </component>
 </project>
