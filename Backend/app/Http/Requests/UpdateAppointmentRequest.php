@@ -14,24 +14,33 @@ class UpdateAppointmentRequest extends FormRequest
 
     public function rules()
     {
-        $salonId = $this->route('salon_id');
+        $salon_parameter = $this->route('salon');
+
+        $salonId = is_object($salon_parameter) ? $salon_parameter->id : $salon_parameter;
 
         return [
-            'service_ids' => ['sometimes', 'required', 'array', 'min:1'],
+            'service_ids' => ['sometimes', 'array', 'min:1'],
             'service_ids.*' => [
-                'sometimes', 'required',
+                'integer',
+                // Use the correctly extracted $salonId
                 Rule::exists('services', 'id')->where('salon_id', $salonId)->where('is_active', true)
             ],
             'staff_id' => [
-                'sometimes', 'required',
+                'sometimes', 'integer',
                 Rule::exists('salon_staff', 'id')->where('salon_id', $salonId)->where('is_active', true)
             ],
-            'appointment_date' => ['sometimes', 'required', 'j_date_format:Y-m-d', 'j_after_or_equal:today'],
-            'start_time' => ['sometimes', 'required', 'date_format:H:i'],
+            'appointment_date' => ['sometimes', 'jdate_format:Y-m-d', 'j_after_or_equal:today'],
+            'start_time' => ['sometimes', 'date_format:H:i'],
             'notes' => ['nullable', 'string', 'max:1000'],
-            'status' => ['sometimes', 'required', 'string', Rule::in(['pending_confirmation', 'confirmed', 'cancelled', 'completed', 'no_show'])],
+            'status' => ['sometimes', 'string', Rule::in(['pending_confirmation', 'confirmed', 'cancelled', 'completed', 'no_show'])],
             'deposit_required' => ['sometimes', 'boolean'],
             'deposit_paid' => ['sometimes', 'boolean'],
+            // Add other fields from Store request if they are updatable
+            'internal_notes' => ['nullable', 'string', 'max:1000'],
+            'send_sms_reminder' => ['sometimes', 'boolean'],
+            'is_walk_in' => ['sometimes', 'boolean'],
+            'deposit_amount' => ['sometimes', 'numeric', 'min:0'],
+            'deposit_payment_method' => ['sometimes', 'string', Rule::in(['cash', 'card', 'online', 'other'])],
         ];
     }
 

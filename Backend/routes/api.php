@@ -16,6 +16,8 @@ use App\Http\Controllers\HowIntroducedController;
 use App\Http\Controllers\CustomerGroupController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\AgeRangeController;
+use App\Http\Controllers\SmsPackageController;
+use App\Http\Controllers\SettingController;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -113,6 +115,13 @@ Route::middleware('auth:api')->group(function () {
         Route::post('purchase-package', [UserSmsBalanceController::class, 'purchasePackage'])->name('packages.purchase');
     });
 
+});
+
+Route::middleware(['auth:api', 'superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
+    Route::apiResource('sms-packages', SmsPackageController::class);
+    Route::apiResource('sms-templates', SalonSmsTemplateController::class);
+    Route::get('settings', [SettingController::class, 'index']);
+    Route::post('settings', [SettingController::class, 'store']);
 });
 
 Route::fallback(function(){

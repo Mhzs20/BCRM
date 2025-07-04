@@ -65,27 +65,34 @@ class StaffController extends Controller
     public function update(UpdateStaffRequest $request, Salon $salon, Staff $staff)
     {
         $validatedData = $request->validated();
-        $staffData = collect($validatedData)->except(['service_ids', 'schedules', 'profile_image', 'remove_profile_image'])->toArray();
-        $staff->fill($staffData);
+
+        // Filter validated data to only include keys present in the request input or files.
+        $updateData = collect($validatedData)->filter(function ($value, $key) use ($request) {
+            return $request->exists($key) || $request->hasFile($key);
+        })->toArray();
+
         if ($request->hasFile('profile_image')) {
             if ($staff->profile_image) {
                 Storage::disk('public')->delete($staff->profile_image);
             }
-            $staff->profile_image = $request->file('profile_image')->store('staff_profiles', 'public');
+            $updateData['profile_image'] = $request->file('profile_image')->store('staff_profiles', 'public');
         } elseif ($request->input('remove_profile_image') == true) {
             if ($staff->profile_image) {
                 Storage::disk('public')->delete($staff->profile_image);
             }
-            $staff->profile_image = null;
+            $updateData['profile_image'] = null;
         }
+
         try {
-            $staff->save();
-            if (isset($validatedData['service_ids'])) {
-                $staff->services()->sync($validatedData['service_ids']);
+            $staff->update(collect($updateData)->except(['service_ids', 'schedules'])->toArray());
+
+            if (array_key_exists('service_ids', $updateData)) {
+                $staff->services()->sync($updateData['service_ids']);
             }
-            if (isset($validatedData['schedules'])) {
-                $this->syncSchedules($staff, $validatedData['schedules']);
+            if (array_key_exists('schedules', $updateData)) {
+                $this->syncSchedules($staff, $updateData['schedules']);
             }
+
             $staff->refresh()->load(['services:id,name', 'schedules']);
             return response()->json([
                 'success' => true,
@@ -138,6 +145,7 @@ class StaffController extends Controller
             $staff->schedules()->createMany($newSchedules);
         }
     }
+
     public function getBookingList(Request $request, Salon $salon)
     {
         $this->authorize('viewAny', [Staff::class, $salon]);

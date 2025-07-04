@@ -294,7 +294,7 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         $user = $request->user();
-       $user->load('salons');
+        $user->load('salons', 'smsBalance');
         return response()->json([
             'success' => true,
             'data' => $user

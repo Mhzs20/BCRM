@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Models\Salon;
 
 class StoreAppointmentRequest extends FormRequest
 {
@@ -14,8 +15,8 @@ class StoreAppointmentRequest extends FormRequest
 
     public function rules()
     {
-        $salonId = $this->route('salon');
-
+        $salon_parameter = $this->route('salon');
+        $salonId = is_object($salon_parameter) ? $salon_parameter->id : $salon_parameter;
 
         $rules = [
             'customer_id' => [
@@ -24,21 +25,25 @@ class StoreAppointmentRequest extends FormRequest
             ],
             'new_customer.name' => ['required_without:customer_id', 'nullable', 'string', 'max:255'],
             'new_customer.phone_number' => ['required_without:customer_id', 'nullable', 'string', 'max:20'],
+
             'service_ids' => ['required', 'array', 'min:1'],
             'service_ids.*' => [
-                'required',
+                'required', 'integer',
                 Rule::exists('services', 'id')->where('salon_id', $salonId)->where('is_active', true)
             ],
             'staff_id' => [
-                'required',
+                'required', 'integer',
                 Rule::exists('salon_staff', 'id')->where('salon_id', $salonId)->where('is_active', true)
             ],
             'appointment_date' => ['required', 'jdate_format:Y-m-d', 'j_after_or_equal:today'],
             'start_time' => ['required', 'date_format:H:i'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'status' => ['nullable', 'string', Rule::in(['pending_confirmation', 'confirmed', 'cancelled', 'completed', 'no_show'])],
-            'deposit_required' => ['nullable', 'boolean'],
-            'deposit_paid' => ['nullable', 'boolean'],
+            'internal_notes' => ['nullable', 'string', 'max:1000'],
+            'send_sms_reminder' => ['nullable', 'boolean'],
+            'is_walk_in' => ['nullable', 'boolean'],
+            'deposit_amount' => ['nullable', 'numeric', 'min:0'],
+            'deposit_payment_method' => ['nullable', 'string', Rule::in(['cash', 'card', 'online', 'other'])],
         ];
 
         if ($this->filled('new_customer.phone_number') && $salonId) {
@@ -49,6 +54,7 @@ class StoreAppointmentRequest extends FormRequest
 
         return $rules;
     }
+
     public function messages()
     {
         return [
@@ -59,6 +65,8 @@ class StoreAppointmentRequest extends FormRequest
             'new_customer.name.required_without' => 'در صورت عدم انتخاب مشتری، وارد کردن نام مشتری جدید الزامی است.',
             'new_customer.phone_number.required_without' => 'در صورت عدم انتخاب مشتری، وارد کردن شماره تلفن مشتری جدید الزامی است.',
             'service_ids.required' => 'انتخاب حداقل یک سرویس الزامی است.',
+            'deposit_amount.numeric' => 'مبلغ بیعانه باید به صورت عددی وارد شود.',
+            'deposit_payment_method.in' => 'روش پرداخت بیعانه انتخاب شده معتبر نیست.',
         ];
     }
 }
