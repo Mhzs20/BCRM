@@ -4,31 +4,23 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use App\Models\Salon; // Import the Salon model if not already present
+use App\Models\Salon;
 
 class StoreAppointmentRequest extends FormRequest
 {
     public function authorize()
     {
-        // It's better to check if the user has permission to create an appointment for this specific salon.
-        // For now, we'll keep it simple.
         return auth()->check();
     }
 
     public function rules()
     {
-        // --- FIX STARTS HERE ---
-        // Get the 'salon' route parameter. It can be either the model object or just the ID string.
         $salon_parameter = $this->route('salon');
-
-        // Safely get the salon ID. If it's an object, get the id. If it's a string/number, use it directly.
         $salonId = is_object($salon_parameter) ? $salon_parameter->id : $salon_parameter;
-        // --- FIX ENDS HERE ---
 
         $rules = [
             'customer_id' => [
                 'nullable', 'sometimes',
-                // Use the safely extracted $salonId
                 Rule::exists('customers', 'id')->where('salon_id', $salonId)->whereNull('deleted_at')
             ],
             'new_customer.name' => ['required_without:customer_id', 'nullable', 'string', 'max:255'],
@@ -37,12 +29,10 @@ class StoreAppointmentRequest extends FormRequest
             'service_ids' => ['required', 'array', 'min:1'],
             'service_ids.*' => [
                 'required', 'integer',
-                // Use the safely extracted $salonId
                 Rule::exists('services', 'id')->where('salon_id', $salonId)->where('is_active', true)
             ],
             'staff_id' => [
                 'required', 'integer',
-                // Use the safely extracted $salonId
                 Rule::exists('salon_staff', 'id')->where('salon_id', $salonId)->where('is_active', true)
             ],
             'appointment_date' => ['required', 'jdate_format:Y-m-d', 'j_after_or_equal:today'],

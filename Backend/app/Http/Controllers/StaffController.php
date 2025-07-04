@@ -92,6 +92,7 @@ class StaffController extends Controller
             if (array_key_exists('schedules', $updateData)) {
                 $this->syncSchedules($staff, $updateData['schedules']);
             }
+
             $staff->refresh()->load(['services:id,name', 'schedules']);
             return response()->json([
                 'success' => true,
@@ -144,6 +145,7 @@ class StaffController extends Controller
             $staff->schedules()->createMany($newSchedules);
         }
     }
+
     public function getBookingList(Request $request, Salon $salon)
     {
         $this->authorize('viewAny', [Staff::class, $salon]);
