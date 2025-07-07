@@ -14,7 +14,7 @@ use App\Http\Controllers\SalonSmsTemplateController;
 use App\Http\Controllers\UserSmsBalanceController;
 use App\Http\Controllers\HowIntroducedController;
 use App\Http\Controllers\CustomerGroupController;
-use App\Http\Controllers\JobController;
+use App\Http\Controllers\ProfessionController;
 use App\Http\Controllers\AgeRangeController;
 use App\Http\Controllers\SmsPackageController;
 use App\Http\Controllers\SettingController;
@@ -90,11 +90,15 @@ Route::middleware('auth:api')->group(function () {
             Route::apiResource('payments', PaymentController::class)->except(['create', 'edit']);
             Route::apiResource('how-introduced', HowIntroducedController::class)->except(['create', 'edit'])->names('howIntroduced');
             Route::apiResource('customer-groups', CustomerGroupController::class)->except(['create', 'edit'])->names('customerGroups');
-            Route::apiResource('jobs', JobController::class)->except(['create', 'edit'])->names('jobs');
+            Route::apiResource('professions', ProfessionController::class)->except(['create', 'edit'])->names('professions');
             Route::apiResource('age-ranges', AgeRangeController::class)->except(['create', 'edit'])->names('ageRanges');
 
             Route::get('overview/stats', [DashboardController::class, 'getSalonStats'])->name('overview.stats');
 
+            Route::prefix('settings')->name('settings.')->group(function () {
+                Route::get('/', [SettingController::class, 'index'])->name('index');
+                Route::post('/', [SettingController::class, 'store'])->name('store');
+            });
         });
     });
 
@@ -120,8 +124,6 @@ Route::middleware('auth:api')->group(function () {
 Route::middleware(['auth:api', 'superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
     Route::apiResource('sms-packages', SmsPackageController::class);
     Route::apiResource('sms-templates', SalonSmsTemplateController::class);
-    Route::get('settings', [SettingController::class, 'index']);
-    Route::post('settings', [SettingController::class, 'store']);
 });
 
 Route::fallback(function(){

@@ -12,9 +12,19 @@ class SettingSeeder extends Seeder
      */
     public function run(): void
     {
-        \App\Models\Setting::create([
-            'key' => 'sms_character_limit',
-            'value' => '70'
-        ]);
+        \App\Models\Setting::updateOrCreate(
+            ['key' => 'sms_character_limit'],
+            ['value' => '70']
+        );
+
+        \App\Models\Setting::updateOrCreate(
+            ['key' => 'enable_reminder_sms_globally'],
+            ['value' => 'true']
+        );
+
+        \App\Models\Setting::updateOrCreate(
+            ['key' => 'enable_satisfaction_sms_globally'],
+            ['value' => 'true']
+        );
     }
 }

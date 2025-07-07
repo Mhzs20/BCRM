@@ -4,12 +4,13 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Auth;
 
 class UpdateAppointmentRequest extends FormRequest
 {
     public function authorize()
     {
-        return auth()->check();
+        return Auth::check();
     }
 
     public function rules()
@@ -41,6 +42,9 @@ class UpdateAppointmentRequest extends FormRequest
             'is_walk_in' => ['sometimes', 'boolean'],
             'deposit_amount' => ['sometimes', 'numeric', 'min:0'],
             'deposit_payment_method' => ['sometimes', 'string', Rule::in(['cash', 'card', 'online', 'other'])],
+            'reminder_time' => ['sometimes', 'integer', Rule::in([2, 4, 6, 8])],
+            'send_reminder_sms' => ['sometimes', 'boolean'],
+            'send_satisfaction_sms' => ['sometimes', 'boolean'],
         ];
     }
 

@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Morilog\Jalali\Jalalian;
 use Carbon\Carbon;
+use App\Models\Appointment;
+use App\Observers\AppointmentObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,6 +25,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Appointment::observe(AppointmentObserver::class);
+
         Schema::defaultStringLength(191);
 
         /**

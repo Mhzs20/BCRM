@@ -23,7 +23,7 @@ class CustomerController extends Controller
     {
         $this->authorize('viewAny', [Customer::class, $salon]);
 
-        $query = $salon->customers()->with(['howIntroduced', 'customerGroup', 'job', 'ageRange']);
+        $query = $salon->customers()->with(['howIntroduced', 'customerGroup', 'profession', 'ageRange']);
 
         if ($request->filled('search')) {
             $searchTerm = $request->search;
@@ -49,7 +49,7 @@ class CustomerController extends Controller
         try {
             $customer = $salon->customers()->create($request->validated());
 
-            $customer->load(['howIntroduced', 'customerGroup', 'job', 'ageRange']);
+            $customer->load(['howIntroduced', 'customerGroup', 'profession', 'ageRange']);
             return response()->json(['message' => 'مشتری با موفقیت ایجاد شد.', 'data' => $customer], 201);
         } catch (\Exception $e) {
             Log::error('Customer store failed: ' . $e->getMessage());
@@ -64,7 +64,7 @@ class CustomerController extends Controller
     {
         $this->authorize('view', $customer);
 
-        $customer->load(['howIntroduced', 'customerGroup', 'job', 'ageRange', 'appointments']);
+        $customer->load(['howIntroduced', 'customerGroup', 'profession', 'ageRange', 'appointments']);
         return response()->json($customer);
     }
 
@@ -85,7 +85,7 @@ class CustomerController extends Controller
             if (!empty($updateData)) {
                 $customer->update($updateData);
             }
-            $customer->refresh()->load(['howIntroduced', 'customerGroup', 'job', 'ageRange']);
+            $customer->refresh()->load(['howIntroduced', 'customerGroup', 'profession', 'ageRange']);
             return response()->json(['message' => 'اطلاعات مشتری با موفقیت به‌روزرسانی شد.', 'data' => $customer]);
 
         } catch (\Exception $e) {
