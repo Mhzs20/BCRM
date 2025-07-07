@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Appointment;
 use App\Models\Customer;
 use App\Models\Salon;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -16,6 +17,7 @@ use App\Http\Requests\CalendarQueryRequest;
 use App\Services\AppointmentBookingService;
 use Morilog\Jalali\Jalalian;
 use Illuminate\Support\Arr;
+use Illuminate\Validation\Rule;
 
 class AppointmentController extends Controller
 {
@@ -71,12 +73,18 @@ class AppointmentController extends Controller
                 $validatedData['start_time'],
                 $validatedData['notes'] ?? null
             );
+            // Fetch settings for the specific salon.
+            $salonSettings = Setting::where('salon_id', $salon_id)->pluck('value', 'key');
+
             $finalAppointmentData = array_merge(
                 $appointmentDetails['appointment_data'],
                 [
                     'status' => $validatedData['status'] ?? 'confirmed',
                     'deposit_required' => $validatedData['deposit_required'] ?? false,
                     'deposit_paid' => $validatedData['deposit_paid'] ?? false,
+                    'reminder_time' => $validatedData['reminder_time'] ?? null,
+                    'send_reminder_sms' => $validatedData['send_reminder_sms'] ?? filter_var($salonSettings->get('enable_reminder_sms_globally', true), FILTER_VALIDATE_BOOLEAN),
+                    'send_satisfaction_sms' => $validatedData['send_satisfaction_sms'] ?? filter_var($salonSettings->get('enable_satisfaction_sms_globally', true), FILTER_VALIDATE_BOOLEAN),
                 ]
             );
             if (!$this->appointmentBookingService->isSlotStillAvailable(

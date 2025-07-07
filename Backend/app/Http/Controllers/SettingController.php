@@ -3,18 +3,27 @@
 namespace App\Http\Controllers;
 
 use App\Models\Setting;
+use App\Models\Salon;
 use Illuminate\Http\Request;
 
 class SettingController extends Controller
 {
-    public function index()
+    public function index(Salon $salon)
     {
-        $settings = Setting::all()->pluck('value', 'key');
+        // Policy check
+        $this->authorize('view', $salon);
+
+        $settings = Setting::where('salon_id', $salon->id)
+            ->pluck('value', 'key');
+            
         return response()->json($settings);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, Salon $salon)
     {
+        // Policy check
+        $this->authorize('update', $salon);
+
         $request->validate([
             'settings' => 'required|array',
             'settings.*.key' => 'required|string',
@@ -22,8 +31,13 @@ class SettingController extends Controller
         ]);
 
         foreach ($request->settings as $setting) {
+            // Do not allow updating global settings from this endpoint
+            if (in_array($setting['key'], ['sms_character_limit'])) {
+                continue;
+            }
+
             Setting::updateOrCreate(
-                ['key' => $setting['key']],
+                ['salon_id' => $salon->id, 'key' => $setting['key']],
                 ['value' => $setting['value']]
             );
         }

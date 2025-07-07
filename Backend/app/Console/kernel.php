@@ -12,12 +12,6 @@ class Kernel extends ConsoleKernel
      *
      * @var array
      */
-    protected $commands = [
-        Commands\SendAppointmentReminders::class,
-        Commands\UpdatePastAppointmentsStatus::class,
-        Commands\SendBirthdayGreetings::class,
-    ];
-
     /**
      * Define the application's command schedule.
      */
@@ -34,6 +28,9 @@ class Kernel extends ConsoleKernel
         // ارسال پیام تبریک تولد
         $schedule->command('sms:send-birthday-greetings')
             ->dailyAt('08:00'); // مثال: هر روز ساعت ۸ صبح
+
+        // بررسی وضعیت پیامک ها
+        $schedule->job(\App\Jobs\CheckSmsStatus::class)->everyFiveMinutes();
     }
 
     /**

@@ -29,6 +29,13 @@ class Appointment extends Model
         'reminder_sms_sent_at',
         'survey_sms_sent_at',
         'feedback_id',
+        'reminder_time',
+        'send_reminder_sms',
+        'reminder_sms_status',
+        'reminder_sms_message_id',
+        'send_satisfaction_sms',
+        'satisfaction_sms_status',
+        'satisfaction_sms_message_id',
     ];
 
     protected $casts = [

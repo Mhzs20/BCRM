@@ -5,9 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Job extends Model
+class Profession extends Model
 {
     use HasFactory;
+
+    protected $table = 'professions';
 
     protected $fillable = [
         'salon_id',
@@ -21,6 +23,6 @@ class Job extends Model
 
     public function customers()
     {
-        return $this->hasMany(Customer::class);
+        return $this->hasMany(Customer::class, 'profession_id');
     }
 }

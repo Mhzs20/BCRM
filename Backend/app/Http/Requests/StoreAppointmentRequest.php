@@ -5,12 +5,13 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use App\Models\Salon;
+use Illuminate\Support\Facades\Auth;
 
 class StoreAppointmentRequest extends FormRequest
 {
     public function authorize()
     {
-        return auth()->check();
+        return Auth::check();
     }
 
     public function rules()
@@ -44,6 +45,9 @@ class StoreAppointmentRequest extends FormRequest
             'is_walk_in' => ['nullable', 'boolean'],
             'deposit_amount' => ['nullable', 'numeric', 'min:0'],
             'deposit_payment_method' => ['nullable', 'string', Rule::in(['cash', 'card', 'online', 'other'])],
+            'reminder_time' => ['nullable', 'integer', Rule::in([2, 4, 6, 8])],
+            'send_reminder_sms' => ['nullable', 'boolean'],
+            'send_satisfaction_sms' => ['nullable', 'boolean'],
         ];
 
         if ($this->filled('new_customer.phone_number') && $salonId) {

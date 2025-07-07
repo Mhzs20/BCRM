@@ -26,7 +26,7 @@ class Customer extends Model
         'emergency_contact',
         'how_introduced_id',
         'customer_group_id',
-        'job_id',
+        'profession_id',
         'age_range_id',
         'city_id',
     ];
@@ -60,9 +60,9 @@ class Customer extends Model
         return $this->belongsTo(CustomerGroup::class);
     }
 
-    public function job()
+    public function profession()
     {
-        return $this->belongsTo(Job::class);
+        return $this->belongsTo(Profession::class, 'profession_id');
     }
 
     public function ageRange()

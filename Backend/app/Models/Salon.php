@@ -165,7 +165,7 @@ class Salon extends Model
 
     public function jobs()
     {
-        return $this->hasMany(Job::class);
+        return $this->hasMany(Profession::class);
     }
 
     public function ageRanges()
