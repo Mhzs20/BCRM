@@ -189,6 +189,7 @@ class DashboardController extends Controller
             'salon' => $salon ? $salon->toArray() : null,
         ]);
     }
+
     private function mapSmsStatus(string $status): string
     {
         switch ($status) {
@@ -204,7 +205,6 @@ class DashboardController extends Controller
                 return 'در حال بررسی'; // Default for any other unexpected status
         }
     }
-
     public function allSalonAppointments(Request $request)
     {
         // 1. Get the authenticated user

@@ -77,7 +77,6 @@ class CustomerController extends Controller
 
         try {
             $validatedData = $request->validated();
-
             // Filter validated data to only include keys present in the request input.
             $updateData = collect($validatedData)->filter(function ($value, $key) use ($request) {
                 return $request->exists($key);

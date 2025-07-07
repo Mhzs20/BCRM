@@ -16,10 +16,10 @@ class ServiceController extends Controller
      */
     public function index(Request $request, Salon $salon)
     {
-       $this->authorize('viewAny', [Service::class, $salon]);
+        $this->authorize('viewAny', [Service::class, $salon]);
 
         $services = $salon->services()
-            ->with('staff:id,full_name') // اضافه کردن پرسنل برای نمایش در لیست
+            ->with('staff:id,full_name')
             ->orderBy($request->input('sort_by', 'name'), $request->input('sort_direction', 'asc'))
             ->paginate($request->input('per_page', 15));
 
@@ -68,7 +68,6 @@ class ServiceController extends Controller
                 return $request->exists($key);
             })->toArray();
 
-
             if (Arr::except($updateData, ['staff_ids'])) {
                 $service->update(Arr::except($updateData, ['staff_ids']));
             }
@@ -85,14 +84,16 @@ class ServiceController extends Controller
             return response()->json(['message' => 'خطا در به‌روزرسانی اطلاعات خدمت.'], 500);
         }
     }
+
     /**
      */
     public function destroy(Salon $salon, Service $service)
     {
         // $this->authorize('delete', $service);
+
         try {
             $service->delete();
-            return response()->json(['message' => 'خدمت با موفقیت حذف شد.'], 200); // یا 204 اگر محتوایی برنمی‌گردانید
+            return response()->json(['message' => 'خدمت با موفقیت حذف شد.'], 200);
         } catch (\Exception $e) {
             Log::error('Service delete failed: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در حذف خدمت.'], 500);
@@ -100,10 +101,10 @@ class ServiceController extends Controller
     }
 
     /**
+     * Get a list of active services with their booking statistics.
      */
     public function getBookingList(Request $request, Salon $salon)
     {
-
         $services = $salon->services()
             ->where('is_active', true)
             ->withCount([
