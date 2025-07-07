@@ -15,7 +15,7 @@ class CreateCustomersTable extends Migration
             $table->string('phone_number' )->unique();
             $table->string('profile_image')->nullable();
             $table->string('birth_date')->nullable();
-            $table->string('job')->nullable();
+            $table->string('profession')->nullable();
             $table->enum('gender', ['male', 'female', 'other'])->nullable();
             $table->string('emergency_contact')->nullable();
             $table->string('how_introduced')->nullable();

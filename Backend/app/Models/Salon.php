@@ -17,6 +17,7 @@ use App\Models\Appointment;
 use App\Models\ActivityLog;
 use App\Models\Payment;
 use App\Models\SalonSmsTemplate;
+use App\Models\Profession;
 
 class Salon extends Model
 {
@@ -163,7 +164,7 @@ class Salon extends Model
         return $this->hasMany(CustomerGroup::class);
     }
 
-    public function jobs()
+    public function professions()
     {
         return $this->hasMany(Profession::class);
     }
