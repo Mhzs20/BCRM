@@ -198,4 +198,16 @@ class CustomerController extends Controller
             return response()->json(['message' => 'خطا در هنگام ایمپورت مخاطبین رخ داد.'], 500);
         }
     }
+
+    public function listCustomerAppointments(Salon $salon, Customer $customer)
+    {
+        $this->authorize('view', $customer);
+
+        $appointments = $customer->appointments()
+            ->with(['services', 'staff'])
+            ->orderBy('appointment_date', 'desc')
+            ->get();
+
+        return response()->json($appointments);
+    }
 }
