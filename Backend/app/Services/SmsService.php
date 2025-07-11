@@ -183,6 +183,7 @@ class SmsService
         $appSignature = '0iHp5lSm3eN'; // This should be stored securely, e.g., in config/app.php
 
         $message = "<#>\n" .
+                   "کد ورود شما\n" .
                    "{$otpCode}\n" .
                    $appName . "\n" .
                    $appSignature;
@@ -214,15 +215,18 @@ class SmsService
         ?int $customerId = null,
         ?int $appointmentId = null
     ): bool {
-        $smsTemplate = $salon->getSmsTemplate($eventType); // متدی که در مدل Salon تعریف کردیم
+        $smsTemplate = $salon->getSmsTemplate($eventType);
 
-        // اگر قالب وجود ندارد یا برای این نوع رویداد غیرفعال است، پیامک ارسال نشود
-        if (!$smsTemplate || !$smsTemplate->is_active) {
-            Log::info("SMS event '{$eventType}' is not active or template not found for Salon ID {$salon->id}. SMS to {$receptor} not sent.");
-            return true;
+        $templateText = null;
+        if ($smsTemplate && $smsTemplate->is_active) {
+            $templateText = $smsTemplate->template;
         }
 
-        $templateText = $smsTemplate->template ?: $this->getDefaultTextForEventType($eventType, $dataForTemplate);
+        // If no active custom template, use the system default
+        if (empty($templateText)) {
+            $templateText = $this->getDefaultTextForEventType($eventType, $dataForTemplate);
+        }
+        
         $message = $this->compileTemplate($templateText, $dataForTemplate);
 
         if (empty(trim($message))) {
@@ -230,21 +234,26 @@ class SmsService
             return true;
         }
 
-        // بررسی موجودی پیامک کاربر
+        // Re-introducing the balance check as per user request.
         $userSmsBalance = UserSmsBalance::firstOrCreate(
             ['user_id' => $salonOwner->id],
             ['balance' => 0]
         );
 
-        if ($userSmsBalance->balance <= 0) {
-            Log::warning("User ID {$salonOwner->id} (Salon: {$salon->id}) has insufficient SMS balance to send '{$eventType}' to {$receptor}. Balance: {$userSmsBalance->balance}");
-            return false;
+        $smsCount = $this->calculateSmsCount($message);
+        if ($userSmsBalance->balance < $smsCount) {
+            Log::warning("User ID {$salonOwner->id} (Salon: {$salon->id}) has insufficient SMS balance to send '{$eventType}' to {$receptor}. Balance: {$userSmsBalance->balance}, Required: {$smsCount}");
+            // Return a specific indicator for insufficient balance.
+            return 'insufficient_balance';
         }
 
         try {
-            $smsEntries = $this->sendSms($receptor, $message, $this->senderNumber, $appointmentId); // Use appointment ID as localId
+            // Pass null as sender to use the default from sendSms method
+            $smsEntries = $this->sendSms($receptor, $message, null, $appointmentId);
 
             if ($smsEntries && !empty($smsEntries)) {
+                // Deduct balance only if SMS was actually sent
+                $userSmsBalance->decrement('balance', $smsCount);
                 $firstEntry = $smsEntries[0]; // Kavenegar returns an array of entries
                 $messageId = $firstEntry['messageid'] ?? null;
                 $kavenegarStatus = $firstEntry['status'] ?? null;
@@ -265,10 +274,6 @@ class SmsService
                         $appointment->save();
                     }
                 }
-
-                // Deduct balance only if SMS was actually sent (or simulated as sent)
-                $smsCount = $this->calculateSmsCount($message);
-                $userSmsBalance->decrement('balance', $smsCount);
 
                 $this->logTransaction($salonOwner->id, $receptor, $message, $internalStatus, $eventType, $salon->id, $customerId, $appointmentId, json_encode($smsEntries));
                 return true;
@@ -355,7 +360,7 @@ class SmsService
     // public function sendOtp(...) { ... }
     // public function sendCustomMessage(...) { ... }
 
-    public function sendAppointmentConfirmation(Customer $customer, Appointment $appointment, Salon $salon): bool
+    public function sendAppointmentConfirmation(Customer $customer, Appointment $appointment, Salon $salon)
     {
         $dataForTemplate = [
             'customer_name' => $customer->name,
@@ -377,7 +382,7 @@ class SmsService
         );
     }
 
-    public function sendAppointmentModification(Customer $customer, Appointment $appointment, Salon $salon): bool
+    public function sendAppointmentModification(Customer $customer, Appointment $appointment, Salon $salon)
     {
         $dataForTemplate = [
             'customer_name' => $customer->name,
@@ -398,7 +403,7 @@ class SmsService
         );
     }
 
-    public function sendAppointmentCancellation(Customer $customer, Appointment $appointment, Salon $salon): bool
+    public function sendAppointmentCancellation(Customer $customer, Appointment $appointment, Salon $salon)
     {
         $dataForTemplate = [
             'customer_name' => $customer->name,
