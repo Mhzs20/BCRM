@@ -173,4 +173,9 @@ class Salon extends Model
     {
         return $this->hasMany(AgeRange::class);
     }
+
+    public function getImageAttribute($value)
+    {
+        return $value ? asset('storage/' . $value) : null;
+    }
 }

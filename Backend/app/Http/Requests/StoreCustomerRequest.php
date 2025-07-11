@@ -50,10 +50,10 @@ class StoreCustomerRequest extends FormRequest
                 'integer',
                 Rule::exists('how_introduceds', 'id')->where('salon_id', $salonId),
             ],
-            'job_id' => [
+            'profession_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('jobs', 'id')->where('salon_id', $salonId),
+                Rule::exists('professions', 'id')->where('salon_id', $salonId),
             ],
             'age_range_id' => [
                 'nullable',
@@ -71,22 +71,30 @@ class StoreCustomerRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.required' => 'نام مشتری الزامی است.',
-            'phone_number.required' => 'شماره تماس مشتری الزامی است.',
-            'phone_number.unique' => 'این شماره تماس قبلاً برای این سالن ثبت شده است.',
-            'profile_image.image' => 'فایل پروفایل باید یک تصویر باشد.',
-            'profile_image.mimes' => 'فرمت تصویر پروفایل معتبر نیست (jpeg,png,jpg,gif,webp).',
+            'name.required' => 'وارد کردن نام مشتری الزامی است.',
+            'name.string' => 'نام مشتری باید به صورت متنی باشد.',
+            'name.max' => 'نام مشتری نمی‌تواند بیشتر از ۲۵۵ کاراکتر باشد.',
+            'phone_number.required' => 'وارد کردن شماره تماس مشتری الزامی است.',
+            'phone_number.string' => 'شماره تماس باید به صورت متنی باشد.',
+            'phone_number.max' => 'شماره تماس نمی‌تواند بیشتر از ۲۰ کاراکتر باشد.',
+            'phone_number.unique' => 'این شماره تماس قبلاً برای مشتری دیگری در این سالن ثبت شده است.',
+            'profile_image.image' => 'فایل انتخابی برای تصویر پروفایل باید یک تصویر باشد.',
+            'profile_image.mimes' => 'فرمت تصویر پروفایل معتبر نیست. فرمت‌های مجاز: jpeg, png, jpg, gif, webp.',
             'profile_image.max' => 'حجم تصویر پروفایل نباید بیشتر از 2 مگابایت باشد.',
             'birth_date.jdate_format' => 'فرمت تاریخ تولد نامعتبر است. لطفاً از فرمت YYYY/MM/DD استفاده کنید (مثال: 1370/01/01).',
-            'gender.in' => 'مقدار جنسیت نامعتبر است (male, female, other).',
+            'gender.in' => 'جنسیت انتخاب شده معتبر نیست.',
+            'emergency_contact.string' => 'شماره تماس اضطراری باید به صورت متنی باشد.',
+            'emergency_contact.max' => 'شماره تماس اضطراری نمی‌تواند بیشتر از ۲۰ کاراکتر باشد.',
+            'address.string' => 'آدرس باید به صورت متنی باشد.',
+            'notes.string' => 'یادداشت باید به صورت متنی باشد.',
             'how_introduced_id.integer' => 'نحوه آشنایی انتخاب شده نامعتبر است.',
-            'how_introduced_id.exists' => 'نحوه آشنایی انتخاب شده برای این سالن موجود نیست.',
-            'job_id.integer' => 'شغل انتخاب شده نامعتبر است.',
-            'job_id.exists' => 'شغل انتخاب شده برای این سالن موجود نیست.',
+            'how_introduced_id.exists' => 'نحوه آشنایی انتخاب شده در این سالن تعریف نشده است.',
+            'profession_id.integer' => 'شغل انتخاب شده نامعتبر است.',
+            'profession_id.exists' => 'شغل انتخاب شده در این سالن تعریف نشده است.',
             'age_range_id.integer' => 'بازه سنی انتخاب شده نامعتبر است.',
-            'age_range_id.exists' => 'بازه سنی انتخاب شده برای این سالن موجود نیست.',
+            'age_range_id.exists' => 'بازه سنی انتخاب شده در این سالن تعریف نشده است.',
             'customer_group_id.integer' => 'گروه مشتری انتخاب شده نامعتبر است.',
-            'customer_group_id.exists' => 'گروه مشتری انتخاب شده برای این سالن موجود نیست.',
+            'customer_group_id.exists' => 'گروه مشتری انتخاب شده در این سالن تعریف نشده است.',
         ];
     }
 

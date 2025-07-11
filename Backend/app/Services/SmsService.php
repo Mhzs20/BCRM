@@ -47,7 +47,7 @@ class SmsService
      */
     public function sendSms(string $receptor, string $message, ?string $sender = null, ?int $localId = null): ?array
     {
-        if (!$this->apiKey || env('APP_ENV') !== 'production') {
+        if (!$this->apiKey) {
             Log::info("[KAVENEGAR SIMULATION] To: {$receptor} | Message: {$message} | Sender: {$sender} | LocalId: {$localId}");
             // Simulate Kavenegar successful response
             return [
@@ -110,7 +110,7 @@ class SmsService
             return [];
         }
 
-        if (!$this->apiKey || env('APP_ENV') !== 'production') {
+        if (!$this->apiKey) {
             Log::info("[KAVENEGAR STATUS SIMULATION] Checking IDs: " . implode(',', $messageIds));
             $simulatedStatuses = [];
             foreach ($messageIds as $id) {
@@ -184,13 +184,19 @@ class SmsService
      */
     public function sendOtp(string $receptor, string $otpCode): bool
     {
-        $dataForTemplate = ['otp' => $otpCode];
-        $templateText = $this->getDefaultTextForEventType('otp', $dataForTemplate);
-        $message = $this->compileTemplate($templateText, $dataForTemplate);
+        // As per the request for Android automatic OTP verification.
+        $appName = 'بیوتی سی آر ام';
+        $appSignature = '0iHp5lSm3eN'; // This should be stored securely, e.g., in config/app.php
 
-        Log::info("Sending OTP to {$receptor}. This is a free transaction and will not be deducted from any user balance.");
+        $message = "<#>\n" .
+                   "{$otpCode}\n" .
+                   $appName . "\n" .
+                   $appSignature;
 
-        $smsEntries = $this->sendSms($receptor, $message);
+        Log::info("Sending Android-formatted OTP to {$receptor}. This is a free transaction and will not be deducted from any user balance.");
+
+        $sender = '9982001323';
+        $smsEntries = $this->sendSms($receptor, $message, $sender);
 
         return !is_null($smsEntries);
     }
@@ -320,8 +326,6 @@ class SmsService
                 return "مشتری گرامی {customer_name}، برای نوبت {service_name} شما در {appointment_date} ساعت {appointment_time}:\n{service_specific_notes}\nسالن {salon_name}";
             case 'satisfaction_survey': // New default text for satisfaction survey
                 return "مشتری گرامی {customer_name}، از حضور شما در سالن {salon_name} سپاسگزاریم. لطفا با تکمیل نظرسنجی ما را در بهبود خدمات یاری کنید: [لینک نظرسنجی]";
-            case 'otp':
-                return "کد تایید شما: {otp}";
             default:
                 return "پیام از طرف سالن {salon_name}.";
         }
