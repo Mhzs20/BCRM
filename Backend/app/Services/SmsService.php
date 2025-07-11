@@ -47,53 +47,47 @@ class SmsService
      */
     public function sendSms(string $receptor, string $message, ?string $sender = null, ?int $localId = null): ?array
     {
-        if (!$this->apiKey) {
-            Log::info("[KAVENEGAR SIMULATION] To: {$receptor} | Message: {$message} | Sender: {$sender} | LocalId: {$localId}");
-            // Simulate Kavenegar successful response
-            return [
-                [
-                    'messageid' => rand(1000000, 9999999),
-                    'message' => $message,
-                    'status' => 1, // In queue
-                    'statustext' => 'در صف ارسال (شبیه‌سازی شده)',
-                    'sender' => $sender ?? 'SimulatedSender',
-                    'receptor' => $receptor,
-                    'date' => now()->timestamp,
-                    'cost' => 0 // Simulated cost
-                ]
-            ];
+        if (!$this->apiKey || $this->apiKey === 'YOUR_DEFAULT_KEY_IF_NOT_SET') {
+            Log::warning("Kavenegar API Key is not configured. Simulating SMS send.");
+            return null;
         }
 
-        try {
-            $url = $this->baseUri . $this->apiKey . '/sms/send.json';
-            $params = [
-                'receptor' => $receptor,
-                'message' => $message,
-            ];
-            if ($sender) {
-                $params['sender'] = $sender;
-            }
-            if ($localId) {
-                $params['localid'] = $localId;
-            }
+        // The user has specified that the server has issues with modern TLS handshakes.
+        // We will use a simplified cURL request as requested.
+        $url = "https://api.kavenegar.com/v1/{$this->apiKey}/sms/send.json";
+        
+        $data = [
+            'receptor' => $receptor,
+            'sender'   => $sender ?: '9982001323', // Use provided sender or default
+            'message'  => $message,
+        ];
 
-            $response = Http::asForm()->post($url, $params);
+        if ($localId) {
+            $data['localid'] = $localId;
+        }
 
-            if ($response->successful()) {
-                $responseData = $response->json();
-                if (isset($responseData['return']['status']) && $responseData['return']['status'] === 200) {
-                    Log::info("Kavenegar SMS sent successfully to {$receptor}. Response: " . json_encode($responseData));
-                    return $responseData['entries'];
-                } else {
-                    Log::error("Kavenegar SMS sending failed for {$receptor}. API Error: " . json_encode($responseData));
-                    return null;
-                }
-            } else {
-                Log::error("Kavenegar HTTP request failed for {$receptor}. Status: {$response->status()} Body: " . $response->body());
-                return null;
-            }
-        } catch (\Exception $e) {
-            Log::error("Kavenegar SMS sending exception for {$receptor}: " . $e->getMessage());
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        
+        $response = curl_exec($ch);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlError) {
+            Log::error("Kavenegar cURL Error for {$receptor}: " . $curlError);
+            return null;
+        }
+
+        $res = json_decode($response, true);
+
+        if (isset($res['return']['status']) && $res['return']['status'] === 200) {
+            Log::info("Kavenegar SMS sent successfully via cURL to {$receptor}. Response: " . $response);
+            return $res['entries'];
+        } else {
+            Log::error("Kavenegar SMS sending failed for {$receptor}. API Error: " . $response);
             return null;
         }
     }
