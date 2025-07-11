@@ -108,11 +108,17 @@ class AppointmentController extends Controller
             }
             
             $salon = Salon::findOrFail($salon_id);
-            $this->smsService->sendAppointmentConfirmation($customer, $appointment, $salon);
+            $smsResult = $this->smsService->sendAppointmentConfirmation($customer, $appointment, $salon);
 
             DB::commit();
             $appointment->load(['customer', 'staff', 'services']);
-            return response()->json(['message' => 'نوبت با موفقیت ثبت شد.', 'data' => $appointment], 201);
+
+            $message = 'نوبت با موفقیت ثبت شد.';
+            if ($smsResult === 'insufficient_balance') {
+                $message .= ' اما پیامک ارسال نشد چون اعتبار شما کافی نیست.';
+            }
+
+            return response()->json(['message' => $message, 'data' => $appointment], 201);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
             Log::error('خطا در ثبت نوبت - مدل یافت نشد: ' . $e->getMessage());
@@ -191,10 +197,15 @@ class AppointmentController extends Controller
 
         DB::commit();
 
-        $this->smsService->sendAppointmentModification($appointment->customer, $appointment, $salon);
+        $smsResult = $this->smsService->sendAppointmentModification($appointment->customer, $appointment, $salon);
+        
+        $message = 'نوبت با موفقیت به‌روزرسانی شد.';
+        if ($smsResult === 'insufficient_balance') {
+            $message .= ' اما پیامک ارسال نشد چون اعتبار شما کافی نیست.';
+        }
 
         $appointment->refresh()->load(['customer', 'staff', 'services']);
-        return response()->json(['message' => 'نوبت با موفقیت به‌روزرسانی شد.', 'data' => $appointment]);
+        return response()->json(['message' => $message, 'data' => $appointment]);
 
     } catch (\Exception $e) {
         DB::rollBack();
@@ -212,10 +223,16 @@ class AppointmentController extends Controller
         $customer = $appointment->customer;
         $salon = Salon::findOrFail($salon_id);
         
-        $this->smsService->sendAppointmentCancellation($customer, $appointment, $salon);
+        $smsResult = $this->smsService->sendAppointmentCancellation($customer, $appointment, $salon);
 
         $appointment->delete();
-        return response()->json(['message' => 'نوبت با موفقیت حذف شد.'], 200);
+
+        $message = 'نوبت با موفقیت حذف شد.';
+        if ($smsResult === 'insufficient_balance') {
+            $message .= ' اما پیامک لغو نوبت ارسال نشد چون اعتبار شما کافی نیست.';
+        }
+
+        return response()->json(['message' => $message], 200);
     }
     public function getAvailableSlots(GetAvailableSlotsRequest $request, $salon_id)
     {
