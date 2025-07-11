@@ -15,6 +15,7 @@ use App\Http\Requests\UpdateAppointmentRequest;
 use App\Http\Requests\GetAvailableSlotsRequest;
 use App\Http\Requests\CalendarQueryRequest;
 use App\Services\AppointmentBookingService;
+use App\Services\SmsService;
 use Morilog\Jalali\Jalalian;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
@@ -22,9 +23,12 @@ use Illuminate\Validation\Rule;
 class AppointmentController extends Controller
 {
     protected AppointmentBookingService $appointmentBookingService;
-    public function __construct(AppointmentBookingService $appointmentBookingService)
+    protected SmsService $smsService;
+
+    public function __construct(AppointmentBookingService $appointmentBookingService, SmsService $smsService)
     {
         $this->appointmentBookingService = $appointmentBookingService;
+        $this->smsService = $smsService;
     }
     public function index(Request $request, $salon_id)
     {
@@ -102,6 +106,10 @@ class AppointmentController extends Controller
             if (!empty($appointmentDetails['service_pivot_data'])) {
                 $appointment->services()->attach($appointmentDetails['service_pivot_data']);
             }
+            
+            $salon = Salon::findOrFail($salon_id);
+            $this->smsService->sendAppointmentConfirmation($customer, $appointment, $salon);
+
             DB::commit();
             $appointment->load(['customer', 'staff', 'services']);
             return response()->json(['message' => 'نوبت با موفقیت ثبت شد.', 'data' => $appointment], 201);
@@ -183,6 +191,8 @@ class AppointmentController extends Controller
 
         DB::commit();
 
+        $this->smsService->sendAppointmentModification($appointment->customer, $appointment, $salon);
+
         $appointment->refresh()->load(['customer', 'staff', 'services']);
         return response()->json(['message' => 'نوبت با موفقیت به‌روزرسانی شد.', 'data' => $appointment]);
 
@@ -198,6 +208,12 @@ class AppointmentController extends Controller
         if ($appointment->salon_id != $salon_id) {
             return response()->json(['message' => 'نوبت یافت نشد.'], 404);
         }
+
+        $customer = $appointment->customer;
+        $salon = Salon::findOrFail($salon_id);
+        
+        $this->smsService->sendAppointmentCancellation($customer, $appointment, $salon);
+
         $appointment->delete();
         return response()->json(['message' => 'نوبت با موفقیت حذف شد.'], 200);
     }
