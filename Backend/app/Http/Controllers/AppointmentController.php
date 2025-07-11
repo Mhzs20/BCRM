@@ -79,6 +79,7 @@ class AppointmentController extends Controller
             $finalAppointmentData = array_merge(
                 $appointmentDetails['appointment_data'],
                 [
+                    'total_price' => $validatedData['total_price'] ?? $appointmentDetails['appointment_data']['total_price'],
                     'status' => $validatedData['status'] ?? 'confirmed',
                     'deposit_required' => $validatedData['deposit_required'] ?? false,
                     'deposit_paid' => $validatedData['deposit_paid'] ?? false,
@@ -106,11 +107,11 @@ class AppointmentController extends Controller
             return response()->json(['message' => 'نوبت با موفقیت ثبت شد.', 'data' => $appointment], 201);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
-            Log::error('Appointment store failed - Model not found: ' . $e->getMessage());
+            Log::error('خطا در ثبت نوبت - مدل یافت نشد: ' . $e->getMessage());
             return response()->json(['message' => 'اطلاعات مرجع (مانند مشتری یا پرسنل) یافت نشد.'], 404);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Appointment store failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            Log::error('خطا در ثبت نوبت: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return response()->json(['message' => 'خطا در ثبت نوبت رخ داد.', 'error_details_for_debug' => $e->getMessage()], 500);
         }
     }
@@ -133,7 +134,7 @@ class AppointmentController extends Controller
     }
 
     $validatedData = $request->validated();
-    $recalculationFields = ['service_ids', 'staff_id', 'appointment_date', 'start_time'];
+    $recalculationFields = ['service_ids', 'staff_id', 'appointment_date', 'start_time', 'total_price'];
     $needsRecalculation = !empty(array_intersect(array_keys($validatedData), $recalculationFields));
 
     DB::beginTransaction();
@@ -187,7 +188,7 @@ class AppointmentController extends Controller
 
     } catch (\Exception $e) {
         DB::rollBack();
-        Log::error('Appointment update failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+        Log::error('خطا در به‌روزرسانی نوبت: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
         return response()->json(['message' => 'خطا در به‌روزرسانی نوبت.', 'error' => $e->getMessage()], 500);
     }
 }
@@ -217,7 +218,7 @@ class AppointmentController extends Controller
             );
             return response()->json(['data' => $availableSlots]);
         } catch (\Exception $e) {
-            Log::error('Get available slots failed: ' . $e->getMessage());
+            Log::error('خطا در دریافت ساعات خالی: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در دریافت ساعات خالی: ' . $e->getMessage()], 500);
         }
     }

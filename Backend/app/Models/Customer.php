@@ -19,6 +19,7 @@ class Customer extends Model
         'salon_id',
         'name',
         'phone_number',
+        'profile_image',
         'birth_date',
         'gender',
         'address',
@@ -62,7 +63,7 @@ class Customer extends Model
 
     public function profession()
     {
-        return $this->belongsTo(Profession::class, 'profession_id');
+        return $this->belongsTo(Profession::class);
     }
 
     public function ageRange()
@@ -73,5 +74,10 @@ class Customer extends Model
     public function city()
     {
         return $this->belongsTo(City::class);
+    }
+
+    public function getProfileImageAttribute($value)
+    {
+        return $value ? asset('storage/' . $value) : null;
     }
 }

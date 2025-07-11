@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Storage;
 
 class CustomerController extends Controller
 {
@@ -47,12 +48,19 @@ class CustomerController extends Controller
         $this->authorize('create', [Customer::class, $salon]);
 
         try {
-            $customer = $salon->customers()->create($request->validated());
+            $validatedData = $request->validated();
+
+            if ($request->hasFile('profile_image')) {
+                $path = $request->file('profile_image')->store('profiles', 'public');
+                $validatedData['profile_image'] = $path;
+            }
+
+            $customer = $salon->customers()->create($validatedData);
 
             $customer->load(['howIntroduced', 'customerGroup', 'profession', 'ageRange']);
             return response()->json(['message' => 'مشتری با موفقیت ایجاد شد.', 'data' => $customer], 201);
         } catch (\Exception $e) {
-            Log::error('Customer store failed: ' . $e->getMessage());
+            Log::error('خطا در ایجاد مشتری: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در ایجاد مشتری.'], 500);
         }
     }
@@ -77,10 +85,21 @@ class CustomerController extends Controller
 
         try {
             $validatedData = $request->validated();
+
+            if ($request->hasFile('profile_image')) {
+                // Delete old image if it exists
+                if ($customer->profile_image) {
+                    Storage::disk('public')->delete($customer->profile_image);
+                }
+                $path = $request->file('profile_image')->store('profiles', 'public');
+                $validatedData['profile_image'] = $path;
+            }
+
             // Filter validated data to only include keys present in the request input.
             $updateData = collect($validatedData)->filter(function ($value, $key) use ($request) {
-                return $request->exists($key);
+                return $request->exists($key) || $request->hasFile($key);
             })->toArray();
+
 
             if (!empty($updateData)) {
                 $customer->update($updateData);
@@ -89,7 +108,7 @@ class CustomerController extends Controller
             return response()->json(['message' => 'اطلاعات مشتری با موفقیت به‌روزرسانی شد.', 'data' => $customer]);
 
         } catch (\Exception $e) {
-            Log::error('Customer update failed: ' . $e->getMessage());
+            Log::error('خطا در به‌روزرسانی اطلاعات مشتری: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در به‌روزرسانی اطلاعات مشتری.'], 500);
         }
     }
@@ -108,7 +127,7 @@ class CustomerController extends Controller
             $customer->delete();
             return response()->json(null, 204);
         } catch (\Exception $e) {
-            Log::error('Customer delete failed: ' . $e->getMessage());
+            Log::error('خطا در حذف مشتری: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در حذف مشتری.'], 500);
         }
     }
@@ -157,7 +176,7 @@ class CustomerController extends Controller
             return response()->json(['message' => 'خطا در اعتبارسنجی فایل اکسل.', 'errors' => $e->failures()], 422);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Excel import failed: ' . $e->getMessage());
+            Log::error('خطا در هنگام ایمپورت فایل اکسل: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در هنگام ایمپورت فایل اکسل رخ داد.'], 500);
         }
     }
@@ -194,7 +213,7 @@ class CustomerController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Contacts import failed: ' . $e->getMessage());
+            Log::error('خطا در هنگام ایمپورت مخاطبین: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در هنگام ایمپورت مخاطبین رخ داد.'], 500);
         }
     }

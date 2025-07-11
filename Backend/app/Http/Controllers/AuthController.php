@@ -39,7 +39,7 @@ class AuthController extends Controller
             $userForSms = User::firstWhere('mobile', $mobile);
             if ($userForSms) {
                 Log::info("AuthController::register - Sending OTP {$otp} to mobile: {$mobile} for user ID: {$userForSms->id}");
-                $this->smsService->sendOtp($mobile, $otp, $userForSms);
+                $this->smsService->sendOtp($mobile, $otp);
             } else {
                 Log::error("AuthController::register - User not found after generateOtp for mobile: {$mobile}. SMS not sent.");
             }
@@ -144,7 +144,7 @@ class AuthController extends Controller
             $userForSms = User::firstWhere('mobile', $mobile);
             if ($userForSms) {
                 Log::info("AuthController::forgotPassword - Sending OTP {$otp} for password reset to mobile: {$mobile}");
-                $this->smsService->sendOtp($mobile, $otp, $userForSms);
+                $this->smsService->sendOtp($mobile, $otp);
             } else {
                 Log::error("AuthController::forgotPassword - User not found for mobile: {$mobile}, though generateOtp should handle this or request validation should fail.");
             }

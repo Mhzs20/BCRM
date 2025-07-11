@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
+use Carbon\Carbon;
+use Exception;
 
 class SalonController extends Controller
 {
@@ -32,8 +34,8 @@ class SalonController extends Controller
             $validatedData['user_id'] = Auth::id();
 
             if ($request->hasFile('image')) {
-                $path = $request->file('image')->store('public/salon_images');
-                $validatedData['image'] = Storage::url($path);
+                $path = $request->file('image')->store('salon_images', 'public');
+                $validatedData['image'] = $path;
             }
 
             $salon = Salon::create($validatedData);
@@ -50,7 +52,7 @@ class SalonController extends Controller
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error("Salon Creation Failed: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            Log::error("خطا در ایجاد سالن: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return response()->json([
                 'status' => 'error',
                 'message' => 'مشکلی در هنگام ایجاد سالن رخ داد. لطفاً با پشتیبانی تماس بگیرید.'
@@ -72,17 +74,17 @@ class SalonController extends Controller
 
             if ($request->boolean('remove_image')) {
                 if ($salon->image) {
-                    Storage::delete(str_replace('/storage', 'public', $salon->image));
+                    Storage::disk('public')->delete($salon->getRawOriginal('image'));
                     $validatedData['image'] = null;
                 }
             }
 
             if ($request->hasFile('image')) {
                 if ($salon->image) {
-                    Storage::delete(str_replace('/storage', 'public', $salon->image));
+                    Storage::disk('public')->delete($salon->getRawOriginal('image'));
                 }
-                $imagePath = $request->file('image')->store('public/salon_images');
-                $validatedData['image'] = str_replace('public', '/storage', $imagePath);
+                $imagePath = $request->file('image')->store('salon_images', 'public');
+                $validatedData['image'] = $imagePath;
             }
 
             unset($validatedData['remove_image']);
@@ -96,7 +98,7 @@ class SalonController extends Controller
             ]);
 
         } catch (Exception $e) {
-            Log::error("Salon Update Failed for ID {$salon->id}: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            Log::error("خطا در ویرایش سالن با شناسه {$salon->id}: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return response()->json([
                 'status' => 'error',
                 'message' => 'خطایی در هنگام ویرایش اطلاعات سالن رخ داد.'
@@ -131,7 +133,7 @@ class SalonController extends Controller
                 'data' => $activeSalon
             ]);
         } catch (\Exception $e) {
-            Log::error("Error fetching active salon for user ID " . (Auth::id() ?? 'unknown') . ": " . $e->getMessage());
+            Log::error("خطا در دریافت سالن فعال برای کاربر با شناسه " . (Auth::id() ?? 'ناشناس') . ": " . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => 'خطا در دریافت سالن فعال: ' . $e->getMessage(),
@@ -157,7 +159,7 @@ class SalonController extends Controller
                 'data' => $salon->load(['businessCategory', 'businessSubcategory', 'province', 'city'])
             ]);
         } catch (\Exception $e) {
-            Log::error("Select active salon failed for salon ID {$salon->id}, user ID " . (Auth::id() ?? 'unknown') . ": " . $e->getMessage());
+            Log::error("خطا در انتخاب سالن فعال برای سالن با شناسه {$salon->id} و کاربر با شناسه " . (Auth::id() ?? 'ناشناس') . ": " . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => 'خطا در انتخاب سالن فعال: ' . $e->getMessage(),
@@ -193,10 +195,10 @@ class SalonController extends Controller
                 'data' => $salonData
             ]);
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
-            Log::warning("SalonController@getSalon access denied for user ID " . Auth::id() . " to salon ID {$salon->id}: " . $e->getMessage());
+            Log::warning("دسترسی به متد getSalon در SalonController برای کاربر با شناسه " . Auth::id() . " به سالن با شناسه {$salon->id} رد شد: " . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => 'شما اجازه دسترسی به این سالن را ندارید.'], 403);
         } catch (\Exception $e) {
-            Log::error("Error in SalonController@getSalon for salon ID {$salon->id}: " . $e->getMessage());
+            Log::error("خطا در متد getSalon در SalonController برای سالن با شناسه {$salon->id}: " . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => 'خطا در نمایش اطلاعات سالن.'], 500);
         }
     }
@@ -235,11 +237,11 @@ class SalonController extends Controller
             ], 200);
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
             DB::rollBack();
-            Log::warning("SalonController@deleteSalon access denied for user ID " . Auth::id() . " to salon ID {$salon->id}: " . $e->getMessage());
+            Log::warning("دسترسی به متد deleteSalon در SalonController برای کاربر با شناسه " . Auth::id() . " به سالن با شناسه {$salon->id} رد شد: " . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => 'شما اجازه حذف این سالن را ندارید.'], 403);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error("Salon deletion failed for ID {$salon->id}: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+            Log::error("خطا در حذف سالن با شناسه {$salon->id}: " . $e->getMessage() . "\n" . $e->getTraceAsString());
             return response()->json([
                 'status' => 'error',
                 'message' => 'خطا در حذف سالن: ' . $e->getMessage(),
