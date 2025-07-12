@@ -40,9 +40,9 @@ class SendAppointmentReminderSms implements ShouldQueue
             return;
         }
 
-        // Check if SMS already sent or is pending
-        if ($appointment->reminder_sms_status !== 'not_sent') {
-            Log::info("Reminder SMS for appointment {$appointment->id} already has status '{$appointment->reminder_sms_status}'. Skipping.");
+        // Check if SMS has a final status already
+        if (!in_array($appointment->reminder_sms_status, ['not_sent', 'processing', null])) {
+            Log::info("Reminder SMS for appointment {$appointment->id} already has a final status '{$appointment->reminder_sms_status}'. Skipping.");
             return;
         }
 
@@ -54,13 +54,19 @@ class SendAppointmentReminderSms implements ShouldQueue
             return;
         }
 
-        $sent = $smsService->sendAppointmentReminder($customer, $appointment, $this->salon);
+        $smsResult = $smsService->sendAppointmentReminder($customer, $appointment, $this->salon);
 
-        if ($sent) {
-            Log::info("Reminder SMS dispatched for appointment {$appointment->id}.");
+        if ($smsResult === true) {
+            // The status will be updated by the SmsService upon successful sending.
+            Log::info("Successfully sent reminder SMS for appointment {$appointment->id}.");
+        } elseif ($smsResult === 'insufficient_balance') {
+            Log::warning("Failed to send reminder for appointment {$appointment->id} due to insufficient balance.");
+            // Update status to failed to prevent re-sends
+            $appointment->update(['reminder_sms_status' => 'failed_balance']);
         } else {
-            Log::error("Failed to dispatch reminder SMS for appointment {$appointment->id}.");
-            // Optionally, re-queue the job or log a more specific error
+            Log::error("Failed to send reminder SMS for appointment {$appointment->id}.");
+            // Update status to failed to prevent re-sends
+            $appointment->update(['reminder_sms_status' => 'failed_api']);
         }
     }
 }

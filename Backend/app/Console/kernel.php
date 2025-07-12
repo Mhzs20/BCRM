@@ -17,9 +17,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // پیامک یادآوری نوبت
-        $schedule->command('sms:send-reminders')
-            ->dailyAt('09:00'); // مثال: هر روز ساعت ۹ صبح (قابل تنظیم)
+        // Runs the reminder check every minute
+        $schedule->command('sms:send-reminders')->everyMinute();
 
         // به‌روزرسانی وضعیت نوبت‌های گذشته به "انجام‌شده"
         $schedule->command('appointments:update-status')
