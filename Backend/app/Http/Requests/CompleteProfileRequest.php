@@ -26,7 +26,7 @@ class CompleteProfileRequest extends FormRequest
         return [
             'name' => 'required|string|max:255',
             'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'avatar' => 'nullable|image|max:2048',
+            'image' => 'nullable|image|max:2048',
             'business_name' => 'required|string|max:255',
             'business_category_id' => 'required|exists:business_categories,id',
             'business_subcategory_id' => 'nullable|exists:business_subcategories,id',
@@ -48,8 +48,8 @@ class CompleteProfileRequest extends FormRequest
             'password.required' => 'رمز عبور الزامی است',
             'password.min' => 'رمز عبور باید حداقل ۸ کاراکتر باشد',
             'password.confirmed' => 'تکرار رمز عبور مطابقت ندارد',
-            'avatar.image' => 'فایل آپلود شده باید تصویر باشد',
-            'avatar.max' => 'حداکثر حجم تصویر ۲ مگابایت است',
+            'image.image' => 'فایل آپلود شده باید تصویر باشد',
+            'image.max' => 'حداکثر حجم تصویر ۲ مگابایت است',
             'business_name.required' => 'وارد کردن نام کسب و کار (سالن) الزامی است.',
             'business_category_id.required' => 'انتخاب دسته‌بندی کسب و کار الزامی است.',
             'business_category_id.exists' => 'دسته‌بندی کسب و کار انتخاب شده معتبر نیست.',
@@ -61,5 +61,19 @@ class CompleteProfileRequest extends FormRequest
             'address.required' => 'وارد کردن آدرس سالن الزامی است.',
             'address.max' => 'آدرس سالن نمی‌تواند بیشتر از ۱۰۰۰ کاراکتر باشد.',
         ];
+    }
+
+    /**
+     * Prepare the data for validation.
+     *
+     * @return void
+     */
+    protected function prepareForValidation()
+    {
+        if ($this->hasFile('image')) {
+            $this->merge([
+                'avatar' => $this->file('image'),
+            ]);
+        }
     }
 }
