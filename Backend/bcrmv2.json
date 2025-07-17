@@ -1,0 +1,1092 @@
+{
+    "info": {
+        "_postman_id": "YOUR_COLLECTION_ID_HERE",
+        "name": "BCRM API (Updated)",
+        "description": "API collection for BCRM project with latest updates.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Authentication",
+            "item": [
+                {
+                    "name": "Check User",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {"key": "mobile", "value": "09123456789", "type": "text"}
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/check-user",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "check-user"
+                            ]
+                        },
+                        "description": "Checks if a user exists and if they have a password."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Register (Send OTP)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {"key": "mobile", "value": "09123456780", "type": "text"}
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/register",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "register"
+                            ]
+                        },
+                        "description": "Registers a new user by sending an OTP to their mobile."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Verify OTP",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {"key": "mobile", "value": "09123456780", "type": "text"},
+                                {"key": "code", "value": "1234", "type": "text"}
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/verify",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "verify"
+                            ]
+                        },
+                        "description": "Verifies the OTP and logs in the user, returning a token."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Complete Profile",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {"key": "name", "value": "نام کامل کاربر", "type": "text"},
+                                {"key": "password", "value": "password123", "type": "text"},
+                                {"key": "password_confirmation", "value": "password123", "type": "text"},
+                                {"key": "business_name", "value": "نام کسب و کار من", "type": "text", "disabled": true},
+                                {"key": "business_category_id", "value": "1", "type": "text", "disabled": true},
+                                {"key": "business_subcategory_id", "value": "1", "type": "text", "disabled": true},
+                                {"key": "avatar", "type": "file", "src": [], "disabled": true}
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/complete-profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "complete-profile"
+                            ]
+                        },
+                        "description": "Completes the user profile after OTP verification. Requires auth token."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Login",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {"key": "mobile", "value": "09123456789", "type": "text"},
+                                {"key": "password", "value": "password123", "type": "text"}
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
+                        },
+                        "description": "Logs in an existing user with mobile and password."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Forgot Password (Send OTP)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {"key": "mobile", "value": "09123456789", "type": "text"}
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/forgot-password",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "forgot-password"
+                            ]
+                        },
+                        "description": "Sends an OTP for password reset."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Reset Password",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {"key": "mobile", "value": "09123456789", "type": "text"},
+                                {"key": "code", "value": "1234", "type": "text"},
+                                {"key": "password", "value": "newPassword123", "type": "text"},
+                                {"key": "password_confirmation", "value": "newPassword123", "type": "text"}
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/reset-password",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "reset-password"
+                            ]
+                        },
+                        "description": "Resets the user's password using OTP."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Refresh Token",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/refresh",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "refresh"
+                            ]
+                        },
+                        "description": "Refreshes the authentication token. Requires current auth token."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Logout",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/logout",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "logout"
+                            ]
+                        },
+                        "description": "Logs out the current user. Requires auth token."
+                    },
+                    "response": []
+                }
+            ],
+            "description": "Authentication related endpoints"
+        },
+        {
+            "name": "General Data (Public)",
+            "item": [
+                {
+                    "name": "Get All Business Categories",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/general/business-categories",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "general",
+                                "business-categories"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Subcategories for a Category",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/general/business-categories/1/subcategories",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "general",
+                                "business-categories",
+                                "1",
+                                "subcategories"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "categoryId",
+                                    "value": "1",
+                                    "description": "(Required) ID of the business category"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get All Categories with Subcategories",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/general/business-categories-with-subcategories",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "general",
+                                "business-categories-with-subcategories"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get All Provinces",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/general/locations/provinces",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "general",
+                                "locations",
+                                "provinces"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Cities for a Province",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/general/locations/provinces/8/cities",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "general",
+                                "locations",
+                                "provinces",
+                                "8",
+                                "cities"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "provinceId",
+                                    "value": "8",
+                                    "description": "(Required) ID of the province"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get All Provinces with Cities",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/general/locations/provinces-with-cities",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "general",
+                                "locations",
+                                "provinces-with-cities"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ],
+            "description": "Publicly accessible data like categories and locations"
+        },
+        {
+            "name": "Salons Management (Auth Required)",
+            "item": [
+                {
+                    "name": "Get User's Salons",
+                    "protocolProfileBehavior": {
+                        "disableBodyPruning": true
+                    },
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/salons",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "salons"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create Salon",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {"key": "name", "value": "سالن زیبایی نمونه", "type": "text"},
+                                {"key": "business_category_id", "value": "1", "type": "text"},
+                                {"key": "business_subcategory_id", "value": "1", "type": "text"},
+                                {"key": "province_id", "value": "8", "type": "text"},
+                                {"key": "city_id", "value": "301", "type": "text"},
+                                {"key": "image", "type": "file", "src": [], "disabled": true}
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/salons",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "salons"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Active Salon",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/salons/active",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "salons",
+                                "active"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Specific Salon",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/salons/{{salonId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "salons",
+                                "{{salonId}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update Specific Salon",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {"key": "name", "value": "نام سالن ویرایش شده", "type": "text"},
+                                {"key": "business_category_id", "value": "2", "type": "text"},
+                                {"key": "business_subcategory_id", "value": "7", "type": "text"},
+                                {"key": "province_id", "value": "8", "type": "text"},
+                                {"key": "city_id", "value": "301", "type": "text"},
+                                {"key": "_method", "value": "PUT", "type": "text", "disabled": true, "description": "For Laravel to recognize PUT from form-data"}
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/salons/{{salonId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "salons",
+                                "{{salonId}}"
+                            ],
+                            "query": [
+                                {"key": "_method", "value": "PUT", "disabled": true, "description": "Add this if sending as x-www-form-urlencoded and your server needs it"}
+                            ]
+                        },
+                        "description": "Note: For PUT with form-data, some frameworks/servers might need a `_method=PUT` field in the body or query string if sent as POST."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete Specific Salon",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/salons/{{salonId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "salons",
+                                "{{salonId}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Select Active Salon",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/salons/{{salonId}}/select-active",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "salons",
+                                "{{salonId}}",
+                                "select-active"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ],
+            "description": "Endpoints for managing user's salons"
+        },
+        {
+            "name": "Salon Specific Resources (Auth Required)",
+            "item": [
+                {
+                    "name": "Customers",
+                    "item": [
+                        {
+                            "name": "List Customers for Salon",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {"key": "Accept", "value": "application/json"},
+                                    {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/salons/{{salonId}}/customers?search=نام&sort_by=name&sort_direction=asc&page=1&per_page=10",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "salons",
+                                        "{{salonId}}",
+                                        "customers"
+                                    ],
+                                    "query": [
+                                        {"key": "search", "value": "نام", "disabled": true},
+                                        {"key": "sort_by", "value": "name", "disabled": true},
+                                        {"key": "sort_direction", "value": "asc", "disabled": true},
+                                        {"key": "page", "value": "1", "disabled": true},
+                                        {"key": "per_page", "value": "10", "disabled": true}
+                                    ]
+                                }
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Create Customer for Salon",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {"key": "Accept", "value": "application/json"},
+                                    {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                                ],
+                                "body": {
+                                    "mode": "formdata",
+                                    "formdata": [
+                                        {"key": "name", "value": "مشتری نمونه", "type": "text"},
+                                        {"key": "phone_number", "value": "09120000001", "type": "text"},
+                                        {"key": "birth_date", "value": "1370/01/01", "type": "text", "description": "YYYY/MM/DD"},
+                                        {"key": "job", "value": "برنامه نویس", "type": "text", "disabled": true},
+                                        {"key": "gender", "value": "male", "type": "text", "description":"male, female, other", "disabled": true},
+                                        {"key": "profile_image", "type": "file", "src": [], "disabled": true}
+                                    ]
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/salons/{{salonId}}/customers",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "salons",
+                                        "{{salonId}}",
+                                        "customers"
+                                    ]
+                                }
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Get Specific Customer",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {"key": "Accept", "value": "application/json"},
+                                    {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/salons/{{salonId}}/customers/{{customerId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "salons",
+                                        "{{salonId}}",
+                                        "customers",
+                                        "{{customerId}}"
+                                    ]
+                                }
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Update Specific Customer",
+                            "request": {
+                                "method": "POST", "description": "Laravel handles PUT/PATCH via POST with _method field for form-data",
+                                "header": [
+                                    {"key": "Accept", "value": "application/json"},
+                                    {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                                ],
+                                "body": {
+                                    "mode": "formdata",
+                                    "formdata": [
+                                        {"key": "_method", "value": "PUT", "type": "text"},
+                                        {"key": "name", "value": "مشتری ویرایش شده", "type": "text"},
+                                        {"key": "phone_number", "value": "09120000002", "type": "text", "disabled": true},
+                                        {"key": "remove_profile_image", "value": "false", "type": "text", "description":"true to remove image", "disabled": true}
+                                    ]
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/salons/{{salonId}}/customers/{{customerId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "salons",
+                                        "{{salonId}}",
+                                        "customers",
+                                        "{{customerId}}"
+                                    ]
+                                }
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Delete Specific Customer",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {"key": "Accept", "value": "application/json"},
+                                    {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/salons/{{salonId}}/customers/{{customerId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "salons",
+                                        "{{salonId}}",
+                                        "customers",
+                                        "{{customerId}}"
+                                    ]
+                                }
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Delete Multiple Customers",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {"key": "Accept", "value": "application/json"},
+                                    {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"customer_ids\": [{{customerId}}, {{anotherCustomerId}}]\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/salons/{{salonId}}/customers/destroy-multiple",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "salons",
+                                        "{{salonId}}",
+                                        "customers",
+                                        "destroy-multiple"
+                                    ]
+                                }
+                            },
+                            "response": []
+                        }
+                    ]
+                },
+                {
+                    "name": "Staff",
+                    "item": [
+                        {"name": "List Staff for Salon", "request": {"method": "GET", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/staff", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "staff"]}}, "response": []},
+                        {"name": "Create Staff for Salon", "request": {"method": "POST", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "formdata", "formdata": [{"key": "full_name", "value": "پرسنل نمونه", "type": "text"},{"key": "specialty", "value": "ناخن کار", "type": "text"}]}, "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/staff", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "staff"]}}, "response": []},
+                        {"name": "Get Specific Staff", "request": {"method": "GET", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/staff/{{staffId}}", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "staff", "{{staffId}}"]}}, "response": []},
+                        {"name": "Update Specific Staff", "request": {"method": "POST", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "formdata", "formdata": [{"key":"_method", "value":"PUT", "type":"text"}, {"key": "full_name", "value": "پرسنل ویرایش شده", "type": "text"},{"key": "is_active", "value": "false", "type": "text"}]}, "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/staff/{{staffId}}", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "staff", "{{staffId}}"]}}, "response": []},
+                        {"name": "Delete/Deactivate Specific Staff", "request": {"method": "DELETE", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/staff/{{staffId}}?deactivate_only=true", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "staff", "{{staffId}}"], "query": [{"key":"deactivate_only", "value":"true", "description":"set to false or omit for full delete"}] }}, "response": []}
+                    ]
+                },
+                {
+                    "name": "Services",
+                    "item": [
+                        {"name": "List Services for Salon", "request": {"method": "GET", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/services", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "services"]}}, "response": []},
+                        {"name": "Create Service for Salon", "request": {"method": "POST", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "formdata", "formdata": [{"key": "name", "value": "کاشت ناخن", "type": "text"},{"key": "price", "value": "250000", "type": "text"},{"key": "duration_minutes", "value": "90", "type": "text"}]}, "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/services", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "services"]}}, "response": []},
+                        {"name": "Get Specific Service", "request": {"method": "GET", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/services/{{serviceId}}", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "services", "{{serviceId}}"]}}, "response": []},
+                        {"name": "Update Specific Service", "request": {"method": "PUT", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "formdata", "formdata": [{"key": "name", "value": "کاشت ناخن پیشرفته", "type": "text"},{"key": "price", "value": "300000", "type": "text"}]}, "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/services/{{serviceId}}", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "services", "{{serviceId}}"]}}, "response": []},
+                        {"name": "Delete Specific Service", "request": {"method": "DELETE", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/services/{{serviceId}}", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "services", "{{serviceId}}"]}}, "response": []}
+                    ]
+                },
+                {
+                    "name": "Appointments",
+                    "item": [
+                        {"name": "List Appointments for Salon", "request": {"method": "GET", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/appointments?appointment_date_jalali=1403/03/07&status=confirmed", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "appointments"], "query": [{"key":"appointment_date_jalali", "value":"1403/03/07", "disabled":true}, {"key":"status", "value":"confirmed", "disabled":true}]}}, "response": []},
+                        {"name": "Create Appointment for Salon", "request": {"method": "POST", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "formdata", "formdata": [{"key": "customer_id", "value": "{{customerId}}", "type": "text"},{"key": "staff_id", "value": "{{staffId}}", "type": "text"},{"key": "service_ids[]", "value": "{{serviceId1}}", "type": "text"},{"key": "service_ids[]", "value": "{{serviceId2}}", "type": "text", "disabled":true},{"key": "appointment_date", "value": "1403/04/10", "type": "text", "description":"YYYY/MM/DD شمسی"},{"key": "appointment_time", "value": "14:30", "type": "text", "description":"HH:MM"},{"key": "notes", "value": "یادداشت برای نوبت", "type": "text", "disabled":true}]}, "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/appointments", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "appointments"]}}, "response": []},
+                        {"name": "Get Specific Appointment", "request": {"method": "GET", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/appointments/{{appointmentId}}", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "appointments", "{{appointmentId}}"]}}, "response": []},
+                        {"name": "Update Specific Appointment", "request": {"method": "PUT", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "formdata", "formdata": [{"key": "status", "value": "confirmed", "type": "text"}, {"key": "appointment_time", "value": "15:00", "type": "text", "disabled":true}]}, "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/appointments/{{appointmentId}}", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "appointments", "{{appointmentId}}"]}}, "response": []},
+                        {"name": "Cancel (Delete) Specific Appointment", "request": {"method": "DELETE", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/appointments/{{appointmentId}}", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "appointments", "{{appointmentId}}"]}}, "response": []}
+                    ]
+                },
+                {
+                    "name": "Payments",
+                    "item": [
+                        {"name": "List Payments for Salon", "request": {"method": "GET", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/payments?customer_id={{customerId}}", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "payments"], "query": [{"key":"customer_id", "value":"{{customerId}}", "disabled":true}]}}, "response": []},
+                        {"name": "Create Payment for Salon", "request": {"method": "POST", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "formdata", "formdata": [{"key": "customer_id", "value": "{{customerId}}", "type": "text"},{"key": "appointment_id", "value": "{{appointmentId}}", "type": "text", "disabled":true},{"key": "date", "value": "1403/03/07", "type": "text", "description":"YYYY/MM/DD شمسی"},{"key": "amount", "value": "150000", "type": "text"},{"key": "description", "value": "پرداخت برای خدمات کاشت", "type": "text"}]}, "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/payments", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "payments"]}}, "response": []},
+                        {"name": "Get Specific Payment", "request": {"method": "GET", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/payments/{{paymentId}}", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "payments", "{{paymentId}}"]}}, "response": []},
+                        {"name": "Update Specific Payment", "request": {"method": "PUT", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "body": {"mode": "formdata", "formdata": [{"key": "amount", "value": "160000", "type": "text"}]}, "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/payments/{{paymentId}}", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "payments", "{{paymentId}}"]}}, "response": []},
+                        {"name": "Delete Specific Payment", "request": {"method": "DELETE", "header": [{"key": "Accept", "value": "application/json"},{"key": "Authorization", "value": "Bearer {{authToken}}"}], "url": {"raw": "{{baseUrl}}/salons/{{salonId}}/payments/{{paymentId}}", "host": ["{{baseUrl}}"], "path": ["salons", "{{salonId}}", "payments", "{{paymentId}}"]}}, "response": []}
+                    ]
+                }
+            ],
+            "description": "Endpoints for resources related to a specific salon, e.g., /salons/{salonId}/customers"
+        },
+        {
+            "name": "Dashboard (Auth Required)",
+            "item": [
+                {
+                    "name": "Get Dashboard Summary",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/dashboard/summary",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "dashboard",
+                                "summary"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get All Salon Appointments (for active salon)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/dashboard/all-salon-appointments?page=1&per_page=5",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "dashboard",
+                                "all-salon-appointments"
+                            ],
+                            "query": [
+                                {"key": "page", "value": "1", "disabled": true},
+                                {"key": "per_page", "value": "5", "disabled": true}
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Recent Activities (for active salon)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/dashboard/recent-activities?per_page=5",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "dashboard",
+                                "recent-activities"
+                            ],
+                            "query": [
+                                {"key": "per_page", "value": "5", "disabled": true}
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get User SMS Balance",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/dashboard/sms-balance",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "dashboard",
+                                "sms-balance"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Salon Settings (Auth Required)",
+            "item": [
+                {
+                    "name": "Get SMS Templates (for active salon)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/salon-settings/sms-templates",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "salon-settings",
+                                "sms-templates"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Store or Update SMS Templates (for active salon)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"templates\": [\n        {\n            \"event_type\": \"appointment_confirmation\",\n            \"template\": \"مشتری گرامی {{customer_name}}، نوبت شما در سالن {{salon_name}} برای {{appointment_date}} ساعت {{appointment_time}} تایید شد. با تشکر.\",\n            \"is_active\": true\n        },\n        {\n            \"event_type\": \"birthday_greeting\",\n            \"template\": \"{{customer_name}} عزیز، سالن {{salon_name}} زادروز شما را تبریک می گوید!\",\n            \"is_active\": false\n        }\n    ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/salon-settings/sms-templates",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "salon-settings",
+                                "sms-templates"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "SMS Account (User Level - Auth Required)",
+            "description": "Endpoints related to user's overall SMS account, like purchasing packages.",
+            "item": [
+                {
+                    "name": "Get Available SMS Packages",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/sms-account/packages",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "sms-account",
+                                "packages"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Purchase SMS Package (Simulation)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Accept", "value": "application/json"},
+                            {"key": "Authorization", "value": "Bearer {{authToken}}"}
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {"key": "package_id", "value": "1", "type": "text", "description":"ID of the SMS package to purchase"}
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/sms-account/purchase-package",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "sms-account",
+                                "purchase-package"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        }
+    ],
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        },
+        {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://127.0.0.1:8000/api",
+            "type": "string"
+        },
+        {
+            "key": "authToken",
+            "value": "",
+            "type": "string",
+            "description": "Store JWT token here after login/verify"
+        },
+        {
+            "key": "salonId",
+            "value": "1",
+            "type": "string",
+            "description": "ID of the active/target salon"
+        },
+        {
+            "key": "customerId",
+            "value": "1",
+            "type": "string"
+        },
+        {
+            "key": "anotherCustomerId",
+            "value": "2",
+            "type": "string"
+        },
+        {
+            "key": "staffId",
+            "value": "1",
+            "type": "string"
+        },
+        {
+            "key": "serviceId1",
+            "value": "1",
+            "type": "string"
+        },
+        {
+            "key": "serviceId2",
+            "value": "2",
+            "type": "string"
+        },
+        {
+            "key": "appointmentId",
+            "value": "1",
+            "type": "string"
+        },
+        {
+            "key": "paymentId",
+            "value": "1",
+            "type": "string"
+        }
+    ]
+}

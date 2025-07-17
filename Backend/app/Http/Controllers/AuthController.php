@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use Illuminate\Http\Request;
 use App\Http\Requests\CheckUserRequest;
 use App\Http\Requests\CompleteProfileRequest;
 use App\Http\Requests\ForgotPasswordRequest;
@@ -9,43 +9,51 @@ use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\ResetPasswordRequest;
 use App\Http\Requests\VerifyOtpRequest;
-use App\Models\BusinessCategory;
-use App\Models\BusinessSubcategory;
 use App\Services\AuthService;
+use App\Services\SmsService;
+use App\Models\User;
+use App\Models\UserSmsBalance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 class AuthController extends Controller
 {
-    protected $authService;
+    protected AuthService $authService;
+    protected SmsService $smsService;
 
-    public function __construct(AuthService $authService)
+    public function __construct(AuthService $authService, SmsService $smsService)
     {
         $this->authService = $authService;
+        $this->smsService = $smsService;
     }
 
-    /**
-     * ثبت‌نام کاربر و ارسال کد OTP
-     *
-     * @param RegisterRequest $request
-     * @return JsonResponse
-     */
     public function register(RegisterRequest $request): JsonResponse
     {
         try {
             $mobile = $request->mobile;
+            Log::info("AuthController::register - Registration attempt for mobile: {$mobile}");
 
-            $otp = AuthService::generateOtp($mobile);
+            $otp = $this->authService->generateOtp($mobile); // متد generateOtp دیگر static نیست
+
+            $userForSms = User::firstWhere('mobile', $mobile);
+            if ($userForSms) {
+                Log::info("AuthController::register - Sending OTP {$otp} to mobile: {$mobile} for user ID: {$userForSms->id}");
+                $this->smsService->sendOtp($mobile, $otp);
+            } else {
+                Log::error("AuthController::register - User not found after generateOtp for mobile: {$mobile}. SMS not sent.");
+            }
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'کد تایید با موفقیت ارسال شد.',
                 'data' => [
                     'mobile' => $mobile,
-                    'otp' => $otp, // فقط برای دولوپ اینجاست برداشته میشه Nimainjast
+                    // 'otp_for_dev' => $otp, // در محیط پروداکشن حذف شود
                 ]
             ]);
         } catch (\Exception $e) {
+            Log::error("AuthController::register - Exception for mobile {$request->mobile}: " . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
@@ -54,32 +62,36 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     verify otp
-     *
-     * @param VerifyOtpRequest $request
-     * @return JsonResponse
-     */
     public function verifyOtp(VerifyOtpRequest $request): JsonResponse
     {
+        Log::info("AuthController::verifyOtp - Verification attempt for mobile: {$request->mobile}, code: {$request->code}");
         try {
             DB::beginTransaction();
 
             $user = $this->authService->verifyOtp($request->mobile, $request->code);
             $token = auth('api')->login($user);
+
+            UserSmsBalance::firstOrCreate(
+                ['user_id' => $user->id],
+                ['balance' => (int)env('INITIAL_SMS_BALANCE', 20)]
+            );
+            Log::info("AuthController::verifyOtp - SMS balance checked/created for user ID: {$user->id}");
+
             DB::commit();
+            Log::info("AuthController::verifyOtp - OTP verified successfully for user ID: {$user->id}");
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'کد تایید با موفقیت تایید شد.',
                 'data' => [
                     'token' => $token,
-                    'user' => $user
+                    'user' => $user->load('activeSalon', 'salons', 'smsBalance'),
+                    'has_profile_completed' => !empty($user->name) && !empty($user->password) && !empty($user->business_name) // شرط تکمیل پروفایل می‌تواند دقیق‌تر باشد
                 ]
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
-
+            Log::error("AuthController::verifyOtp - Exception for mobile {$request->mobile}: " . $e->getMessage() . ' --- Trace: ' . $e->getTraceAsString());
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
@@ -88,43 +100,16 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     * CompleteProfileRequest
-     *
-     * @param CompleteProfileRequest $request
-     * @return JsonResponse
-     */
     public function completeProfile(CompleteProfileRequest $request): JsonResponse
     {
+        Log::info("AuthController::completeProfile - Attempt by user ID: " . Auth::id());
         try {
             DB::beginTransaction();
+            /** @var \App\Models\User $user */
+            $user = Auth::user();
 
-            $user = auth('api')->user();
-
-            // اعتبارسنجی دسته‌بندی کسب و کار
-            if ($request->has('business_category_id')) {
-                $categoryId = $request->business_category_id;
-                $category = BusinessCategory::find($categoryId);
-
-                if (!$category) {
-                    throw new \Exception('دسته‌بندی کسب و کار انتخاب شده معتبر نیست.');
-                }
-            }
-
-            if ($request->has('business_subcategory_id')) {
-                $subcategoryId = $request->business_subcategory_id;
-                $subcategory = BusinessSubcategory::find($subcategoryId);
-
-                if (!$subcategory) {
-                    throw new \Exception('زیرمجموعه کسب و کار انتخاب شده معتبر نیست.');
-                }
-
-                if ($request->has('business_category_id') && $subcategory->category_id != $request->business_category_id) {
-                    throw new \Exception('زیرمجموعه انتخاب شده با دسته‌بندی مطابقت ندارد.');
-                }
-            }
-
-            $user = $this->authService->completeProfile($user, $request->validated());
+            $updatedUser = $this->authService->completeProfile($user, $request->validated());
+            Log::info("AuthController::completeProfile - Profile completed for user ID: {$updatedUser->id}");
 
             DB::commit();
 
@@ -132,13 +117,48 @@ class AuthController extends Controller
                 'status' => 'success',
                 'message' => 'پروفایل با موفقیت تکمیل شد.',
                 'data' => [
-                    'user' => $user,
-                    'salon' => $user->activeSalon
+                    'user' => $updatedUser->load('activeSalon', 'salons', 'smsBalance'),
+                    'salon' => $updatedUser->activeSalon
                 ]
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error("AuthController::completeProfile - Exception for user ID " . Auth::id() . ": " . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'خطا در تکمیل پروفایل: ' . $e->getMessage(),
+                'data' => null
+            ], 400);
+        }
+    }
 
+
+    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
+    {
+        try {
+            $mobile = $request->mobile;
+            Log::info("AuthController::forgotPassword - Request for mobile: {$mobile}");
+
+            $otp = $this->authService->generateOtp($mobile); // متد generateOtp دیگر static نیست
+
+            $userForSms = User::firstWhere('mobile', $mobile);
+            if ($userForSms) {
+                Log::info("AuthController::forgotPassword - Sending OTP {$otp} for password reset to mobile: {$mobile}");
+                $this->smsService->sendOtp($mobile, $otp);
+            } else {
+                Log::error("AuthController::forgotPassword - User not found for mobile: {$mobile}, though generateOtp should handle this or request validation should fail.");
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'کد تایید برای بازیابی رمز عبور ارسال شد.',
+                'data' => [
+                    'mobile' => $mobile,
+                    // 'otp_for_dev' => $otp, // برای دولوپ
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error("AuthController::forgotPassword - Exception for mobile {$request->mobile}: " . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
@@ -147,16 +167,12 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     * LoginRequest  with pass word
-     *
-     * @param LoginRequest $request
-     * @return JsonResponse
-     */
     public function login(LoginRequest $request): JsonResponse
     {
+        Log::info("AuthController::login - Attempt for mobile: {$request->mobile}");
         try {
             $loginData = $this->authService->login($request->mobile, $request->password);
+            Log::info("AuthController::login - Successful login for user ID: {$loginData['user']->id}");
 
             return response()->json([
                 'status' => 'success',
@@ -164,6 +180,7 @@ class AuthController extends Controller
                 'data' => $loginData
             ]);
         } catch (\Exception $e) {
+            Log::error("AuthController::login - Failed login for mobile {$request->mobile}: " . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
@@ -172,54 +189,18 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     * ForgotPassword Request OTP
-     *
-     * @param ForgotPasswordRequest $request
-     * @return JsonResponse
-     */
-    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
-    {
-        try {
-            $mobile = $request->mobile;
-
-            $otp = $this->authService->generateOtp($mobile);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'کد تایید با موفقیت ارسال شد.',
-                'data' => [
-                    'mobile' => $mobile,
-                    'otp' => $otp, // فقط برای دولوپ اینجاست برداشته میشه Nimainjast
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage(),
-                'data' => null
-            ], 400);
-        }
-    }
-
-    /**
-     * ResetPasswordRequest
-     *
-     * @param ResetPasswordRequest $request
-     * @return JsonResponse
-     */
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
+        Log::info("AuthController::resetPassword - Attempt for mobile: {$request->mobile}");
         try {
             DB::beginTransaction();
-
             $user = $this->authService->resetPassword(
                 $request->mobile,
                 $request->code,
                 $request->password
             );
-
             DB::commit();
+            Log::info("AuthController::resetPassword - Password reset successfully for user ID: {$user->id}");
 
             return response()->json([
                 'status' => 'success',
@@ -230,7 +211,7 @@ class AuthController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
-
+            Log::error("AuthController::resetPassword - Exception for mobile {$request->mobile}: " . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
@@ -239,16 +220,12 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     * refreshToken
-     *
-     * @return JsonResponse
-     */
     public function refreshToken(): JsonResponse
     {
+        Log::info("AuthController::refreshToken - Attempt by user ID: " . (Auth::check() ? Auth::id() : 'Guest'));
         try {
             $token = $this->authService->refreshToken();
-
+            Log::info("AuthController::refreshToken - Token refreshed successfully for user ID: " . Auth::id());
             return response()->json([
                 'status' => 'success',
                 'message' => 'توکن با موفقیت تازه‌سازی شد.',
@@ -257,30 +234,56 @@ class AuthController extends Controller
                 ]
             ]);
         } catch (\Exception $e) {
+            Log::error("AuthController::refreshToken - Exception for user ID " . (Auth::check() ? Auth::id() : 'Guest') . ": " . $e->getMessage());
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage(),
+                'message' => 'امکان تازه‌سازی توکن وجود ندارد: ' . $e->getMessage(),
                 'data' => null
             ], 401);
         }
     }
 
-    /**
-     *logout
-     *
-     * @return JsonResponse
-     */
     public function logout(): JsonResponse
     {
+        $userId = Auth::check() ? Auth::id() : 'N/A';
+        Log::info("AuthController::logout - Attempt by user ID: {$userId}");
         try {
             $this->authService->logout();
-
+            Log::info("AuthController::logout - User ID: {$userId} logged out successfully.");
             return response()->json([
                 'status' => 'success',
                 'message' => 'خروج با موفقیت انجام شد.',
                 'data' => null
             ]);
         } catch (\Exception $e) {
+            Log::error("AuthController::logout - Exception for user ID {$userId}: " . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'خطا در خروج از حساب کاربری: ' . $e->getMessage(),
+                'data' => null
+            ], 500);
+        }
+    }
+    public function checkUser(CheckUserRequest $request): JsonResponse
+    {
+        $mobile = $request->input('mobile');
+        Log::info("AuthController::checkUser - Request for mobile: {$mobile}");
+
+        try {
+            $result = $this->authService->checkUser($mobile);
+
+            Log::info("AuthController::checkUser - Result for mobile {$mobile}: " . json_encode($result));
+
+            return response()->json([
+                'status' => 'success',
+                'message' => $result['message'],
+                'data' => [
+                    'mobile' => $mobile,
+                    'next_step' => $result['status']
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error("AuthController::checkUser - Exception for mobile {$mobile}: " . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
@@ -288,36 +291,13 @@ class AuthController extends Controller
             ], 500);
         }
     }
-
-    /**
-     * CheckUserRequest
-     *
-     * @param CheckUserRequest $request
-     * @return JsonResponse
-     */
-    public function checkUser(CheckUserRequest $request): JsonResponse
+    public function me(Request $request)
     {
-        try {
-            $result = $this->authService->checkUser($request->mobile);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => $result['message'],
-                'data' => [
-                    'mobile' => $request->mobile,
-                    'user_exists' => $result['exists'],
-                    'has_password' => $result['has_password'],
-                    'next_step' => $result['exists'] ?
-                        ($result['has_password'] ? 'login' : 'verify_otp') :
-                        'register'
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage(),
-                'data' => null
-            ], 400);
-        }
+        $user = $request->user();
+        $user->load('salons', 'smsBalance');
+        return response()->json([
+            'success' => true,
+            'data' => $user
+        ]);
     }
 }

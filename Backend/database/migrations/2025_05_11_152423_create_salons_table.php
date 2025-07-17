@@ -19,6 +19,7 @@ return new class extends Migration
             $table->unsignedBigInteger('business_subcategory_id')->nullable();
             $table->unsignedBigInteger('province_id')->nullable();
             $table->unsignedBigInteger('city_id')->nullable();
+            $table->text('address')->nullable();
             $table->string('image')->nullable();
             $table->integer('credit_score')->default(0);
             $table->date('credit_expiry_date')->nullable();
@@ -30,9 +31,11 @@ return new class extends Migration
             $table->foreign('province_id')->references('id')->on('provinces')->onDelete('set null');
             $table->foreign('city_id')->references('id')->on('cities')->onDelete('set null');
         });
-        
+
         Schema::table('users', function (Blueprint $table) {
-            $table->foreign('active_salon_id')->references('id')->on('salons')->onDelete('set null');
+            if (Schema::hasColumn('users', 'active_salon_id')) {
+                $table->foreign('active_salon_id')->references('id')->on('salons')->onDelete('set null');
+            }
         });
     }
 
@@ -42,9 +45,11 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropForeign(['active_salon_id']);
+            if (collect(DB::select("PRAGMA foreign_key_list(users)"))->pluck('from')->contains('active_salon_id')) {
+                $table->dropForeign(['active_salon_id']);
+            }
         });
-        
+
         Schema::dropIfExists('salons');
     }
 };

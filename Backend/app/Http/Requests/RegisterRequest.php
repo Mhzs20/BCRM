@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class RegisterRequest extends FormRequest
 {
@@ -22,7 +23,13 @@ class RegisterRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'mobile' => 'required|regex:/^09\d{9}$/|unique:users,mobile',
+            'mobile' => [
+                'required',
+                'regex:/^09\d{9}$/',
+                Rule::unique('users', 'mobile')->where(function ($query) {
+                    return $query->whereNotNull('password');
+                })
+            ],
         ];
     }
 

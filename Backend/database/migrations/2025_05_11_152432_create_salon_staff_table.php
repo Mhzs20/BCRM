@@ -10,9 +10,13 @@ class CreateSalonStaffTable extends Migration
     {
         Schema::create('salon_staff', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('salon_id')->constrained('salons')->onDelete('cascade');
+            $table->string('full_name');
             $table->string('specialty')->nullable();
+            $table->enum('gender', ['male', 'female', 'other'])->nullable();
+            $table->string('phone_number')->nullable();
+            $table->text('address')->nullable();
+            $table->string('profile_image')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
