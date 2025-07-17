@@ -85,7 +85,9 @@ Route::middleware('auth:api')->group(function () {
 
             Route::get('appointments/available-slots', [AppointmentController::class, 'getAvailableSlots'])->name('appointments.availableSlots');
             Route::get('appointments/calendar', [AppointmentController::class, 'getCalendarAppointments'])->name('appointments.calendar');
-            Route::apiResource('appointments', AppointmentController::class)->except(['create', 'edit']);
+            Route::get('appointments/monthly-count/{year}/{month}', [AppointmentController::class, 'getMonthlyAppointmentsCount']);
+            Route::get('appointments-by-month/{year}/{month}', [AppointmentController::class, 'getAppointmentsByMonth']);
+             Route::apiResource('appointments', AppointmentController::class)->except(['create', 'edit']);
 
             Route::apiResource('payments', PaymentController::class)->except(['create', 'edit']);
             Route::apiResource('how-introduced', HowIntroducedController::class)->except(['create', 'edit'])->names('howIntroduced');

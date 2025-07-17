@@ -161,11 +161,39 @@ class AuthService
             'city_id' => $data['city_id'],
             'address' => $data['address'],
             'credit_score' => 0,
-
         ];
 
-        if (array_key_exists('business_subcategory_id', $data) && $data['business_subcategory_id'] !== null) {
-            $salonData['business_subcategory_id'] = $data['business_subcategory_id']; // زیردسته سالن
+        $optionalFields = [
+            'business_subcategory_id',
+            'support_phone_number',
+            'bio',
+            'instagram',
+            'telegram',
+            'website',
+            'whatsapp',
+        ];
+
+        foreach ($optionalFields as $field) {
+            if (array_key_exists($field, $data) && $data[$field] !== null) {
+                // Map latitude to lat and longitude to lang for the Salon model
+                if ($field === 'latitude') {
+                    $salonData['lat'] = $data[$field];
+                } elseif ($field === 'longitude') {
+                    $salonData['lang'] = $data[$field];
+                } else {
+                    $salonData[$field] = $data[$field];
+                }
+            }
+        }
+
+        if (isset($data['image']) && $data['image'] instanceof UploadedFile) {
+            try {
+                $salonImagePath = $data['image']->store('salon_images', 'public');
+                $salonData['image'] = $salonImagePath;
+                Log::info("AuthService::completeProfile - Stored new salon image for user ID: {$user->id}, path: {$salonImagePath}");
+            } catch (\Exception $e) {
+                Log::error("AuthService::completeProfile - Failed to store salon image for user ID: {$user->id}. Error: " . $e->getMessage());
+            }
         }
 
         $salon = Salon::create($salonData);

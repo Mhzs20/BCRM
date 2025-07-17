@@ -15,14 +15,26 @@ class UpdateSalonRequest extends FormRequest
 
     public function rules(): array
     {
+        $salon = $this->route('salon');
+        $provinceId = $this->input('province_id', $salon->province_id);
+
         return [
             'name'                      => 'sometimes|string|min:3|max:255',
             'business_category_id'      => 'sometimes|integer|exists:business_categories,id',
+            'business_subcategory_id'   => 'sometimes|nullable|integer|exists:business_subcategories,id',
             'province_id'               => 'sometimes|integer|exists:provinces,id',
-            'city_id'                   => ['sometimes', 'integer', Rule::exists('cities', 'id')->where('province_id', $this->input('province_id'))],
+            'city_id'                   => ['sometimes', 'integer', Rule::exists('cities', 'id')->where('province_id', $provinceId)],
             'address'                   => 'sometimes|string|max:1000',
             'image'                     => 'sometimes|nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'remove_image'              => 'sometimes|boolean',
+            'instagram'                 => 'sometimes|nullable|string|max:255',
+            'telegram'                  => 'sometimes|nullable|string|max:255',
+            'website'                   => 'sometimes|nullable|string|max:255',
+            'latitude'                  => 'sometimes|nullable|numeric|between:-90,90',
+            'longitude'                 => 'sometimes|nullable|numeric|between:-180,180',
+            'support_phone_number'      => 'sometimes|nullable|string|max:20',
+            'bio'                       => 'sometimes|nullable|string|max:1000',
+            'whatsapp'                  => 'sometimes|nullable|string|max:255',
         ];
     }
 

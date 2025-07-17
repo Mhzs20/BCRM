@@ -23,6 +23,14 @@ class StoreSalonRequest extends FormRequest
             'city_id'                   => ['required', 'integer', Rule::exists('cities', 'id')->where('province_id', $this->input('province_id'))],
             'address'                   => 'required|string|max:1000',
             'image'                     => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'instagram'                 => 'nullable|string|max:255',
+            'telegram'                  => 'nullable|string|max:255',
+            'website'                   => 'nullable|string|max:255',
+            'latitude'                  => 'nullable|numeric|between:-90,90',
+            'longitude'                 => 'nullable|numeric|between:-180,180',
+            'support_phone_number'      => 'nullable|string|max:20',
+            'bio'                       => 'nullable|string|max:1000',
+            'whatsapp'                  => 'nullable|string|max:255',
         ];
     }
 

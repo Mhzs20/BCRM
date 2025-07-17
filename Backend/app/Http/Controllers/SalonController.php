@@ -89,6 +89,16 @@ class SalonController extends Controller
 
             unset($validatedData['remove_image']);
 
+            if (isset($validatedData['latitude'])) {
+                $validatedData['lat'] = $validatedData['latitude'];
+                unset($validatedData['latitude']);
+            }
+
+            if (isset($validatedData['longitude'])) {
+                $validatedData['lang'] = $validatedData['longitude'];
+                unset($validatedData['longitude']);
+            }
+
             $salon->update($validatedData);
 
             return response()->json([

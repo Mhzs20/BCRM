@@ -71,6 +71,7 @@ class SmsService
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         
         $response = curl_exec($ch);
         $curlError = curl_error($ch);
@@ -85,9 +86,9 @@ class SmsService
 
         if (isset($res['return']['status']) && $res['return']['status'] === 200) {
             Log::info("Kavenegar SMS sent successfully via cURL to {$receptor}. Response: " . $response);
-            return $res['entries'];
+            return $res['entries'] ?? null;
         } else {
-            Log::error("Kavenegar SMS sending failed for {$receptor}. API Error: " . $response);
+            Log::error("Kavenegar SMS sending failed for {$receptor}. Full API Response: " . $response);
             return null;
         }
     }
@@ -312,7 +313,7 @@ class SmsService
     {
         switch ($eventType) {
             case 'appointment_confirmation':
-                return "مشتری گرامی {customer_name}، نوبت شما در سالن {salon_name} برای تاریخ {appointment_date} ساعت {appointment_time} ثبت شد.";
+                return "مشتری گرامی {customer_name}، نوبت شما در سالن {salon_name} برای تاریخ {appointment_date} ساعت {appointment_time} ثبت شد. برای مشاهده جزئیات نوبت خود، روی لینک زیر کلیک کنید:\n{details_url}";
             case 'appointment_reminder':
                 return "یادآوری نوبت:\nمشتری گرامی {customer_name}، فردا ({appointment_date}) ساعت {appointment_time} در سالن {salon_name} منتظر شما هستیم.";
             case 'appointment_cancellation':
@@ -360,16 +361,17 @@ class SmsService
     // public function sendOtp(...) { ... }
     // public function sendCustomMessage(...) { ... }
 
-    public function sendAppointmentConfirmation(Customer $customer, Appointment $appointment, Salon $salon)
+    public function sendAppointmentConfirmation(Customer $customer, Appointment $appointment, Salon $salon, ?string $detailsUrl = null)
     {
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
             'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->appointment_date))->format('Y/m/d'),
-            'appointment_time' => $appointment->start_time, // Use start_time directly
+            'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'),
             'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
             'services_list' => $appointment->services->pluck('name')->implode('، '),
             'appointment_cost' => number_format($appointment->total_price ?: 0) . ' تومان',
+            'details_url' => $detailsUrl, // Add the URL to the template data
         ];
         return $this->sendMessageUsingTemplate(
             $salon,

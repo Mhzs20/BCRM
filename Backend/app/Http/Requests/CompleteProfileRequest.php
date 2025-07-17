@@ -26,13 +26,22 @@ class CompleteProfileRequest extends FormRequest
         return [
             'name' => 'required|string|max:255',
             'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'image' => 'nullable|image|max:2048',
+            'avatar' => 'nullable|image|max:2048', // Changed from 'image'
             'business_name' => 'required|string|max:255',
             'business_category_id' => 'required|exists:business_categories,id',
             'business_subcategory_id' => 'nullable|exists:business_subcategories,id',
             'province_id' => 'required|exists:provinces,id',
             'city_id' => 'required|exists:cities,id',
             'address' => 'required|string|max:1000',
+            'support_phone_number'      => 'nullable|string|max:20',
+            'bio'                       => 'nullable|string|max:1000',
+            'instagram'                 => 'nullable|string|max:255',
+            'telegram'                  => 'nullable|string|max:255',
+            'website'                   => 'nullable|string|max:255',
+            'latitude'                  => 'nullable|numeric|between:-90,90',
+            'longitude'                 => 'nullable|numeric|between:-180,180',
+            'image'                     => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048', // Changed from 'salon_image'
+            'whatsapp'                  => 'nullable|string|max:255',
         ];
     }
 
@@ -68,12 +77,5 @@ class CompleteProfileRequest extends FormRequest
      *
      * @return void
      */
-    protected function prepareForValidation()
-    {
-        if ($this->hasFile('image')) {
-            $this->merge([
-                'avatar' => $this->file('image'),
-            ]);
-        }
-    }
+    // The prepareForValidation method is no longer needed as we use 'avatar' directly.
 }
