@@ -4,7 +4,9 @@ namespace App\Observers;
 
 use App\Models\Appointment;
 use App\Jobs\SendSatisfactionSurveySms;
+use App\Services\SmsService;
 use Illuminate\Support\Facades\Log;
+use Hashids\Hashids;
 
 class AppointmentObserver
 {
@@ -31,7 +33,22 @@ class AppointmentObserver
      */
     public function created(Appointment $appointment): void
     {
-        //
+        // Generate a unique hash for the appointment
+        $hashids = new Hashids(env('HASHIDS_SALT', 'your-default-salt'), 8);
+        $hash = $hashids->encode($appointment->id);
+        $appointment->hash = $hash;
+        $appointment->save();
+
+        if ($appointment->customer && $appointment->salon) {
+            try {
+                $smsService = new SmsService();
+                $detailsUrl = route('appointments.show.hash', ['hash' => $appointment->hash]);
+                $smsService->sendAppointmentConfirmation($appointment->customer, $appointment, $appointment->salon, $detailsUrl);
+                Log::info("Dispatched appointment confirmation SMS for appointment {$appointment->id}.");
+            } catch (\Exception $e) {
+                Log::error("Failed to send appointment confirmation SMS for appointment {$appointment->id}: " . $e->getMessage());
+            }
+        }
     }
 
     /**

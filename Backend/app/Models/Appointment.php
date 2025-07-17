@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Morilog\Jalali\Jalalian;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class Appointment extends Model
 {
@@ -81,5 +82,19 @@ class Appointment extends Model
             return Jalalian::fromCarbon($dateToConvert)->format('Y/m/d');
         }
         return null;
+    }
+
+    // Scopes
+    public function scopeMonthlyCount($query, $year, $month)
+    {
+        // Convert Jalali year and month to Gregorian start and end dates for the month
+        $jalaliStartDate = Jalalian::fromFormat('Y-m-d', "$year-$month-01");
+        $startDate = $jalaliStartDate->toCarbon()->startOfDay();
+        $endDate = $jalaliStartDate->toCarbon()->endOfMonth()->endOfDay();
+
+        return $query->whereBetween('appointment_date', [$startDate, $endDate])
+                     ->select(DB::raw('appointment_date, COUNT(*) as count'))
+                     ->groupBy('appointment_date')
+                     ->orderBy('appointment_date');
     }
 }
