@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\SmsPackage;
+use App\Models\SmsTransaction;
 use App\Http\Requests\UpdateSmsPackageRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -119,5 +120,46 @@ class SmsPackageController extends Controller
             Log::error('SmsPackage destroy failed: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در حذف بسته پیامک.'], 500);
         }
+    }
+
+    public function getSmsBalance()
+    {
+        $user = Auth::user()->load('activeSalon');
+        $salon = $user->activeSalon;
+
+        if (!$salon) {
+            return response()->json(['message' => 'سالن فعالی انتخاب نشده است.'], 404);
+        }
+
+        $activePackage = SmsTransaction::where('salon_id', $salon->id)
+            ->where('is_active', true)
+            ->with('smsPackage')
+            ->first();
+
+        return response()->json([
+            'sms_balance' => $salon->sms_balance,
+            'active_package' => $activePackage ? $activePackage->smsPackage : null,
+        ]);
+    }
+
+    public function getSmsStatistics()
+    {
+        $user = Auth::user()->load('activeSalon');
+        $salon = $user->activeSalon;
+
+        if (!$salon) {
+            return response()->json(['message' => 'سالن فعالی انتخاب نشده است.'], 404);
+        }
+
+        $smsBalance = $salon->sms_balance;
+
+        $dailyConsumption = SmsTransaction::where('salon_id', $salon->id)
+            ->where('created_at', '>=', now()->subDays(30))
+            ->count() / 30;
+
+        return response()->json([
+            'sms_balance' => $smsBalance,
+            'daily_consumption' => round($dailyConsumption, 2),
+        ]);
     }
 }

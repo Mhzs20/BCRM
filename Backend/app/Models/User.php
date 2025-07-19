@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Tymon\JWTAuth\Contracts\JWTSubject; // برای JWT
+use Hekmatinasser\Verta\Verta;
+use Illuminate\Support\Facades\Log;
 
 class User extends Authenticatable implements JWTSubject
 {
@@ -30,6 +32,8 @@ class User extends Authenticatable implements JWTSubject
         'active_salon_id',
         'is_verified',
         'profile_completed',
+        'gender',
+        'date_of_birth',
     ];
     /**
      * The attributes that should be hidden for serialization.
@@ -41,6 +45,13 @@ class User extends Authenticatable implements JWTSubject
         'otp_code',
         'remember_token',
     ];
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = []; // Ensure no appended attributes
 
     /**
      * The attributes that should be cast.
@@ -56,6 +67,7 @@ class User extends Authenticatable implements JWTSubject
         'active_salon_id' => 'integer',
         'business_category_id' => 'integer',
         'business_subcategory_id' => 'integer',
+        // Do NOT cast date_of_birth here, let the accessor handle it
     ];
 
     /**
@@ -111,6 +123,11 @@ class User extends Authenticatable implements JWTSubject
         return $this->belongsTo(Salon::class, 'active_salon_id');
     }
 
+    public function salon()
+    {
+        return $this->hasOne(Salon::class, 'user_id');
+    }
+
     /**
      * Get the SMS balance for the user.
      */
@@ -133,4 +150,23 @@ class User extends Authenticatable implements JWTSubject
         return false;
     }
 
+    /**
+     * Get the user's date of birth in Jalali format.
+     *
+     * @param  string|null  $value
+     * @return string|null
+     */
+    public function getDateOfBirthAttribute(?string $value): ?string
+    {
+        if ($value) {
+            try {
+                // Parse the Gregorian date from DB and format it as Jalali
+                return Verta::parse($value)->format('Y-m-d');
+            } catch (\Exception $e) {
+                Log::warning("User model: Could not convert date_of_birth '{$value}' to Jalali: " . $e->getMessage());
+                return null; // Return null if conversion fails
+            }
+        }
+        return null;
+    }
 }

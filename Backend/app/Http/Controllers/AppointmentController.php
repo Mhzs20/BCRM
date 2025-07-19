@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\AppointmentResource;
 use App\Models\Appointment;
 use App\Models\Customer;
 use App\Models\Salon;
@@ -24,7 +25,7 @@ use Illuminate\Support\Str;
 use Hashids\Hashids;
 use Illuminate\Pagination\LengthAwarePaginator; // <-- این خط اضافه می‌شود
 use Illuminate\Support\Facades\Validator;
-
+use Morilog\Jalali\JalaliException; 
 
 class AppointmentController extends Controller
 {
@@ -119,10 +120,16 @@ class AppointmentController extends Controller
             
             DB::commit();
 
+            $smsResult = $this->smsService->sendAppointmentConfirmation($customer, $appointment, $appointment->salon);
+            
+            $message = 'نوبت با موفقیت ثبت شد.';
+            if (isset($smsResult['status']) && $smsResult['status'] === 'error') {
+                $message .= ' اما پیامک ارسال نشد: ' . $smsResult['message'];
+            }
 
             $appointment->load(['customer', 'staff', 'services']);
 
-            return response()->json(['message' => 'نوبت با موفقیت ثبت شد.', 'data' => $appointment], 201);
+            return response()->json(['message' => $message, 'data' => $appointment], 201);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
             Log::error('خطا در ثبت نوبت - مدل یافت نشد: ' . $e->getMessage());
@@ -204,8 +211,8 @@ class AppointmentController extends Controller
         $smsResult = $this->smsService->sendAppointmentModification($appointment->customer, $appointment, $salon);
         
         $message = 'نوبت با موفقیت به‌روزرسانی شد.';
-        if ($smsResult === 'insufficient_balance') {
-            $message .= ' اما پیامک ارسال نشد چون اعتبار شما کافی نیست.';
+        if (isset($smsResult['status']) && $smsResult['status'] === 'error') {
+            $message .= ' اما پیامک ارسال نشد: ' . $smsResult['message'];
         }
 
         $appointment->refresh()->load(['customer', 'staff', 'services']);
@@ -232,8 +239,8 @@ class AppointmentController extends Controller
         $appointment->delete();
 
         $message = 'نوبت با موفقیت حذف شد.';
-        if ($smsResult === 'insufficient_balance') {
-            $message .= ' اما پیامک لغو نوبت ارسال نشد چون اعتبار شما کافی نیست.';
+        if (isset($smsResult['status']) && $smsResult['status'] === 'error') {
+            $message .= ' اما پیامک لغو نوبت ارسال نشد: ' . $smsResult['message'];
         }
 
         return response()->json(['message' => $message], 200);
@@ -407,4 +414,69 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month) // پار�
         }
     }
 
+    /**
+     * دریافت لیست کامل نوبت‌ها از یک روز مشخص تا همان روز در ماه بعدی.
+     * مسیر پیشنهادی: GET /api/salons/{salon_id}/appointments-by-month/{year}/{month}/{day}
+     *
+     * @param Request $request
+     * @param int $salon_id
+     * @param int $year سال شمسی
+     * @param int $month ماه شمسی
+     * @param int $day روز شمسی
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getAppointments(Request $request, $salon_id)
+    {
+        // ولیدیشن پارامترهای ورودی از کوئری استرینگ
+        $validator = Validator::make($request->all(), [
+            'start_date' => 'sometimes|required|date_format:Y-m-d',
+            'end_date' => 'sometimes|required|date_format:Y-m-d|after_or_equal:start_date',
+            'status' => 'sometimes|required|string',
+            'staff_id' => 'sometimes|required|integer|exists:staff,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'پارامترهای ارسالی نامعتبر است.', 'errors' => $validator->errors()], 422);
+        }
+
+        try {
+            $query = Appointment::where('salon_id', $salon_id);
+
+            // اعمال فیلتر تاریخ شروع به صورت داینامیک
+            if ($request->has('start_date')) {
+                $gregorianStartDate = Jalalian::fromFormat('Y-m-d', $request->input('start_date'))->toCarbon()->startOfDay();
+                $query->where('appointment_date', '>=', $gregorianStartDate);
+            }
+
+            // اعمال فیلتر تاریخ پایان به صورت داینامیک
+            if ($request->has('end_date')) {
+                $gregorianEndDate = Jalalian::fromFormat('Y-m-d', $request->input('end_date'))->toCarbon()->endOfDay();
+                $query->where('appointment_date', '<=', $gregorianEndDate);
+            }
+
+            // اعمال فیلتر وضعیت
+            if ($request->has('status')) {
+                $query->where('status', $request->input('status'));
+            }
+
+            // اعمال فیلتر آرایشگر
+            if ($request->has('staff_id')) {
+                $query->where('staff_id', $request->input('staff_id'));
+            }
+
+            $appointments = $query
+                ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services'])
+                ->orderBy('appointment_date', 'desc')
+                ->orderBy('start_time', 'desc')
+                ->paginate($request->input('per_page', 15));
+
+            // ✅ 2. بلوک through() به طور کامل حذف شده است
+            // ✅ 3. از ریسورس برای بازگرداندن پاسخ استفاده می‌شود
+            return AppointmentResource::collection($appointments);
+
+        } catch (\Exception $e) {
+            Log::error('Error in getAppointments:', ['error' => $e]);
+            return response()->json(['message' => 'خطا در دریافت نوبت‌ها.', 'error' => $e->getMessage()], 500);
+        }
+    }
 }

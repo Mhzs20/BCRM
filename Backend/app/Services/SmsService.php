@@ -215,7 +215,7 @@ class SmsService
         array $dataForTemplate,
         ?int $customerId = null,
         ?int $appointmentId = null
-    ): bool {
+    ): array {
         $smsTemplate = $salon->getSmsTemplate($eventType);
 
         $templateText = null;
@@ -232,20 +232,14 @@ class SmsService
 
         if (empty(trim($message))) {
             Log::warning("Compiled message for event '{$eventType}' for Salon ID {$salon->id} is empty. SMS to {$receptor} not sent.");
-            return true;
+            return ['status' => 'success', 'message' => 'پیام خالی است و ارسال نشد.'];
         }
 
         // Re-introducing the balance check as per user request.
-        $userSmsBalance = UserSmsBalance::firstOrCreate(
-            ['user_id' => $salonOwner->id],
-            ['balance' => 0]
-        );
-
         $smsCount = $this->calculateSmsCount($message);
-        if ($userSmsBalance->balance < $smsCount) {
-            Log::warning("User ID {$salonOwner->id} (Salon: {$salon->id}) has insufficient SMS balance to send '{$eventType}' to {$receptor}. Balance: {$userSmsBalance->balance}, Required: {$smsCount}");
-            // Return a specific indicator for insufficient balance.
-            return 'insufficient_balance';
+        if ($salon->sms_balance < $smsCount) {
+            Log::warning("User ID {$salonOwner->id} (Salon: {$salon->id}) has insufficient SMS balance to send '{$eventType}' to {$receptor}. Balance: {$salon->sms_balance}, Required: {$smsCount}");
+            return ['status' => 'error', 'message' => 'اعتبار پیامک کافی نیست.'];
         }
 
         try {
@@ -254,7 +248,7 @@ class SmsService
 
             if ($smsEntries && !empty($smsEntries)) {
                 // Deduct balance only if SMS was actually sent
-                $userSmsBalance->decrement('balance', $smsCount);
+                $salon->decrement('sms_balance', $smsCount);
                 $firstEntry = $smsEntries[0]; // Kavenegar returns an array of entries
                 $messageId = $firstEntry['messageid'] ?? null;
                 $kavenegarStatus = $firstEntry['status'] ?? null;
@@ -277,17 +271,17 @@ class SmsService
                 }
 
                 $this->logTransaction($salonOwner->id, $receptor, $message, $internalStatus, $eventType, $salon->id, $customerId, $appointmentId, json_encode($smsEntries));
-                return true;
+                return ['status' => 'success', 'message' => 'پیامک با موفقیت ارسال شد.'];
             } else {
                 Log::error("Kavenegar sendSms returned no entries or failed for '{$eventType}' to {$receptor}.");
                 $this->logTransaction($salonOwner->id, $receptor, $message, 'failed', $eventType, $salon->id, $customerId, $appointmentId, 'Kavenegar API call failed or returned empty.');
-                return false;
+                return ['status' => 'error', 'message' => 'خطا در ارسال پیامک.'];
             }
 
         } catch (\Exception $e) {
             Log::error("SMS ('{$eventType}') sending critical exception to {$receptor} for Salon ID {$salon->id}: " . $e->getMessage());
             $this->logTransaction($salonOwner->id, $receptor, $message, 'error', $eventType, $salon->id, $customerId, $appointmentId, $e->getMessage());
-            return false;
+            return ['status' => 'error', 'message' => 'خطای سیستمی در ارسال پیامک.'];
         }
     }
 
