@@ -39,6 +39,7 @@ Route::prefix('auth')->group(function () {
     Route::post('refresh', [AuthController::class, 'refreshToken'])->middleware('auth:api')->name('auth.refresh');
     Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:api')->name('auth.logout');
     Route::get('me', [AuthController::class, 'me'])->middleware('auth:api')->name('auth.me');
+    Route::put('me', [AuthController::class, 'updateProfile'])->middleware('auth:api')->name('auth.update');
 });
 
 Route::prefix('general')->name('general.')->group(function() {
@@ -53,6 +54,8 @@ Route::prefix('general')->name('general.')->group(function() {
 
 
 Route::middleware('auth:api')->group(function () {
+    Route::get('sms-balance', [SmsPackageController::class, 'getSmsBalance']);
+    Route::get('sms-statistics', [SmsPackageController::class, 'getSmsStatistics']);
 
     Route::get('/user', function (Request $request) {
         return $request->user();
@@ -85,8 +88,15 @@ Route::middleware('auth:api')->group(function () {
 
             Route::get('appointments/available-slots', [AppointmentController::class, 'getAvailableSlots'])->name('appointments.availableSlots');
             Route::get('appointments/calendar', [AppointmentController::class, 'getCalendarAppointments'])->name('appointments.calendar');
-            Route::get('appointments/monthly-count/{year}/{month}', [AppointmentController::class, 'getMonthlyAppointmentsCount']);
-            Route::get('appointments-by-month/{year}/{month}', [AppointmentController::class, 'getAppointmentsByMonth']);
+// ✅ روت خاص‌تر (با روز) باید اول تعریف شود
+            Route::get('appointments-by-month/{year}/{month}/{day}', [AppointmentController::class, 'getAppointmentsByMonthAndDay'])
+                ->whereNumber('year')->whereNumber('month')->whereNumber('day');
+
+            Route::get('appointments-by-month/{year}/{month}', [AppointmentController::class, 'getAppointmentsByMonth'])
+                ->whereNumber('year')->whereNumber('month');
+
+            Route::get('appointments', [AppointmentController::class, 'getAppointments']);
+
              Route::apiResource('appointments', AppointmentController::class)->except(['create', 'edit']);
 
             Route::apiResource('payments', PaymentController::class)->except(['create', 'edit']);

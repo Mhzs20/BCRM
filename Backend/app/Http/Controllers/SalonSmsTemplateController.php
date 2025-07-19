@@ -38,8 +38,7 @@ class SalonSmsTemplateController extends Controller
 
         foreach (self::ALLOWED_EVENT_TYPES as $eventType) {
             $templateModel = $existingTemplatesCollection->get($eventType);
-            $templates[] = [
-                'event_type' => $eventType,
+            $templates[$eventType] = [
                 'template' => $templateModel ? $templateModel->template : $this->getDefaultTemplateTextForEventType($eventType),
                 'is_active' => $templateModel ? $templateModel->is_active : true,
                 'description' => $this->getEventTypeDescription($eventType)
@@ -61,18 +60,21 @@ class SalonSmsTemplateController extends Controller
 
         $validated = $request->validate([
             'templates' => 'required|array',
-            'templates.*.event_type' => ['required', 'string', Rule::in(self::ALLOWED_EVENT_TYPES)],
             'templates.*.template' => 'required|string|max:1000',
             'templates.*.is_active' => 'required|boolean',
         ]);
 
         DB::beginTransaction();
         try {
-            foreach ($validated['templates'] as $templateData) {
+            foreach ($validated['templates'] as $eventType => $templateData) {
+                if (!in_array($eventType, self::ALLOWED_EVENT_TYPES)) {
+                    continue;
+                }
+
                 SalonSmsTemplate::updateOrCreate(
                     [
                         'salon_id' => $salon->id,
-                        'event_type' => $templateData['event_type'],
+                        'event_type' => $eventType,
                     ],
                     [
                         'template' => $templateData['template'],
