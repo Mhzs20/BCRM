@@ -8,8 +8,10 @@ use App\Http\Requests\ForgotPasswordRequest;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\ResetPasswordRequest;
+use App\Http\Requests\UpdateProfileRequest;
 use App\Http\Requests\VerifyOtpRequest;
 use App\Services\AuthService;
+use Illuminate\Support\Facades\Hash;
 use App\Services\SmsService;
 use App\Models\User;
 use App\Models\UserSmsBalance;
@@ -17,6 +19,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Hekmatinasser\Verta\Verta;
 class AuthController extends Controller
 {
     protected AuthService $authService;
@@ -294,10 +298,104 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         $user = $request->user();
-        $user->load('salons', 'smsBalance');
+        $user->load([
+            'salons',
+            'smsBalance',
+            'activeSalon.province',
+            'activeSalon.city',
+            'activeSalon.businessCategory',
+            'activeSalon.businessSubcategory'
+        ]);
+
         return response()->json([
             'success' => true,
-            'data' => $user
+            'data' => $user->toArray()
         ]);
+    }
+
+    public function updateProfile(UpdateProfileRequest $request): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+
+            /** @var \App\Models\User $user */
+            $user = Auth::user();
+            $salon = $user->activeSalon;
+
+            $validatedData = $request->validated();
+            $userData = $validatedData['user'] ?? [];
+            $salonData = $validatedData['salon'] ?? [];
+
+            // Update User
+            if (!empty($userData)) {
+                if (isset($userData['new_password'])) {
+                    if (!isset($userData['current_password']) || !Hash::check($userData['current_password'], $user->password)) {
+                        return response()->json(['status' => 'error', 'message' => 'رمز عبور فعلی صحیح نیست.'], 422);
+                    }
+                    $userData['password'] = Hash::make($userData['new_password']);
+                }
+                // Unset password confirmation fields
+                unset($userData['current_password'], $userData['new_password'], $userData['new_password_confirmation']);
+
+                // Convert Jalali date_of_birth to Gregorian if present
+                if (isset($userData['date_of_birth'])) {
+                    try {
+                        $v = Verta::parse($userData['date_of_birth']);
+                        $userData['date_of_birth'] = $v->toCarbon()->format('Y-m-d');
+                    } catch (\Exception $e) {
+                        Log::error("AuthController::updateProfile - Invalid Jalali date_of_birth for user ID " . Auth::id() . ": " . $e->getMessage());
+                        return response()->json(['status' => 'error', 'message' => 'فرمت تاریخ تولد شمسی معتبر نیست.'], 422);
+                    }
+                }
+
+                $user->update($userData);
+            }
+
+            // Update Salon
+            if ($salon && !empty($salonData)) {
+                if ($request->hasFile('salon.image')) {
+                    if ($salon->image) {
+                        Storage::disk('public')->delete($salon->getRawOriginal('image'));
+                    }
+                    $imagePath = $request->file('salon.image')->store('salon_images', 'public');
+                    $salonData['image'] = $imagePath;
+                }
+
+                if ($request->boolean('salon.remove_image')) {
+                    if ($salon->image) {
+                        Storage::disk('public')->delete($salon->getRawOriginal('image'));
+                        $salonData['image'] = null;
+                    }
+                }
+                unset($salonData['remove_image']);
+
+                if (isset($salonData['latitude'])) {
+                    $salonData['lat'] = $salonData['latitude'];
+                    unset($salonData['latitude']);
+                }
+                if (isset($salonData['longitude'])) {
+                    $salonData['lang'] = $salonData['longitude'];
+                    unset($salonData['longitude']);
+                }
+
+                $salon->update($salonData);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'پروفایل با موفقیت به‌روزرسانی شد.',
+                'data' => $user->load('salons', 'smsBalance', 'activeSalon.province', 'activeSalon.city', 'activeSalon.businessCategory', 'activeSalon.businessSubcategory')
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("AuthController::updateProfile - Exception for user ID " . Auth::id() . ": " . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'خطا در به‌روزرسانی پروفایل: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }
