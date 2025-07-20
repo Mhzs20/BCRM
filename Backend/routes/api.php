@@ -40,6 +40,7 @@ Route::prefix('auth')->group(function () {
     Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:api')->name('auth.logout');
     Route::get('me', [AuthController::class, 'me'])->middleware('auth:api')->name('auth.me');
     Route::put('me', [AuthController::class, 'updateProfile'])->middleware('auth:api')->name('auth.update');
+    Route::post('change-password', [AuthController::class, 'changePassword'])->middleware('auth:api')->name('auth.change_password');
 });
 
 Route::prefix('general')->name('general.')->group(function() {

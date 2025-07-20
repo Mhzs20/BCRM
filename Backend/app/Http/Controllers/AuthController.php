@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Http\Requests\CheckUserRequest;
+use App\Http\Requests\ChangePasswordRequest;
 use App\Http\Requests\CompleteProfileRequest;
 use App\Http\Requests\ForgotPasswordRequest;
 use App\Http\Requests\LoginRequest;
@@ -307,6 +308,16 @@ class AuthController extends Controller
             'activeSalon.businessSubcategory'
         ]);
 
+        // Eager load counts for the active salon if it exists
+        if ($user->activeSalon) {
+            $user->activeSalon->loadCount(['customers', 'appointments']);
+        }
+
+        // Also load counts for all salons
+        $user->salons->each(function ($salon) {
+            $salon->loadCount(['customers', 'appointments']);
+        });
+
         return response()->json([
             'success' => true,
             'data' => $user->toArray()
@@ -395,6 +406,30 @@ class AuthController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'خطا در به‌روزرسانی پروفایل: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    {
+        try {
+            /** @var \App\Models\User $user */
+            $user = Auth::user();
+
+            $user->password = Hash::make($request->new_password);
+            $user->save();
+
+            Log::info("AuthController::changePassword - Password changed successfully for user ID: {$user->id}");
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'رمز عبور با موفقیت تغییر کرد.',
+            ]);
+        } catch (\Exception $e) {
+            Log::error("AuthController::changePassword - Exception for user ID " . Auth::id() . ": " . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'خطا در تغییر رمز عبور: ' . $e->getMessage(),
             ], 500);
         }
     }
