@@ -42,7 +42,7 @@ class UpdateAppointmentRequest extends FormRequest
             'is_walk_in' => ['sometimes', 'boolean'],
             'deposit_amount' => ['sometimes', 'numeric', 'min:0'],
             'deposit_payment_method' => ['sometimes', 'string', Rule::in(['cash', 'card', 'online', 'other'])],
-            'reminder_time' => ['sometimes', 'integer', Rule::in([2, 4, 6, 8])],
+            'reminder_time' => ['sometimes', 'integer', Rule::in([2, 4, 6, 8, 12, 24, 48])],
             'send_reminder_sms' => ['sometimes', 'boolean'],
             'send_satisfaction_sms' => ['sometimes', 'boolean'],
             'total_price' => ['sometimes', 'numeric', 'min:0'],

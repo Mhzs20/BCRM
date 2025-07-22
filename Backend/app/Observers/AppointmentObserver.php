@@ -37,7 +37,7 @@ class AppointmentObserver
         $hashids = new Hashids(env('HASHIDS_SALT', 'your-default-salt'), 8);
         $hash = $hashids->encode($appointment->id);
         $appointment->hash = $hash;
-        $appointment->save();
+        $appointment->saveQuietly();
 
         if ($appointment->customer && $appointment->salon) {
             try {
