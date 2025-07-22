@@ -355,7 +355,7 @@ class SmsService
     // public function sendOtp(...) { ... }
     // public function sendCustomMessage(...) { ... }
 
-    public function sendAppointmentConfirmation(Customer $customer, Appointment $appointment, Salon $salon, ?string $detailsUrl = null)
+    public function sendAppointmentConfirmation(Customer $customer, Appointment $appointment, Salon $salon, ?string $detailsUrl = null): array
     {
         $dataForTemplate = [
             'customer_name' => $customer->name,
@@ -378,13 +378,13 @@ class SmsService
         );
     }
 
-    public function sendAppointmentModification(Customer $customer, Appointment $appointment, Salon $salon)
+    public function sendAppointmentModification(Customer $customer, Appointment $appointment, Salon $salon): array
     {
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
             'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->appointment_date))->format('Y/m/d'),
-            'appointment_time' => $appointment->start_time, // Use start_time directly
+            'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'), // Correctly format the time
             'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
             'services_list' => $appointment->services->pluck('name')->implode('، '),
         ];
@@ -399,13 +399,13 @@ class SmsService
         );
     }
 
-    public function sendAppointmentCancellation(Customer $customer, Appointment $appointment, Salon $salon)
+    public function sendAppointmentCancellation(Customer $customer, Appointment $appointment, Salon $salon): array
     {
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
             'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->appointment_date))->format('Y/m/d'),
-            'appointment_time' => $appointment->start_time, // Use start_time directly
+            'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'),
         ];
         return $this->sendMessageUsingTemplate(
             $salon,
@@ -418,13 +418,13 @@ class SmsService
         );
     }
 
-    public function sendAppointmentReminder(Customer $customer, Appointment $appointment, Salon $salon): bool
+    public function sendAppointmentReminder(Customer $customer, Appointment $appointment, Salon $salon): array
     {
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
             'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->appointment_date))->format('Y/m/d'),
-            'appointment_time' => $appointment->start_time, // Use start_time directly
+            'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'),
             'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
         ];
         return $this->sendMessageUsingTemplate(
@@ -438,7 +438,7 @@ class SmsService
         );
     }
 
-    public function sendBirthdayGreeting(Customer $customer, Salon $salon): bool
+    public function sendBirthdayGreeting(Customer $customer, Salon $salon): array
     {
         $dataForTemplate = [
             'customer_name' => $customer->name,
@@ -454,13 +454,13 @@ class SmsService
         );
     }
 
-    public function sendSatisfactionSurvey(Customer $customer, Appointment $appointment, Salon $salon): bool
+    public function sendSatisfactionSurvey(Customer $customer, Appointment $appointment, Salon $salon): array
     {
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
             'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->appointment_date))->format('Y/m/d'),
-            'appointment_time' => $appointment->start_time,
+            'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'),
             // Add survey link here if available
         ];
         return $this->sendMessageUsingTemplate(
