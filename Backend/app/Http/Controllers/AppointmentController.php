@@ -153,77 +153,75 @@ class AppointmentController extends Controller
     }
 
     public function update(UpdateAppointmentRequest $request, Salon $salon, Appointment $appointment)
-{
-    if ($appointment->salon_id != $salon->id) {
-        return response()->json(['message' => 'نوبت یافت نشد.'], 404);
-    }
+    {
+        if ($appointment->salon_id != $salon->id) {
+            return response()->json(['message' => 'نوبت یافت نشد.'], 404);
+        }
 
-    $validatedData = $request->validated();
-    $recalculationFields = ['service_ids', 'staff_id', 'appointment_date', 'start_time', 'total_price'];
-    $needsRecalculation = !empty(array_intersect(array_keys($validatedData), $recalculationFields));
+        $validatedData = $request->validated();
 
-    DB::beginTransaction();
+        // Always convert Jalali date to Gregorian before any processing
+        if (isset($validatedData['appointment_date'])) {
+            $validatedData['appointment_date'] = Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validatedData['appointment_date']))
+                ->toCarbon()
+                ->format('Y-m-d');
+        }
 
-    try {
-        if ($needsRecalculation) {
-            $newServiceIds = $validatedData['service_ids'] ?? $appointment->services->pluck('id')->toArray();
-            $newStaffId = $validatedData['staff_id'] ?? $appointment->staff_id;
+        $recalculationFields = ['service_ids', 'staff_id', 'appointment_date', 'start_time'];
+        $needsRecalculation = !empty(array_intersect(array_keys($request->validated()), $recalculationFields));
 
-            $newDate = isset($validatedData['appointment_date'])
-                ? Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validatedData['appointment_date']))->toCarbon()->format('Y-m-d')
-                : $appointment->appointment_date->format('Y-m-d');
+        DB::beginTransaction();
 
-            $newStartTime = $validatedData['start_time'] ?? Carbon::parse($appointment->start_time)->format('H:i');
+        try {
+            if ($needsRecalculation) {
+                $newServiceIds = $validatedData['service_ids'] ?? $appointment->services->pluck('id')->toArray();
+                $newStaffId = $validatedData['staff_id'] ?? $appointment->staff_id;
+                $newDate = $validatedData['appointment_date'] ?? $appointment->appointment_date->format('Y-m-d');
+                $newStartTime = $validatedData['start_time'] ?? Carbon::parse($appointment->start_time)->format('H:i');
 
-            if (!$this->appointmentBookingService->isSlotStillAvailable(
-                $salon->id,
-                $newStaffId,
-                $newServiceIds,
-                $newDate,
-                $newStartTime,
-                $appointment->id
-            )) {
-                DB::rollBack();
-                return response()->json(['message' => 'زمان انتخابی جدید با نوبت دیگری تداخل دارد.'], 409);
+                if (!$this->appointmentBookingService->isSlotStillAvailable($salon->id, $newStaffId, $newServiceIds, $newDate, $newStartTime, $appointment->id)) {
+                    DB::rollBack();
+                    return response()->json(['message' => 'زمان انتخابی جدید با نوبت دیگری تداخل دارد.'], 409);
+                }
+
+                $appointmentDetails = $this->appointmentBookingService->prepareAppointmentData(
+                    $salon->id,
+                    $appointment->customer_id,
+                    $newStaffId,
+                    $newServiceIds,
+                    $newDate,
+                    $newStartTime,
+                    $validatedData['notes'] ?? $appointment->notes
+                );
+
+                $appointment->update($appointmentDetails['appointment_data']);
+                $appointment->services()->sync($appointmentDetails['service_pivot_data']);
             }
 
-            $appointmentDetails = $this->appointmentBookingService->prepareAppointmentData(
-                $salon->id,
-                $appointment->customer_id,
-                $newStaffId,
-                $newServiceIds,
-                $newDate,
-                $newStartTime,
-                $validatedData['notes'] ?? $appointment->notes
-            );
+            $updateData = Arr::except($validatedData, ['service_ids']);
 
-            $appointment->update($appointmentDetails['appointment_data']);
-            $appointment->services()->sync($appointmentDetails['service_pivot_data']);
+            if (!empty($updateData)) {
+                $appointment->update($updateData);
+            }
+
+            DB::commit();
+
+            $smsResult = $this->smsService->sendAppointmentModification($appointment->customer, $appointment, $salon);
+
+            $message = 'نوبت با موفقیت به‌روزرسانی شد.';
+            if (isset($smsResult['status']) && $smsResult['status'] === 'error') {
+                $message .= ' اما پیامک ارسال نشد: ' . $smsResult['message'];
+            }
+
+            $appointment->refresh()->load(['customer', 'staff', 'services']);
+            return response()->json(['message' => $message, 'data' => new AppointmentResource($appointment)]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('خطا در به‌روزرسانی نوبت: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json(['message' => 'خطا در به‌روزرسانی نوبت.', 'error' => $e->getMessage()], 500);
         }
-
-        $simpleUpdateData = Arr::except($validatedData, $recalculationFields);
-        if (!empty($simpleUpdateData)) {
-            $appointment->update($simpleUpdateData);
-        }
-
-        DB::commit();
-
-        $smsResult = $this->smsService->sendAppointmentModification($appointment->customer, $appointment, $salon);
-        
-        $message = 'نوبت با موفقیت به‌روزرسانی شد.';
-        if (isset($smsResult['status']) && $smsResult['status'] === 'error') {
-            $message .= ' اما پیامک ارسال نشد: ' . $smsResult['message'];
-        }
-
-        $appointment->refresh()->load(['customer', 'staff', 'services']);
-        return response()->json(['message' => $message, 'data' => $appointment]);
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        Log::error('خطا در به‌روزرسانی نوبت: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-        return response()->json(['message' => 'خطا در به‌روزرسانی نوبت.', 'error' => $e->getMessage()], 500);
     }
-}
 
     public function destroy($salon_id, Appointment $appointment)
     {
@@ -306,7 +304,6 @@ class AppointmentController extends Controller
 
         return [$startDate, $endDate];
     }
-
     /**
      * دریافت تعداد نوبت‌ها در هر روز از یک ماه شمسی مشخص.
      * این متد برای نمایش یک تقویم با تعداد نوبت‌ها در هر روز مناسب است.
