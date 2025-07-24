@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class UserSmsBalanceController extends Controller
 {
@@ -42,7 +43,13 @@ class UserSmsBalanceController extends Controller
     public function purchasePackage(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'package_id' => 'required|integer|exists:sms_packages,id,is_active,true',
+            'package_id' => [
+                'required',
+                'integer',
+                Rule::exists('sms_packages', 'id')->where(function ($query) {
+                    $query->where('is_active', true);
+                }),
+            ],
         ]);
 
         return app(ZarinpalController::class)->purchase($request, $validated['package_id']);
