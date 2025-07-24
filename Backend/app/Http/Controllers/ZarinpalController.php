@@ -16,16 +16,25 @@ class ZarinpalController extends Controller
     {
         $smsPackage = SmsPackage::findOrFail($packageId);
         $user = Auth::user();
+        $activeSalon = $user->activeSalon;
+
+        if (!$activeSalon) {
+            // Or handle this case as you see fit, maybe return an error response
+            throw new \Exception('No active salon found for the user.');
+        }
 
         $invoice = new Invoice;
         $invoice->amount($smsPackage->price);
         $invoice->detail('description', 'خرید بسته پیامکی');
         $invoice->detail('user_id', $user->id);
         $invoice->detail('package_id', $smsPackage->id);
+        $invoice->detail('salon_id', $activeSalon->id);
 
-        return Payment::purchase($invoice, function($driver, $transactionId) use ($user, $smsPackage) {
+
+        return Payment::purchase($invoice, function($driver, $transactionId) use ($user, $smsPackage, $activeSalon) {
             SmsTransaction::create([
                 'user_id' => $user->id,
+                'salon_id' => $activeSalon->id,
                 'sms_package_id' => $smsPackage->id,
                 'amount' => $smsPackage->price,
                 'transaction_id' => $transactionId,

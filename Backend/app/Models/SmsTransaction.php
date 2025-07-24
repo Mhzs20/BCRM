@@ -12,6 +12,7 @@ class SmsTransaction extends Model
     protected $fillable = [
         'user_id',
         'salon_id',
+        'sms_package_id',
         'customer_id',
         'appointment_id',
         'receptor',
@@ -20,6 +21,8 @@ class SmsTransaction extends Model
         'sent_at',
         'status',
         'external_response',
+        'amount',
+        'transaction_id',
     ];
 
     protected $casts = [
