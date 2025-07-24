@@ -18,6 +18,7 @@ use App\Http\Controllers\ProfessionController;
 use App\Http\Controllers\AgeRangeController;
 use App\Http\Controllers\SmsPackageController;
 use App\Http\Controllers\SettingController;
+use App\Http\Controllers\ZarinpalController;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -89,7 +90,6 @@ Route::middleware('auth:api')->group(function () {
 
             Route::get('appointments/available-slots', [AppointmentController::class, 'getAvailableSlots'])->name('appointments.availableSlots');
             Route::get('appointments/calendar', [AppointmentController::class, 'getCalendarAppointments'])->name('appointments.calendar');
-// ✅ روت خاص‌تر (با روز) باید اول تعریف شود
             Route::get('appointments-by-month/{year}/{month}/{day}', [AppointmentController::class, 'getAppointmentsByMonthAndDay'])
                 ->whereNumber('year')->whereNumber('month')->whereNumber('day');
 
@@ -138,6 +138,9 @@ Route::middleware(['auth:api', 'superadmin'])->prefix('superadmin')->name('super
     Route::apiResource('sms-packages', SmsPackageController::class);
     Route::apiResource('sms-templates', SalonSmsTemplateController::class);
 });
+
+Route::post('/payment/purchase/{packageId}', [ZarinpalController::class, 'purchase']);
+Route::post('/payment/callback', [ZarinpalController::class, 'callback']);
 
 Route::fallback(function(){
     return response()->json(['message' => 'مسیر API درخواستی یافت نشد یا متد HTTP مجاز نیست.'], 404);
