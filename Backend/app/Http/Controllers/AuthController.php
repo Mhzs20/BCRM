@@ -390,6 +390,19 @@ class AuthController extends Controller
                 }
 
                 $salon->update($salonData);
+
+                // Sync salon's business category with user
+                $userUpdateData = [];
+                if (isset($salonData['business_category_id'])) {
+                    $userUpdateData['business_category_id'] = $salonData['business_category_id'];
+                }
+                if (isset($salonData['business_subcategory_id'])) {
+                    $userUpdateData['business_subcategory_id'] = $salonData['business_subcategory_id'];
+                }
+
+                if (!empty($userUpdateData)) {
+                    $user->update($userUpdateData);
+                }
             }
 
             DB::commit();
