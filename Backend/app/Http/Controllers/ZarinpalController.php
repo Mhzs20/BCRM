@@ -31,7 +31,7 @@ class ZarinpalController extends Controller
         $invoice->detail('salon_id', $activeSalon->id);
 
 
-        return Payment::purchase($invoice, function($driver, $transactionId) use ($user, $smsPackage, $activeSalon) {
+        $payment = Payment::purchase($invoice, function($driver, $transactionId) use ($user, $smsPackage, $activeSalon) {
             SmsTransaction::create([
                 'user_id' => $user->id,
                 'salon_id' => $activeSalon->id,
@@ -40,7 +40,11 @@ class ZarinpalController extends Controller
                 'transaction_id' => $transactionId,
                 'status' => 'pending',
             ]);
-        })->pay()->render();
+        })->pay();
+
+        return response()->json([
+            'payment_url' => $payment->getTargetUrl(),
+        ]);
     }
 
     public function callback(Request $request)
