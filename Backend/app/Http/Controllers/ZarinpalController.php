@@ -43,7 +43,7 @@ class ZarinpalController extends Controller
         })->pay();
 
         return response()->json([
-            'payment_url' => $payment->getTargetUrl(),
+            'payment_url' => $payment->getAction(),
         ]);
     }
 
