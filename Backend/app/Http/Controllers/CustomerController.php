@@ -121,11 +121,11 @@ class CustomerController extends Controller
         $this->authorize('delete', $customer);
 
         try {
-            if ($customer->appointments()->whereIn('status', ['confirmed', 'pending_confirmation'])->exists()) {
-                return response()->json(['message' => 'این مشتری دارای نوبت‌های فعال است و قابل حذف نیست.'], 403);
-            }
+            // Find active appointments and cancel them
+            $customer->appointments()->whereIn('status', ['confirmed', 'pending_confirmation'])->update(['status' => 'canceled']);
+
             $customer->delete();
-            return response()->json(null, 204);
+            return response()->json(['message' => 'مشتری و نوبت‌های فعال او با موفقیت لغو شدند.'], 200);
         } catch (\Exception $e) {
             Log::error('خطا در حذف مشتری: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در حذف مشتری.'], 500);
@@ -143,10 +143,16 @@ class CustomerController extends Controller
             'customer_ids.*' => 'integer|exists:customers,id',
         ]);
 
-        $count = Customer::where('salon_id', $salon->id)
+        $customers = Customer::where('salon_id', $salon->id)
             ->whereIn('id', $validated['customer_ids'])
-            ->delete();
-        return response()->json(['message' => "$count مشتری با موفقیت حذف شدند."]);
+            ->get();
+
+        foreach ($customers as $customer) {
+            $customer->appointments()->whereIn('status', ['confirmed', 'pending_confirmation'])->update(['status' => 'canceled']);
+            $customer->delete();
+        }
+
+        return response()->json(['message' => count($customers) . ' مشتری و نوبت‌های فعال آن‌ها با موفقیت لغو شدند.']);
     }
 
     /**
@@ -164,11 +170,23 @@ class CustomerController extends Controller
             Excel::import($import, $file);
             DB::commit();
 
+            $importedCount = $import->getImportedCount();
+            $skippedRows = $import->getSkippedRows();
+
+            if ($importedCount === 0 && count($skippedRows) > 0) {
+                return response()->json([
+                    'message' => 'هیچ مشتری جدیدی اضافه نشد. ممکن است مشتریان در فایل اکسل از قبل در سیستم موجود باشند.',
+                    'imported_count' => 0,
+                    'skipped_rows_count' => count($skippedRows),
+                    'skipped_details' => $skippedRows,
+                ], 409);
+            }
+
             return response()->json([
                 'message' => 'ایمپورت مشتریان از فایل اکسل انجام شد.',
-                'imported_count' => $import->getImportedCount(),
-                'skipped_rows_count' => count($import->getSkippedRows()),
-                'skipped_details' => $import->getSkippedRows(),
+                'imported_count' => $importedCount,
+                'skipped_rows_count' => count($skippedRows),
+                'skipped_details' => $skippedRows,
             ]);
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
             DB::rollBack();
@@ -198,13 +216,23 @@ class CustomerController extends Controller
                 $existingCustomer = $salon->customers()->where('phone_number', $contact['phone_number'])->exists();
 
                 if ($existingCustomer) {
-                    $skippedContacts[] = ['contact_data' => $contact, 'reason' => 'مشتری با این شماره تلفن از قبل موجود است.'];
+                    $skippedContacts[] = ['contact_data' => $contact, 'reason' => 'مشتری با شماره تلفن ' . $contact['phone_number'] . ' از قبل موجود است.'];
                     continue;
                 }
                 $salon->customers()->create($contact);
                 $importedCount++;
             }
             DB::commit();
+
+            if ($importedCount === 0 && count($skippedContacts) > 0) {
+                return response()->json([
+                    'message' => 'هیچ مخاطب جدیدی اضافه نشد. ممکن است این مخاطبین از قبل در سیستم موجود باشند.',
+                    'imported_count' => 0,
+                    'skipped_contacts_count' => count($skippedContacts),
+                    'skipped_details' => $skippedContacts,
+                ], 409);
+            }
+
             return response()->json([
                 'message' => 'ایمپورت مخاطبین با موفقیت انجام شد.',
                 'imported_count' => $importedCount,
@@ -226,6 +254,15 @@ class CustomerController extends Controller
             ->with(['services', 'staff'])
             ->orderBy('appointment_date', 'desc')
             ->get();
+
+        // As requested, ensure all relevant fields are returned in the response.
+        // The 'notes' field corresponds to 'internal_notes'.
+        // There is no 'deposit_amount' field, but 'total_price', 'deposit_required', and 'deposit_paid' are available.
+        // We make all model attributes visible to override any potential default hiding.
+        if ($appointments->isNotEmpty()) {
+            $allAttributes = array_keys($appointments->first()->getAttributes());
+            $appointments->each->makeVisible($allAttributes);
+        }
 
         return response()->json($appointments);
     }
