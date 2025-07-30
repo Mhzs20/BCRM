@@ -1,10 +1,11 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+export default {
     content: [
         "./resources/**/*.blade.php",
         "./resources/**/*.js",
         "./resources/**/*.vue",
     ],
+
     safelist: [
         'grid-cols-6',
         'col-span-3',
@@ -13,8 +14,20 @@ module.exports = {
         'w-20',
         'h-20',
     ],
+
     theme: {
-        extend: {},
+        extend: {
+            colors: {
+                'custom-green': 'rgba(33, 82, 66, 1)',
+            },
+            fontFamily: {
+                // Here we create the font families.
+                // You can name them anything you want.
+                'peyda': ['Peyda', 'sans-serif'],
+                'iranyekan': ['IRANYekanMobileFN', 'sans-serif'],
+            },
+        },
     },
+
     plugins: [],
 }

@@ -232,11 +232,12 @@ class AppointmentController extends Controller
         $customer = $appointment->customer;
         $salon = Salon::findOrFail($salon_id);
         
+        // Update the status to 'canceled' instead of deleting
+        $appointment->update(['status' => 'canceled']);
+
         $smsResult = $this->smsService->sendAppointmentCancellation($customer, $appointment, $salon);
 
-        $appointment->delete();
-
-        $message = 'نوبت با موفقیت حذف شد.';
+        $message = 'نوبت با موفقیت لغو شد.';
         if (isset($smsResult['status']) && $smsResult['status'] === 'error') {
             $message .= ' اما پیامک لغو نوبت ارسال نشد: ' . $smsResult['message'];
         }

@@ -16,10 +16,14 @@ class SuperAdminMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (Auth::check() && Auth::user()->is_superadmin) {
+        if (Auth::guard('web')->check() && Auth::guard('web')->user()->is_superadmin) {
             return $next($request);
         }
 
-        return response()->json(['message' => 'Unauthorized'], 403);
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        abort(403, 'Unauthorized action.');
     }
 }
