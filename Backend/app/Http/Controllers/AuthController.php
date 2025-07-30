@@ -446,4 +446,56 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
+    // Web Auth Methods
+    public function showLoginForm()
+    {
+        if (Auth::guard('web')->check() && Auth::guard('web')->user()->is_superadmin) {
+            return redirect()->route('admin.dashboard');
+        }
+        return view('auth.login');
+    }
+
+    public function webLogin(Request $request)
+    {
+        $credentials = $request->validate([
+            'mobile' => ['required'],
+            'password' => ['required'],
+        ]);
+
+        Log::info('Admin login attempt for mobile: ' . $request->mobile);
+
+        $user = User::where('mobile', $credentials['mobile'])->first();
+
+        if ($user && Hash::check($credentials['password'], $user->password)) {
+            Log::info('Password check successful for mobile: ' . $request->mobile);
+            
+            if ($user->is_superadmin) {
+                Auth::guard('web')->login($user);
+                $request->session()->regenerate();
+                Log::info('User is superadmin. Logged in and redirecting to admin dashboard.');
+                return redirect()->route('admin.dashboard');
+            }
+
+            Log::warning('User is not a superadmin. Access denied.');
+            return back()->withErrors([
+                'mobile' => 'You do not have permission to access the admin panel.',
+            ])->onlyInput('mobile');
+        }
+
+        Log::warning('Manual login failed for mobile: ' . $request->mobile);
+        return back()->withErrors([
+            'mobile' => 'The provided credentials do not match our records.',
+        ])->onlyInput('mobile');
+    }
+
+    public function webLogout(Request $request)
+    {
+        Auth::guard('web')->logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect('/login');
+    }
 }

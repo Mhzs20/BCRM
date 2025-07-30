@@ -63,6 +63,7 @@ class User extends Authenticatable implements JWTSubject
         'otp_expires_at' => 'datetime',
         'password' => 'hashed',
         'is_verified' => 'boolean',
+        'is_superadmin' => 'boolean',
         'profile_completed' => 'boolean',
         'active_salon_id' => 'integer',
         'business_category_id' => 'integer',
