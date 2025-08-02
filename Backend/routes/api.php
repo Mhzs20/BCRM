@@ -83,6 +83,7 @@ Route::middleware('auth:api')->group(function () {
             Route::apiResource('customers', CustomerController::class)->except(['create', 'edit']);
 
             Route::get('staff/booking-list', [StaffController::class, 'getBookingList'])->name('staff.bookingList');
+            Route::get('staff/search', [StaffController::class, 'search'])->name('staff.search');
             Route::apiResource('staff', StaffController::class)->except(['create', 'edit']);
 
             Route::get('services/booking-list', [ServiceController::class, 'getBookingList'])->name('services.bookingList');
