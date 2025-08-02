@@ -15,12 +15,63 @@ class StaffController extends Controller
     public function index(Request $request, Salon $salon)
     {
         $this->authorize('viewAny', [Staff::class, $salon]);
-        $query = $salon->staff()->with(['services:id,name', 'schedules']);
+
+        $query = $salon->staff()
+            ->with(['services:id,name', 'schedules'])
+            ->withCount('appointments')
+            ->withSum('appointments as total_income', 'total_price');
+
         if ($request->filled('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }
+
+        $sortBy = $request->input('sort_by', 'full_name');
+        $sortDirection = $request->input('sort_direction', 'asc');
+
+        if ($sortBy === 'appointment_count') {
+            $sortBy = 'appointments_count';
+        } elseif ($sortBy === 'total_income') {
+            $sortBy = 'total_income';
+        }
+
+
+        $staffMembers = $query->orderBy($sortBy, $sortDirection)
+            ->paginate($request->input('per_page', 15));
+
+        $staffMembers->getCollection()->transform(function ($staff) {
+            $staff->total_income = (float) $staff->total_income;
+            return $staff;
+        });
+
+        return response()->json($staffMembers);
+    }
+
+    public function search(Request $request, Salon $salon)
+    {
+        $this->authorize('viewAny', [Staff::class, $salon]);
+
+        $query = $salon->staff()
+            ->with(['services:id,name', 'schedules'])
+            ->withCount('appointments')
+            ->withSum('appointments as total_income', 'total_price');
+
+        if ($request->filled('q')) {
+            $searchTerm = $request->input('q');
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('full_name', 'like', "%{$searchTerm}%")
+                    ->orWhere('specialty', 'like', "%{$searchTerm}%")
+                    ->orWhere('phone_number', 'like', "%{$searchTerm}%");
+            });
+        }
+
         $staffMembers = $query->orderBy($request->input('sort_by', 'full_name'), $request->input('sort_direction', 'asc'))
             ->paginate($request->input('per_page', 15));
+
+        $staffMembers->getCollection()->transform(function ($staff) {
+            $staff->total_income = (float) $staff->total_income;
+            return $staff;
+        });
+
         return response()->json($staffMembers);
     }
 
@@ -58,7 +109,11 @@ class StaffController extends Controller
     public function show(Salon $salon, Staff $staff)
     {
         $this->authorize('view', $staff);
-        $staff->load(['services:id,name', 'schedules', 'appointments']);
+        $staff->load(['services:id,name', 'schedules']);
+        $staff->loadCount('appointments');
+        $staff->total_income = (float) $staff->appointments()->sum('total_price');
+        // Eager load appointments separately if they are still needed in the response
+        $staff->load('appointments');
         return response()->json($staff);
     }
 
