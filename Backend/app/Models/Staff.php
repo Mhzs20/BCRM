@@ -29,6 +29,7 @@ class Staff extends Model
         'address',
         'profile_image',
         'is_active',
+        'hire_date',
     ];
 
     /**

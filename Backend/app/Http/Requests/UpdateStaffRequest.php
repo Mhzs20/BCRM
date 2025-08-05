@@ -43,6 +43,7 @@ class UpdateStaffRequest extends FormRequest
             'schedules.*.active' => ['sometimes', 'boolean'],
             'service_ids' => ['sometimes', 'nullable', 'array'],
             'service_ids.*' => ['integer', Rule::exists('services', 'id')->where('salon_id', $salon->id)],
+            'hire_date' => ['sometimes', 'nullable', 'date'],
         ];
     }
 

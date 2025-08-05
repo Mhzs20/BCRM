@@ -40,8 +40,6 @@ class UpdateServiceRequest extends FormRequest
 
                 'price' => ['sometimes', 'filled', 'numeric', 'min:0'],
 
-                'duration_minutes' => ['sometimes', 'filled', 'integer', 'min:1'],
-
                 // 'boolean' rule can be strict. 'in:true,false,1,0' is more flexible with form data.
                 'is_active' => ['sometimes', 'boolean'],
 
@@ -60,8 +58,6 @@ class UpdateServiceRequest extends FormRequest
             'name.unique' => 'این نام خدمت قبلاً برای این سالن ثبت شده است.',
             'price.filled' => 'قیمت خدمت نمی‌تواند خالی باشد.',
             'price.numeric' => 'قیمت باید عددی باشد.',
-            'duration_minutes.filled' => 'مدت زمان خدمت نمی‌تواند خالی باشد.',
-            'duration_minutes.integer' => 'مدت زمان خدمت باید عددی باشد.',
             'is_active.in' => 'مقدار فیلد فعال‌سازی نامعتبر است.',
             'staff_ids.array' => 'شناسه‌های پرسنل باید به صورت آرایه باشند.',
             'staff_ids.*.exists' => 'یک یا چند پرسنل انتخاب شده نامعتبر است.',

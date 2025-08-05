@@ -45,12 +45,34 @@ class GetAvailableSlotsRequest extends FormRequest
             'date' => ['required', 'date', 'after_or_equal:today'],
             'staff_id' => [
                 'required', 'integer',
-                Rule::exists('salon_staff', 'id')->where('salon_id', $salonId)
+                function ($attribute, $value, $fail) use ($salonId) {
+                    if ($value != -1) {
+                        $validator = validator(['staff_id' => $value], [
+                            'staff_id' => Rule::exists('salon_staff', 'id')->where(function ($query) use ($salonId) {
+                                $query->where('salon_id', $salonId)->where('is_active', true);
+                            }),
+                        ]);
+                        if ($validator->fails()) {
+                            $fail('پرسنل انتخاب شده معتبر یا فعال نیست.');
+                        }
+                    }
+                },
             ],
-            'service_ids' => ['required', 'array', 'min:1'],
+            'service_ids' => ['nullable', 'array'], // Changed from required, removed min:1
             'service_ids.*' => [
-                'required', 'integer',
-                Rule::exists('services', 'id')->where('salon_id', $salonId)
+                'integer', // Removed 'required'
+                function ($attribute, $value, $fail) use ($salonId) {
+                    if ($value != -1) {
+                        $validator = validator(['service_id' => $value], [
+                            'service_id' => Rule::exists('services', 'id')->where(function ($query) use ($salonId) {
+                                $query->where('salon_id', $salonId)->where('is_active', true);
+                            }),
+                        ]);
+                        if ($validator->fails()) {
+                            $fail('سرویس انتخاب شده معتبر یا فعال نیست.');
+                        }
+                    }
+                },
             ],
         ];
     }
@@ -65,7 +87,9 @@ class GetAvailableSlotsRequest extends FormRequest
             'date.date' => 'فرمت تاریخ معتبر نیست.',
             'date.after_or_equal' => 'تاریخ نمی‌تواند در گذشته باشد.',
             'staff_id.required' => 'انتخاب پرسنل الزامی است.',
-            'service_ids.required' => 'انتخاب حداقل یک سرویس الزامی است.',
+            'service_ids.array' => 'سرویس‌ها باید به صورت آرایه باشند.', // Added message for array type
+            'staff_id.exists' => 'پرسنل انتخاب شده معتبر یا فعال نیست.', // This message is now handled by the custom rule
+            'service_ids.*.exists' => 'سرویس انتخاب شده معتبر یا فعال نیست.', // This message is now handled by the custom rule
         ];
     }
 }

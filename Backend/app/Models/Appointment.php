@@ -70,7 +70,7 @@ class Appointment extends Model
     public function services(): BelongsToMany
     {
         return $this->belongsToMany(Service::class, 'appointment_service')
-            ->withPivot('price_at_booking', 'duration_at_booking')
+            ->withPivot('price_at_booking') // Removed duration_at_booking
             ->withTimestamps();
     }
 

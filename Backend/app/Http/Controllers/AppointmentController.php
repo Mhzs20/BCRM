@@ -40,7 +40,7 @@ class AppointmentController extends Controller
     public function index(Request $request, $salon_id)
     {
         $appointments = Appointment::where('salon_id', $salon_id)
-            ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name,duration_minutes'])
+            ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name']) // Removed duration_minutes
             ->orderBy($request->input('sort_by', 'appointment_date'), $request->input('sort_direction', 'desc'))
             ->orderBy('start_time', $request->input('sort_direction', 'desc'))
             ->paginate($request->input('per_page', 15));
@@ -79,9 +79,10 @@ class AppointmentController extends Controller
                 $salon_id,
                 $customer->id,
                 $validatedData['staff_id'],
-                $validatedData['service_ids'],
+                $validatedData['service_ids'], // service_ids are still needed for pivot data
                 $validatedData['appointment_date'],
                 $validatedData['start_time'],
+                $validatedData['total_duration'], // Add total_duration
                 $validatedData['notes'] ?? null
             );
             // Fetch settings for the specific salon.
@@ -102,7 +103,8 @@ class AppointmentController extends Controller
             if (!$this->appointmentBookingService->isSlotStillAvailable(
                 $salon_id,
                 $validatedData['staff_id'],
-                $validatedData['service_ids'],
+                $validatedData['service_ids'], // service_ids are still needed for validation
+                $validatedData['total_duration'], // Add total_duration
                 $validatedData['appointment_date'],
                 $validatedData['start_time']
             )) {
@@ -179,7 +181,9 @@ class AppointmentController extends Controller
                 $newDate = $validatedData['appointment_date'] ?? $appointment->appointment_date->format('Y-m-d');
                 $newStartTime = $validatedData['start_time'] ?? Carbon::parse($appointment->start_time)->format('H:i');
 
-                if (!$this->appointmentBookingService->isSlotStillAvailable($salon->id, $newStaffId, $newServiceIds, $newDate, $newStartTime, $appointment->id)) {
+                $newTotalDuration = $validatedData['total_duration'] ?? $appointment->total_duration; // Get total_duration for update
+
+                if (!$this->appointmentBookingService->isSlotStillAvailable($salon->id, $newStaffId, $newServiceIds, $newTotalDuration, $newDate, $newStartTime, $appointment->id)) {
                     DB::rollBack();
                     return response()->json(['message' => 'زمان انتخابی جدید با نوبت دیگری تداخل دارد.'], 409);
                 }
@@ -191,6 +195,7 @@ class AppointmentController extends Controller
                     $newServiceIds,
                     $newDate,
                     $newStartTime,
+                    $newTotalDuration, // Pass total_duration
                     $validatedData['notes'] ?? $appointment->notes
                 );
 
@@ -247,22 +252,28 @@ class AppointmentController extends Controller
     public function getAvailableSlots(GetAvailableSlotsRequest $request, $salon_id)
     {
         $validated = $request->validated();
-        if (isset($validated['date'])) {
-            $validated['date'] = Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validated['date']))
-                ->toCarbon()
-                ->format('Y-m-d');
-        }
+
         try {
-            $availableSlots = $this->appointmentBookingService->findAvailableSlots(
-                $salon_id,
-                $validated['staff_id'],
-                $validated['service_ids'],
-                $validated['date']
-            );
-            return response()->json(['data' => $availableSlots]);
+            $query = Appointment::where('salon_id', $salon_id)
+                ->where('appointment_date', $validated['date'])
+                ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name']);
+
+            if ($validated['staff_id'] != -1) {
+                $query->where('staff_id', $validated['staff_id']);
+            }
+
+            if (isset($validated['service_ids']) && !in_array(-1, $validated['service_ids'])) {
+                $query->whereHas('services', function ($q) use ($validated) {
+                    $q->whereIn('service_id', $validated['service_ids']);
+                });
+            }
+
+            $appointments = $query->orderBy('start_time')->get();
+
+            return response()->json(['data' => $appointments]);
         } catch (\Exception $e) {
-            Log::error('خطا در دریافت ساعات خالی: ' . $e->getMessage());
-            return response()->json(['message' => 'خطا در دریافت ساعات خالی: ' . $e->getMessage()], 500);
+            Log::error('خطا در دریافت نوبت‌ها: ' . $e->getMessage());
+            return response()->json(['message' => 'خطا در دریافت نوبت‌ها: ' . $e->getMessage()], 500);
         }
     }
     public function getCalendarAppointments(CalendarQueryRequest $request, $salon_id)
@@ -276,7 +287,7 @@ class AppointmentController extends Controller
         }
         $query = Appointment::where('salon_id', $salon_id)
             ->whereBetween('appointment_date', [$validated['start_date'], $validated['end_date']])
-            ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name,duration_minutes']);
+            ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name']); // Removed duration_minutes
         if (!empty($validated['staff_id'])) {
             $query->where('staff_id', $validated['staff_id']);
         }
@@ -382,7 +393,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month) // پار�
 
             $appointments = Appointment::where('salon_id', $salon_id)
                 ->whereBetween('appointment_date', [$startDate, $endDate])
-                ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name,duration_minutes'])
+                ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name']) // Removed duration_minutes
                 ->orderBy('appointment_date')
                 ->orderBy('start_time')
                 ->paginate($request->input('per_page', 15)); 
@@ -425,7 +436,6 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month) // پار�
      */
     public function getAppointments(Request $request, $salon_id)
     {
-        // ولیدیشن پارامترهای ورودی از کوئری استرینگ
         $validator = Validator::make($request->all(), [
             'start_date' => 'sometimes|required|date_format:Y-m-d',
             'end_date' => 'sometimes|required|date_format:Y-m-d|after_or_equal:start_date',
@@ -440,7 +450,6 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month) // پار�
         try {
             $query = Appointment::where('salon_id', $salon_id);
 
-            // اعمال فیلتر تاریخ شروع به صورت داینامیک
             if ($request->has('start_date')) {
                 $gregorianStartDate = Jalalian::fromFormat('Y-m-d', $request->input('start_date'))->toCarbon()->startOfDay();
                 $query->where('appointment_date', '>=', $gregorianStartDate);

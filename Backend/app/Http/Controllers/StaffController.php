@@ -18,7 +18,15 @@ class StaffController extends Controller
 
         $query = $salon->staff()
             ->with(['services:id,name', 'schedules'])
-            ->withCount('appointments')
+            ->withCount([
+                'appointments as total_appointments',
+                'appointments as completed_appointments' => function ($query) {
+                    $query->where('status', 'completed');
+                },
+                'appointments as canceled_appointments' => function ($query) {
+                    $query->where('status', 'canceled');
+                }
+            ])
             ->withSum('appointments as total_income', 'total_price');
 
         if ($request->filled('is_active')) {
@@ -83,6 +91,9 @@ class StaffController extends Controller
             if ($request->hasFile('profile_image')) {
                 $staffData['profile_image'] = $request->file('profile_image')->store('staff_profiles', 'public');
             }
+            if (isset($validatedData['hire_date'])) {
+                $staffData['hire_date'] = $validatedData['hire_date'];
+            }
             $staff = $salon->staff()->create($staffData);
             if (!empty($validatedData['service_ids'])) {
                 $staff->services()->sync($validatedData['service_ids']);
@@ -110,11 +121,19 @@ class StaffController extends Controller
     {
         $this->authorize('view', $staff);
         $staff->load(['services:id,name', 'schedules']);
-        $staff->loadCount('appointments');
-        $staff->total_income = (float) $staff->appointments()->sum('total_price');
-        // Eager load appointments separately if they are still needed in the response
-        $staff->load('appointments');
-        return response()->json($staff);
+
+        $appointments = $staff->appointments();
+        $totalAppointments = $appointments->count();
+        $completedAppointments = $appointments->where('status', 'completed')->count();
+        $canceledAppointments = $appointments->where('status', 'canceled')->count();
+
+        $staffData = $staff->toArray();
+        $staffData['total_appointments'] = $totalAppointments;
+        $staffData['completed_appointments'] = $completedAppointments;
+        $staffData['canceled_appointments'] = $canceledAppointments;
+        $staffData['total_income'] = (float) $staff->appointments()->sum('total_price');
+
+        return response()->json($staffData);
     }
 
     public function update(UpdateStaffRequest $request, Salon $salon, Staff $staff)
@@ -136,6 +155,10 @@ class StaffController extends Controller
                 Storage::disk('public')->delete($staff->profile_image);
             }
             $updateData['profile_image'] = null;
+        }
+
+        if (isset($validatedData['hire_date'])) {
+            $updateData['hire_date'] = $validatedData['hire_date'];
         }
 
         try {
