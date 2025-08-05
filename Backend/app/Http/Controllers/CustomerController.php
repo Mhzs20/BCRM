@@ -24,7 +24,16 @@ class CustomerController extends Controller
     {
         $this->authorize('viewAny', [Customer::class, $salon]);
 
-        $query = $salon->customers()->with(['howIntroduced', 'customerGroup', 'profession', 'ageRange']);
+        $query = $salon->customers()->with(['howIntroduced', 'customerGroup', 'profession', 'ageRange'])
+            ->withCount([
+                'appointments as total_appointments',
+                'appointments as completed_appointments' => function ($query) {
+                    $query->where('status', 'completed');
+                },
+                'appointments as canceled_appointments' => function ($query) {
+                    $query->where('status', 'canceled');
+                }
+            ]);
 
         if ($request->filled('search')) {
             $searchTerm = $request->search;
@@ -72,8 +81,20 @@ class CustomerController extends Controller
     {
         $this->authorize('view', $customer);
 
-        $customer->load(['howIntroduced', 'customerGroup', 'profession', 'ageRange', 'appointments']);
-        return response()->json($customer);
+        $customer->load(['howIntroduced', 'customerGroup', 'profession', 'ageRange']);
+
+        $appointments = $customer->appointments();
+
+        $totalAppointments = $appointments->count();
+        $completedAppointments = $appointments->where('status', 'completed')->count();
+        $canceledAppointments = $appointments->where('status', 'canceled')->count();
+
+        $customerData = $customer->toArray();
+        $customerData['total_appointments'] = $totalAppointments;
+        $customerData['completed_appointments'] = $completedAppointments;
+        $customerData['canceled_appointments'] = $canceledAppointments;
+
+        return response()->json($customerData);
     }
 
     /**

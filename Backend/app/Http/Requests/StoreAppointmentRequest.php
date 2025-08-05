@@ -49,6 +49,7 @@ class StoreAppointmentRequest extends FormRequest
             'send_reminder_sms' => ['nullable', 'boolean'],
             'send_satisfaction_sms' => ['nullable', 'boolean'],
             'total_price' => ['nullable', 'numeric', 'min:0'],
+            'total_duration' => ['required', 'integer', 'min:1'], // Added total_duration validation
         ];
 
         if ($this->filled('new_customer.phone_number') && $salonId) {
@@ -103,6 +104,9 @@ class StoreAppointmentRequest extends FormRequest
             'send_satisfaction_sms.boolean' => 'مقدار ارسال پیامک نظرسنجی باید صحیح یا غلط باشد.',
             'total_price.numeric' => 'مبلغ کل باید به صورت عددی وارد شود.',
             'total_price.min' => 'مبلغ کل نمی‌تواند منفی باشد.',
+            'total_duration.required' => 'مدت زمان کل الزامی است.',
+            'total_duration.integer' => 'مدت زمان کل باید عددی باشد.',
+            'total_duration.min' => 'مدت زمان کل باید حداقل ۱ دقیقه باشد.',
         ];
     }
 }

@@ -18,12 +18,22 @@ class ServiceController extends Controller
     {
         $this->authorize('viewAny', [Service::class, $salon]);
 
+        $sortBy = $request->input('sort_by', 'name');
+        $sortDirection = $request->input('sort_direction', 'asc');
+
         $services = $salon->services()
             ->with('staff:id,full_name')
-            ->orderBy($request->input('sort_by', 'name'), $request->input('sort_direction', 'asc'))
-            ->paginate($request->input('per_page', 15));
+            ->withCount('appointments');
 
-        return response()->json($services);
+        if ($sortBy === 'appointments_count') {
+            $services->orderBy('appointments_count', $sortDirection);
+        } else {
+            $services->orderBy($sortBy, $sortDirection);
+        }
+
+        $paginatedServices = $services->paginate($request->input('per_page', 15));
+
+        return response()->json($paginatedServices);
     }
 
     /**

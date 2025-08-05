@@ -14,21 +14,12 @@ class AppointmentBookingService
 {
     const SLOT_INTERVAL_MINUTES = 15;
 
-    public function findAvailableSlots(int $salonId, int $staffId, array $serviceIds, string $date): array
+    public function findAvailableSlots(int $salonId, int $staffId, int $totalDuration, string $date): array
     {
         $staff = Staff::with('schedules')->where('salon_id', $salonId)->findOrFail($staffId);
-        $services = Service::where('salon_id', $salonId)
-            ->whereIn('id', $serviceIds)
-            ->where('is_active', true)
-            ->get();
 
-        if ($services->isEmpty()) {
-            throw new \Exception('حداقل یک خدمت معتبر و فعال باید انتخاب شود.');
-        }
-
-        $totalDurationMinutes = $services->sum('duration_minutes');
-        if ($totalDurationMinutes <= 0) {
-            throw new \Exception('مجموع مدت زمان خدمات باید بیشتر از صفر دقیقه باشد.');
+        if ($totalDuration <= 0) {
+            throw new \Exception('مدت زمان کل باید بیشتر از صفر دقیقه باشد.');
         }
 
         $carbonDate = Carbon::parse($date)->startOfDay();
@@ -49,7 +40,7 @@ class AppointmentBookingService
 
         $availableSlots = [];
         $slotInterval = self::SLOT_INTERVAL_MINUTES;
-        $periodEndTime = $workEndTime->copy()->subMinutes($totalDurationMinutes);
+        $periodEndTime = $workEndTime->copy()->subMinutes($totalDuration);
 
         if ($workStartTime->gt($periodEndTime)) {
             return [];
@@ -59,7 +50,7 @@ class AppointmentBookingService
 
         foreach ($period as $slotStartTime) {
             if ($slotStartTime->lt($workEndTime)) {
-                $slotEndTime = $slotStartTime->copy()->addMinutes($totalDurationMinutes);
+                $slotEndTime = $slotStartTime->copy()->addMinutes($totalDuration);
                 if ($slotEndTime->gt($workEndTime)) {
                     continue;
                 }
@@ -97,14 +88,13 @@ class AppointmentBookingService
         return ['start' => null, 'end' => null, 'active' => false];
     }
 
-    public function prepareAppointmentData(int $salonId, int $customerId, int $staffId, array $serviceIds, string $appointmentDate, string $startTime, ?string $notes): array
+    public function prepareAppointmentData(int $salonId, int $customerId, int $staffId, array $serviceIds, string $appointmentDate, string $startTime, int $totalDuration, ?string $notes): array
     {
         $services = Service::where('salon_id', $salonId)->whereIn('id', $serviceIds)->where('is_active', true)->get();
         if ($services->isEmpty()) {
             throw new \Exception('سرویس‌های انتخاب شده معتبر یا فعال نیستند.');
         }
 
-        $totalDuration = $services->sum('duration_minutes');
         $totalPrice = $services->sum('price');
         $carbonStartTime = Carbon::parse($appointmentDate . ' ' . $startTime);
         $endTime = $carbonStartTime->copy()->addMinutes($totalDuration)->format('H:i:s');
@@ -119,27 +109,29 @@ class AppointmentBookingService
             'status' => 'confirmed',
             'notes' => $notes,
             'total_price' => $totalPrice,
+            'total_duration' => $totalDuration,
         ];
 
         $servicePivotData = [];
         foreach ($services as $service) {
             $servicePivotData[$service->id] = [
                 'price_at_booking' => $service->price,
-                'duration_at_booking' => $service->duration_minutes,
+                // 'duration_at_booking' => $totalDuration, // Removed as total_duration is now on appointment
             ];
         }
         return ['appointment_data' => $appointmentData, 'service_pivot_data' => $servicePivotData];
     }
 
-    public function isSlotStillAvailable(int $salonId, int $staffId, array $serviceIds, string $date, string $startTime, ?int $ignoreAppointmentId = null): bool
+    public function isSlotStillAvailable(int $salonId, int $staffId, array $serviceIds, int $totalDuration, string $date, string $startTime, ?int $ignoreAppointmentId = null): bool
     {
+        // Services are still needed to check if they are valid, but their individual durations are not summed here.
         $services = Service::where('salon_id', $salonId)->whereIn('id', $serviceIds)->where('is_active', true)->get();
         if ($services->isEmpty()) {
             return false;
         }
-        $totalDurationMinutes = $services->sum('duration_minutes');
+
         $slotStartTime = Carbon::parse($date . ' ' . $startTime);
-        $slotEndTime = $slotStartTime->copy()->addMinutes($totalDurationMinutes);
+        $slotEndTime = $slotStartTime->copy()->addMinutes($totalDuration);
 
         $query = Appointment::where('salon_id', $salonId)
             ->where('staff_id', $staffId)
