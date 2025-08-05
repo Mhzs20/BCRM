@@ -16,7 +16,6 @@ class Service extends Model
         'salon_id',
         'name',
         'price',
-        'duration_minutes',
         'is_active',
     ];
 

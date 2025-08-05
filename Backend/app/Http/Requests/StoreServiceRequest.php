@@ -25,7 +25,6 @@ class StoreServiceRequest extends FormRequest
             })],
             'description' => ['nullable', 'string', 'max:1000'],
             'price' => ['required', 'numeric', 'min:0'],
-            'duration_minutes' => ['required', 'integer', 'min:1'], // Added
             'is_active' => ['boolean'],
             'staff_ids' => ['nullable', 'array'], // Added: Array of staff IDs
             'staff_ids.*' => ['integer', Rule::exists('salon_staff', 'id')->where(function ($query) use ($salonId) {
@@ -43,9 +42,6 @@ class StoreServiceRequest extends FormRequest
             'price.required' => 'قیمت خدمت الزامی است.',
             'price.numeric' => 'قیمت باید عددی باشد.',
             'price.min' => 'قیمت نمی‌تواند کمتر از ۰ باشد.',
-            'duration_minutes.required' => 'مدت زمان خدمت الزامی است.',
-            'duration_minutes.integer' => 'مدت زمان خدمت باید عددی باشد.',
-            'duration_minutes.min' => 'مدت زمان خدمت باید حداقل ۱ دقیقه باشد.',
             'staff_ids.array' => 'شناسه‌های پرسنل باید به صورت آرایه باشند.',
             'staff_ids.*.integer' => 'شناسه پرسنل باید عددی باشد.',
             'staff_ids.*.exists' => 'یک یا چند پرسنل انتخاب شده نامعتبر است یا به این سالن تعلق ندارد.',
