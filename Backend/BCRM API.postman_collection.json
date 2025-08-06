@@ -1,10 +1,11 @@
 {
 	"info": {
 		"_postman_id": "b0a737a7-d75f-4e98-b107-f5a7040b00c3",
-		"name": "BCRM API - v1  (Final Corrected Version) Copy 2",
+		"name": "BCRM API - v1  (Final Corrected Version)",
 		"description": "نسخه نهایی و کاملا جامع تمام APIهای پروژه BCRM. این نسخه شامل تمام مسیرهای apiResource، ایمپورت و حذف دسته‌جمعی است.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "40518533"
+		"_exporter_id": "40518533",
+		"_collection_link": "https://bcrm11.postman.co/workspace/Bcrm-Workspace~6b512c57-8ec4-4ffd-8eee-2e5c815c5c11/collection/40518533-b0a737a7-d75f-4e98-b107-f5a7040b00c3?action=share&source=collection_link&creator=40518533"
 	},
 	"item": [
 		{
@@ -318,7 +319,7 @@
 							"formdata": [
 								{
 									"key": "mobile",
-									"value": "09123456789",
+									"value": "09303879553",
 									"type": "text"
 								}
 							]
@@ -352,22 +353,22 @@
 							"formdata": [
 								{
 									"key": "mobile",
-									"value": "09123456789",
+									"value": "09303879553",
 									"type": "text"
 								},
 								{
 									"key": "code",
-									"value": "1234",
+									"value": "1577",
 									"type": "text"
 								},
 								{
 									"key": "password",
-									"value": "newpassword",
+									"value": "1qaz!QAZ@",
 									"type": "text"
 								},
 								{
 									"key": "password_confirmation",
-									"value": "newpassword",
+									"value": "1qaz!QAZ@",
 									"type": "text"
 								}
 							]
@@ -1390,7 +1391,8 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"contacts\": [\n        {\n            \"name\": \"مخاطب ۱\",\n            \"phone_number\": \"09129998877\"\n        },\n        {\n            \"name\": \"مخاطب ۲\",\n            \"phone_number\": \"09128887766\"\n        }\n    ]\n}"
+									"raw": "{\n    \"contacts\": [\n        {\n            \"name\": \"مخاطب ۱\",\n            \"phone_number\": \"09129998877\"\n        },\
+        {\n            \"name\": \"مخاطب ۲\",\n            \"phone_number\": \"09128887766\"\n        }\n    ]\n}"
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/salons/{{salonId}}/customers/import/contacts",
@@ -1434,6 +1436,82 @@
 										"salons",
 										"{{salonId}}",
 										"staff"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Search Staff",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/salons/{{salonId}}/staff?sort_by=appointment_count&sort_direction=desc",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"salons",
+										"{{salonId}}",
+										"staff"
+									],
+									"query": [
+										{
+											"key": "sort_by",
+											"value": "appointment_count"
+										},
+										{
+											"key": "sort_by",
+											"value": "total_income",
+											"disabled": true
+										},
+										{
+											"key": "sort_direction",
+											"value": "desc"
+										},
+										{
+											"key": "sort_direction",
+											"value": "asc",
+											"disabled": true
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Search Staff 2",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/salons/{{salonId}}/staff?q=nima",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"salons",
+										"{{salonId}}",
+										"staff"
+									],
+									"query": [
+										{
+											"key": "q",
+											"value": "nima"
+										}
 									]
 								}
 							},
@@ -1686,7 +1764,7 @@
 									}
 								],
 								"url": {
-									"raw": "{{baseUrl}}/api/salons/{{salonId}}/services",
+									"raw": "{{baseUrl}}/api/salons/{{salonId}}/services/",
 									"host": [
 										"{{baseUrl}}"
 									],
@@ -1694,7 +1772,34 @@
 										"api",
 										"salons",
 										"{{salonId}}",
-										"services"
+										"services",
+										""
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Sort Services",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/salons/{{salonId}}/services/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"salons",
+										"{{salonId}}",
+										"services",
+										""
 									]
 								}
 							},
@@ -1934,7 +2039,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    // \"new_customer\": {\n    //     \"name\": \"سارا حسینی\",\n    //     \"phone_number\": \"09190114399\"\n    // },\n    // or\n    \"customer_id\": 37,\n    \"service_ids\": [3],\n    \"staff_id\": 3,\n    \"appointment_date\": \"1404-04-29\",\n    \"start_time\": \"16:00\",\n    \"notes\": \"لطفا توجه شود که مشتری به مواد شیمیایی خاصی حساسیت دارد.\",\n    \"status\": \"pending_confirmation\",\n    \"internal_notes\": \"اولین مراجعه مشتری است، کارت اشتراک برایشان صادر شود.\",\n    \"send_sms_reminder\": true,\n    \"is_walk_in\": false,\n    \"deposit_amount\": 50000,\n    \"deposit_payment_method\": \"online\",\n    \"reminder_time\": 2,\n    \"send_reminder_sms\": true,\n    \"send_satisfaction_sms\": true\n}"
+									"raw": "{\n    // \"new_customer\": {\n    //     \"name\": \"سارا حسینی\",\n    //     \"phone_number\": \"09190114399\"\n    // },\n    // or\n    \"customer_id\": 37,\n    \"service_ids\": [3],\n    \"staff_id\": 3,\n    \"appointment_date\": \"1404-05-29\",\n    \"start_time\": \"17:45\",\n    \"notes\": \"لطفا توجه شود که مشتری به مواد شیمیایی خاصی حساسیت دارد.\",\n    \"status\": \"pending_confirmation\",\n    \"internal_notes\": \"اولین مراجعه مشتری است، کارت اشتراک برایشان صادر شود.\",\n    \"send_sms_reminder\": true,\n    \"is_walk_in\": false,\n    \"deposit_amount\": 50000,\n    \"deposit_payment_method\": \"online\",\n    \"reminder_time\": 2,\n    \"send_reminder_sms\": true,\n    \"send_satisfaction_sms\": true,\n    \"total_duration\":30\n}"
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/salons/{{salonId}}/appointments",
@@ -2090,7 +2195,7 @@
 									}
 								],
 								"url": {
-									"raw": "{{baseUrl}}/api/salons/{{salonId}}/appointments/available-slots?date=1403-05-10&staff_id={{staffId}}&service_ids[]={{serviceId}}",
+									"raw": "{{baseUrl}}/api/salons/{{salonId}}/appointments/available-slots?date=1404-05-29&staff_id={{staffId}}&service_ids[]={{serviceId}}",
 									"host": [
 										"{{baseUrl}}"
 									],
@@ -2104,7 +2209,7 @@
 									"query": [
 										{
 											"key": "date",
-											"value": "1403-05-10"
+											"value": "1404-05-29"
 										},
 										{
 											"key": "staff_id",
@@ -2113,6 +2218,47 @@
 										{
 											"key": "service_ids[]",
 											"value": "{{serviceId}}"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Available Slots New",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/salons/{{salonId}}/appointments/available-slots?date=1404-05-29&staff_id=-1",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"salons",
+										"{{salonId}}",
+										"appointments",
+										"available-slots"
+									],
+									"query": [
+										{
+											"key": "date",
+											"value": "1404-05-29"
+										},
+										{
+											"key": "staff_id",
+											"value": "-1"
+										},
+										{
+											"key": "service_ids[]",
+											"value": "-1",
+											"disabled": true
 										}
 									]
 								}
@@ -2171,6 +2317,42 @@
 										"monthly-count",
 										"1404",
 										"4"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "By Day",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/salons/{{salon_id}}/appointments?start_date=1404-04-07&end_date=1404-05-29",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"salons",
+										"{{salon_id}}",
+										"appointments"
+									],
+									"query": [
+										{
+											"key": "start_date",
+											"value": "1404-04-07"
+										},
+										{
+											"key": "end_date",
+											"value": "1404-05-29"
+										}
 									]
 								}
 							},
@@ -3027,6 +3209,155 @@
 							"response": []
 						}
 					]
+				},
+				{
+					"name": "Appointment Reports",
+					"item": [
+						{
+							"name": "Time-based Reports",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}",
+										"type": "text"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/salons/{{salonId}}/reports/appointments/time-based?period=daily&date=1404/04/05",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"salons",
+										"{{salonId}}",
+										"reports",
+										"appointments",
+										"time-based"
+									],
+									"query": [
+										{
+											"key": "period",
+											"value": "daily"
+										},
+										{
+											"key": "date",
+											"value": "1404/04/05"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Overall Status Reports",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}",
+										"type": "text"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/salons/{{salonId}}/reports/appointments/overall-status?start_date=1403/01/01",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"salons",
+										"{{salonId}}",
+										"reports",
+										"appointments",
+										"overall-status"
+									],
+									"query": [
+										{
+											"key": "start_date",
+											"value": "1403/01/01"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Analytical Reports",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}",
+										"type": "text"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/salons/{{salonId}}/reports/appointments/analytical",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"salons",
+										"{{salonId}}",
+										"reports",
+										"appointments",
+										"analytical"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Detailed Reports",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}",
+										"type": "text"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/salons/{{salonId}}/reports/appointments/detailed",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"salons",
+										"{{salonId}}",
+										"reports",
+										"appointments",
+										"detailed"
+									]
+								}
+							},
+							"response": []
+						}
+					]
 				}
 			],
 			"auth": {
@@ -3364,29 +3695,6 @@
 									"value": "4",
 									"description": "Optional: Filter by month (Jalali)"
 								}
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Get SMS Statistics",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Accept",
-								"value": "application/json"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/api/sms-statistics",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"sms-statistics"
 							]
 						}
 					},

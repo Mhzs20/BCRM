@@ -23,10 +23,19 @@ class SmsTransaction extends Model
         'external_response',
         'amount',
         'transaction_id',
+        'approval_status',
+        'rejection_reason',
+        'approved_by',
+        'approved_at',
+        'batch_id',
+        'recipients_type',
+        'recipients_count',
+        'sms_parts',
     ];
 
     protected $casts = [
         'sent_at' => 'datetime',
+        'approved_at' => 'datetime',
     ];
 
     public function user()
@@ -47,5 +56,10 @@ class SmsTransaction extends Model
     public function appointment()
     {
         return $this->belongsTo(Appointment::class);
+    }
+
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 }
