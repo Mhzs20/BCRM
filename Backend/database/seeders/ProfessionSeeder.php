@@ -36,7 +36,6 @@ class ProfessionSeeder extends Seeder
                 [
                     'name' => 'Default Salon',
                     'user_id' => 1,
-                    'phone_number' => '09123456789',
                     'address' => 'Default Address',
                     'city_id' => 1,
                     'province_id' => 1,
