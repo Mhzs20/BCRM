@@ -15,6 +15,9 @@ class DatabaseSeeder extends Seeder
             ProvincesAndCitiesSeeder::class,
             BusinessCategoriesSeeder::class,
             SettingSeeder::class,
+            HowIntroducedSeeder::class,
+            ProfessionSeeder::class,
+            CustomerGroupSeeder::class,
         ]);
     }
 }

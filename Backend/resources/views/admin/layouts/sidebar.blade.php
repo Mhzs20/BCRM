@@ -23,5 +23,25 @@
             <i class="ri-settings-3-line text-xl"></i> {{-- Using a relevant icon --}}
             <span class="mr-4">تنظیمات پیامک</span>
         </a>
+        <a href="{{ route('admin.app-updates.index') }}" class="flex items-center py-3 px-6 transition duration-200 hover:bg-gray-700 @if(request()->routeIs('admin.app-updates.*')) bg-gray-700 @endif">
+            <i class="ri-refresh-line text-xl"></i> {{-- Using a relevant icon --}}
+            <span class="mr-4">مدیریت آپدیت‌ها</span>
+        </a>
+        <a href="{{ route('admin.notifications.index') }}" class="flex items-center py-3 px-6 transition duration-200 hover:bg-gray-700 @if(request()->routeIs('admin.notifications.*')) bg-gray-700 @endif">
+            <i class="ri-notification-3-line text-xl"></i>
+            <span class="mr-4">اعلانات</span>
+        </a>
+        <a href="{{ route('admin.how-introduced.index') }}" class="flex items-center py-3 px-6 transition duration-200 hover:bg-gray-700 @if(request()->routeIs('admin.how-introduced.*')) bg-gray-700 @endif">
+            <i class="ri-question-line text-xl"></i> {{-- Using a relevant icon --}}
+            <span class="mr-4">نحوه آشنایی</span>
+        </a>
+        <a href="{{ route('admin.professions.index') }}" class="flex items-center py-3 px-6 transition duration-200 hover:bg-gray-700 @if(request()->routeIs('admin.professions.*')) bg-gray-700 @endif">
+            <i class="ri-briefcase-line text-xl"></i> {{-- Using a relevant icon --}}
+            <span class="mr-4">مشاغل</span>
+        </a>
+        <a href="{{ route('admin.customer-groups.index') }}" class="flex items-center py-3 px-6 transition duration-200 hover:bg-gray-700 @if(request()->routeIs('admin.customer-groups.*')) bg-gray-700 @endif">
+            <i class="ri-group-line text-xl"></i> {{-- Using a relevant icon --}}
+            <span class="mr-4">گروه‌های مشتریان</span>
+        </a>
     </nav>
 </div>
