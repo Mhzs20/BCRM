@@ -182,4 +182,21 @@ class Salon extends Model
     {
         return $value ? asset('storage/' . $value) : null;
     }
+
+    /**
+     * Get the SMS balance for the salon's user.
+     */
+    public function smsBalance()
+    {
+        return $this->user->smsBalance();
+    }
+
+    /**
+     * Accessor to get the current SMS balance.
+     * This will allow $salon->sms_balance to work correctly.
+     */
+    public function getSmsBalanceAttribute()
+    {
+        return $this->user->smsBalance->balance ?? 0;
+    }
 }

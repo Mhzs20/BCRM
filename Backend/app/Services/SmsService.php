@@ -19,17 +19,21 @@ use Carbon\Carbon;
 class SmsService
 {
     protected $apiKey;
-    protected $senderNumber; // This will be fetched from salon settings or Kavenegar default
+    protected $senderNumber;
     protected $baseUri;
-    protected $smsCharacterLimit;
+    protected $smsCharacterLimitFa; // For Persian
+    protected $smsCharacterLimitEn; // For English
+    protected $smsCostPerPart; // Cost per SMS part
 
     public function __construct()
     {
         $this->apiKey = config('kavenegar.api_key');
         $this->baseUri = config('kavenegar.base_uri');
-        
-        $smsCharacterLimitSetting = Setting::where('key', 'sms_character_limit')->first();
-        $this->smsCharacterLimit = $smsCharacterLimitSetting ? (int)$smsCharacterLimitSetting->value : 70;
+
+        // Fetch character limits and cost from settings, with defaults
+        $this->smsCharacterLimitFa = (int) (Setting::where('key', 'sms_part_char_limit_fa')->first()->value ?? 70);
+        $this->smsCharacterLimitEn = (int) (Setting::where('key', 'sms_part_char_limit_en')->first()->value ?? 160);
+        $this->smsCostPerPart = (float) (Setting::where('key', 'sms_cost_per_part')->first()->value ?? 100); // Example: 100 units per SMS part
 
         if (env('APP_ENV') !== 'testing' && (!$this->apiKey || $this->apiKey === 'YOUR_DEFAULT_KEY_IF_NOT_SET')) {
             Log::warning('Kavenegar API Key is not configured properly in .env file. SMS sending will be simulated.');
@@ -235,11 +239,14 @@ class SmsService
             return ['status' => 'success', 'message' => 'پیام خالی است و ارسال نشد.'];
         }
 
+        // Ensure the salon's user relationship is loaded to access sms_balance
+        $salon->loadMissing('user.smsBalance');
+
         // Re-introducing the balance check as per user request.
         $smsCount = $this->calculateSmsCount($message);
         if ($salon->sms_balance < $smsCount) {
             Log::warning("User ID {$salonOwner->id} (Salon: {$salon->id}) has insufficient SMS balance to send '{$eventType}' to {$receptor}. Balance: {$salon->sms_balance}, Required: {$smsCount}");
-            return ['status' => 'error', 'message' => 'اعتبار پیامک کافی نیست.'];
+            return ['status' => 'error', 'message' => 'اعتبار پیامک کافی نیست. اعتبار فعلی: ' . $salon->sms_balance . '، مورد نیاز: ' . $smsCount];
         }
 
         try {
@@ -474,9 +481,36 @@ class SmsService
         );
     }
 
+    /**
+     * Calculates the number of SMS parts based on message content and language.
+     *
+     * @param string $message The SMS text.
+     * @return int The number of SMS parts.
+     */
     public function calculateSmsCount(string $message): int
     {
         $characterCount = mb_strlen($message);
-        return (int)ceil($characterCount / $this->smsCharacterLimit);
+        
+        // Detect if the message contains predominantly Persian/Arabic characters
+        // This is a simple heuristic; a more robust solution might involve a dedicated library
+        $isPersian = preg_match('/[\x{0600}-\x{06FF}\x{FB50}-\x{FDFF}\x{FE70}-\x{FEFF}]/u', $message);
+
+        $limit = $isPersian ? $this->smsCharacterLimitFa : $this->smsCharacterLimitEn;
+
+        if ($characterCount === 0) {
+            return 0;
+        }
+
+        return (int)ceil($characterCount / $limit);
+    }
+
+    /**
+     * Returns the cost per SMS part.
+     *
+     * @return float
+     */
+    public function getSmsCostPerPart(): float
+    {
+        return $this->smsCostPerPart;
     }
 }

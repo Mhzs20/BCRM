@@ -9,6 +9,7 @@ use Morilog\Jalali\Jalalian;
 use Carbon\Carbon;
 use App\Models\Appointment;
 use App\Observers\AppointmentObserver;
+use Illuminate\Pagination\Paginator;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -25,6 +26,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Paginator::useTailwind(); // Use Tailwind CSS for pagination links
+
         Appointment::observe(AppointmentObserver::class);
 
         Schema::defaultStringLength(191);

@@ -19,6 +19,8 @@ use App\Http\Controllers\AgeRangeController;
 use App\Http\Controllers\SmsPackageController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ZarinpalController;
+use App\Http\Controllers\AppointmentReportController;
+use App\Http\Controllers\ManualSmsController; // Add this line
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -113,6 +115,14 @@ Route::middleware('auth:api')->group(function () {
                 Route::get('/', [SettingController::class, 'index'])->name('index');
                 Route::post('/', [SettingController::class, 'store'])->name('store');
             });
+
+            Route::prefix('reports/appointments')->name('reports.appointments.')->group(function () {
+                Route::get('time-based', [AppointmentReportController::class, 'getAppointmentTimeReports'])->name('time_based');
+                Route::get('overall-status', [AppointmentReportController::class, 'getOverallAppointmentStatusReports'])->name('overall_status');
+                Route::get('analytical', [AppointmentReportController::class, 'getAnalyticalReports'])->name('analytical');
+                Route::get('detailed', [AppointmentReportController::class, 'getDetailedReports'])->name('detailed');
+                Route::get('daily-summary', [AppointmentReportController::class, 'getDailySummaryReport'])->name('daily_summary');
+            });
         });
     });
 
@@ -138,7 +148,20 @@ Route::middleware('auth:api')->group(function () {
 Route::middleware(['auth:api', 'superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
     Route::apiResource('sms-packages', SmsPackageController::class);
     Route::apiResource('sms-templates', SalonSmsTemplateController::class);
+
+    // Manual SMS Approval Routes
+    Route::prefix('manual-sms')->name('manual_sms.')->group(function () {
+        Route::get('pending', [ManualSmsController::class, 'listPendingManualSms'])->name('pending');
+        Route::post('{smsTransactionId}/approve', [ManualSmsController::class, 'approveManualSms'])->name('approve');
+        Route::post('{smsTransactionId}/reject', [ManualSmsController::class, 'rejectManualSms'])->name('reject');
+    });
 });
+
+// Route for submitting manual SMS request (accessible by regular salon users)
+// The salonId is now part of the URL for clarity and direct association.
+Route::middleware('auth:api')->post('manual-sms/{salon}/send', [ManualSmsController::class, 'sendManualSms'])
+    ->whereNumber('salon')
+    ->name('manual_sms.send');
 
 Route::post('/payment/purchase/{packageId}', [ZarinpalController::class, 'purchase']);
 Route::post('/payment/callback', [ZarinpalController::class, 'callback']);
