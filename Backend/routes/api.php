@@ -21,6 +21,9 @@ use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ZarinpalController;
 use App\Http\Controllers\AppointmentReportController;
 use App\Http\Controllers\ManualSmsController; // Add this line
+use App\Http\Controllers\SmsTransactionController;
+use App\Models\AppUpdate;
+use App\Http\Controllers\Api\NotificationController;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -141,6 +144,7 @@ Route::middleware('auth:api')->group(function () {
     Route::prefix('sms-account')->name('sms_account.')->group(function () {
         Route::get('packages', [UserSmsBalanceController::class, 'getSmsPackages'])->name('packages.index');
         Route::post('purchase-package', [UserSmsBalanceController::class, 'purchasePackage'])->name('packages.purchase');
+        Route::get('transactions', [SmsTransactionController::class, 'index'])->name('transactions.index');
     });
 
 });
@@ -165,6 +169,16 @@ Route::middleware('auth:api')->post('manual-sms/{salon}/send', [ManualSmsControl
 
 Route::post('/payment/purchase/{packageId}', [ZarinpalController::class, 'purchase']);
 Route::post('/payment/callback', [ZarinpalController::class, 'callback']);
+
+Route::get('/app/latest-version', function () {
+    $latestUpdate = AppUpdate::latest()->first();
+    if ($latestUpdate) {
+        return response()->json($latestUpdate);
+    }
+    return response()->json(['message' => 'No update information found.'], 404);
+});
+
+Route::get('/notifications', [NotificationController::class, 'index']);
 
 Route::fallback(function(){
     return response()->json(['message' => 'مسیر API درخواستی یافت نشد یا متد HTTP مجاز نیست.'], 404);
