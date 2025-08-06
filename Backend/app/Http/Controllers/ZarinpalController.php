@@ -23,8 +23,10 @@ class ZarinpalController extends Controller
             throw new \Exception('No active salon found for the user.');
         }
 
+        $finalPrice = $smsPackage->discount_price ?? $smsPackage->price;
+
         $invoice = new Invoice;
-        $invoice->amount($smsPackage->price);
+        $invoice->amount($finalPrice);
         $invoice->detail('description', 'خرید بسته پیامکی');
         $invoice->detail('user_id', $user->id);
         $invoice->detail('package_id', $smsPackage->id);
@@ -36,7 +38,7 @@ class ZarinpalController extends Controller
                 'user_id' => $user->id,
                 'salon_id' => $activeSalon->id,
                 'sms_package_id' => $smsPackage->id,
-                'amount' => $smsPackage->price,
+                'amount' => $finalPrice,
                 'transaction_id' => $transactionId,
                 'status' => 'pending',
             ]);
@@ -56,9 +58,14 @@ class ZarinpalController extends Controller
 
             $transaction->update(['status' => 'completed']);
 
-            $userSmsBalance = UserSmsBalance::firstOrCreate(['user_id' => $transaction->user_id]);
-            $smsPackage = SmsPackage::find($transaction->sms_package_id);
-            $userSmsBalance->increment('balance', $smsPackage->sms_count);
+            // Find the salon associated with the transaction
+            $salon = \App\Models\Salon::findOrFail($transaction->salon_id);
+
+            // Find the purchased SMS package
+            $smsPackage = SmsPackage::findOrFail($transaction->sms_package_id);
+
+            // Increment the salon's SMS balance
+            $salon->increment('sms_balance', $smsPackage->sms_count);
 
             return redirect('/')->with('success', 'پرداخت با موفقیت انجام شد.');
 

@@ -46,6 +46,7 @@ class SmsPackageController extends Controller
             'name' => 'required|string|max:255',
             'sms_count' => 'required|integer|min:0',
             'price' => 'required|numeric|min:0',
+            'discount_price' => 'nullable|numeric|min:0|lt:price',
             'is_active' => 'boolean',
         ]);
 

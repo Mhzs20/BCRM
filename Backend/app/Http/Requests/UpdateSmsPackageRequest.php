@@ -28,6 +28,7 @@ class UpdateSmsPackageRequest extends FormRequest
             'name' => 'sometimes|string|max:255',
             'sms_count' => 'sometimes|integer|min:0',
             'price' => 'sometimes|numeric|min:0',
+            'discount_price' => 'nullable|numeric|min:0|lt:price',
             'is_active' => 'sometimes|boolean',
         ];
     }
