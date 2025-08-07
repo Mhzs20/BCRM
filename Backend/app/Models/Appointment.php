@@ -41,6 +41,7 @@ class Appointment extends Model
 
     protected $casts = [
         'appointment_date' => 'date',
+        'start_time' => 'datetime',
         'deposit_required' => 'boolean',
         'deposit_paid' => 'boolean',
         'reminder_sms_sent_at' => 'datetime',
