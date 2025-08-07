@@ -19,8 +19,6 @@ class CustomerGroupSeeder extends Seeder
             'مشتریان جدید',
             'مشتریان وفادار',
             'مشتریان VIP',
-            'مشتریان غیرفعال',
-            'مشتریان بالقوه',
         ];
 
         $salons = Salon::all();
