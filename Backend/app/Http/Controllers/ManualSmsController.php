@@ -200,33 +200,44 @@ class ManualSmsController extends Controller
 
         DB::beginTransaction();
         try {
-            foreach ($transactions as $transaction) {
-                $smsEntries = $this->smsService->sendSms($transaction->receptor, $transaction->content);
-                if ($smsEntries && !empty($smsEntries)) {
-                    $firstEntry = $smsEntries[0];
-                    $transaction->update([
-                        'sent_at' => now(),
-                        'status' => $this->smsService->mapKavenegarStatusToInternal($firstEntry['status'] ?? null),
-                        'external_response' => json_encode($smsEntries),
-                        'approval_status' => 'approved',
-                        'approved_by' => $approver->id,
-                        'approved_at' => now(),
-                    ]);
-                } else {
-                    $transaction->update([
+            $recipients = $transactions->pluck('receptor')->toArray();
+            $content = $transactions->first()->content;
+            $recipientChunks = array_chunk($recipients, 50);
+
+            foreach ($recipientChunks as $chunk) {
+                // First, mark all transactions in this chunk as failed.
+                // This handles cases where the API call fails or some recipients are not in the response.
+                SmsTransaction::where('batch_id', $batchId)
+                    ->whereIn('receptor', $chunk)
+                    ->update([
                         'status' => 'failed',
-                        'external_response' => 'فراخوانی API Kavenegar ناموفق بود یا پاسخی برنگرداند.',
-                        'approval_status' => 'rejected',
-                        'rejection_reason' => 'ارسال از طریق API Kavenegar ناموفق بود.',
+                        'external_response' => 'ارسال اولیه ناموفق بود یا پاسخی از API دریافت نشد.',
+                        'approval_status' => 'approved', // It was approved for sending, but sending failed
                         'approved_by' => $approver->id,
                         'approved_at' => now(),
+                        'sent_at' => now(),
                     ]);
+
+                $receptorsString = implode(',', $chunk);
+                $smsEntries = $this->smsService->sendSms($receptorsString, $content);
+
+                // If the API call was successful, update the status for each recipient in the response.
+                if ($smsEntries && !empty($smsEntries)) {
+                    foreach ($smsEntries as $entry) {
+                        SmsTransaction::where('batch_id', $batchId)
+                            ->where('receptor', $entry['receptor'])
+                            ->update([
+                                'status' => $this->smsService->mapKavenegarStatusToInternal($entry['status'] ?? null),
+                                'external_response' => json_encode($entry),
+                                // Other fields are already set
+                            ]);
+                    }
                 }
             }
 
             $salon->user->smsBalance->decrement('balance', $totalSmsCount);
             DB::commit();
-            return redirect()->back()->with('success', 'پیامک با موفقیت تایید و ارسال شد.');
+            return redirect()->route('admin.manual_sms.reports')->with('success', 'عملیات ارسال پیامک‌ها انجام شد. وضعیت نهایی در این صفحه قابل مشاهده است.');
         } catch (\Exception $e) {
             DB::rollBack();
             SmsTransaction::where('batch_id', $batchId)->update([
@@ -329,5 +340,58 @@ class ManualSmsController extends Controller
         );
 
         return view('admin.sms-templates.approval', compact('pendingSmsBatches'));
+    }
+
+    /**
+     * Show the manual SMS reports page for super admins.
+     *
+     * @return \Illuminate\View\View
+     */
+    public function showReportsPage(Request $request)
+    {
+        if (!Auth::user()->is_superadmin) {
+            abort(403, 'اقدام غیرمجاز.');
+        }
+
+        $smsTransactions = SmsTransaction::where('sms_type', 'manual_sms')
+            ->whereNotNull('batch_id')
+            ->with('user', 'salon')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $groupedBatches = $smsTransactions->groupBy('batch_id')->map(function ($batch) {
+            $firstTransaction = $batch->first();
+            $successfulCount = $batch->where('status', 'sent')->count();
+            $failedCount = $batch->where('status', 'failed')->count();
+            $pendingCount = $batch->where('status', 'pending')->count();
+
+            return (object) [
+                'batch_id' => $firstTransaction->batch_id,
+                'salon_name' => $firstTransaction->salon->name ?? 'N/A',
+                'user_name' => $firstTransaction->user->name ?? 'N/A',
+                'content' => $firstTransaction->content,
+                'recipients_count' => $batch->count(),
+                'approval_status' => $firstTransaction->approval_status,
+                'created_at' => $firstTransaction->created_at,
+                'successful_sends' => $successfulCount,
+                'failed_sends' => $failedCount,
+                'pending_sends' => $pendingCount,
+            ];
+        });
+
+        $perPage = $request->get('per_page', 15);
+        $currentPage = Paginator::resolveCurrentPage('page', 1);
+        $offset = ($currentPage * $perPage) - $perPage;
+        $items = $groupedBatches->slice($offset, $perPage)->values()->all();
+
+        $smsBatches = new LengthAwarePaginator(
+            $items,
+            $groupedBatches->count(),
+            $perPage,
+            $currentPage,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        return view('admin.sms-reports.index', compact('smsBatches'));
     }
 }

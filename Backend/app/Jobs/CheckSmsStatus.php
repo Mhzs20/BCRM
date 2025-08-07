@@ -8,6 +8,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use App\Models\Appointment;
+use App\Models\SmsTransaction;
 use App\Services\SmsService;
 use Illuminate\Support\Facades\Log;
 
@@ -28,63 +29,109 @@ class CheckSmsStatus implements ShouldQueue
      */
     public function handle(SmsService $smsService): void
     {
-        // Fetch appointments that have pending SMS statuses
-        $appointments = Appointment::whereIn('reminder_sms_status', ['pending'])
-            ->orWhereIn('satisfaction_sms_status', ['pending'])
+        Log::info('Running CheckSmsStatus job.');
+
+        // --- Check Appointment SMS ---
+        $this->checkAppointmentSms($smsService);
+
+        // --- Check Manual SMS Transactions ---
+        $this->checkManualSmsTransactions($smsService);
+
+        Log::info('Finished CheckSmsStatus job.');
+    }
+
+    private function checkAppointmentSms(SmsService $smsService): void
+    {
+        $appointments = Appointment::where('reminder_sms_status', 'pending')
+            ->orWhere('satisfaction_sms_status', 'pending')
             ->get();
 
-        $reminderMessageIds = $appointments->whereNotNull('reminder_sms_message_id')
-                                           ->where('reminder_sms_status', 'pending')
-                                           ->pluck('reminder_sms_message_id')
-                                           ->toArray();
+        $messageIds = $appointments->pluck('reminder_sms_message_id')
+            ->merge($appointments->pluck('satisfaction_sms_message_id'))
+            ->filter()
+            ->unique()
+            ->toArray();
 
-        $satisfactionMessageIds = $appointments->whereNotNull('satisfaction_sms_message_id')
-                                               ->where('satisfaction_sms_status', 'pending')
-                                               ->pluck('satisfaction_sms_message_id')
-                                               ->toArray();
-
-        $allMessageIds = array_unique(array_merge($reminderMessageIds, $satisfactionMessageIds));
-
-        if (empty($allMessageIds)) {
-            Log::info("No pending SMS messages to check status for.");
+        if (empty($messageIds)) {
             return;
         }
 
-        Log::info("Checking status for " . count($allMessageIds) . " SMS messages.");
-        $kavenegarStatuses = $smsService->checkSmsStatus($allMessageIds);
+        Log::info("Checking status for " . count($messageIds) . " appointment-related SMS messages.");
+        $statuses = $smsService->checkSmsStatus($messageIds);
+
+        if (empty($statuses)) {
+            return;
+        }
 
         foreach ($appointments as $appointment) {
-            $updated = false;
+            $this->updateAppointmentSmsStatus($appointment, 'reminder', $statuses, $smsService);
+            $this->updateAppointmentSmsStatus($appointment, 'satisfaction', $statuses, $smsService);
+        }
+    }
 
-            // Check reminder SMS status
-            if ($appointment->reminder_sms_status === 'pending' && $appointment->reminder_sms_message_id) {
-                $messageId = $appointment->reminder_sms_message_id;
-                if (isset($kavenegarStatuses[$messageId])) {
-                    $newInternalStatus = $smsService->mapKavenegarStatusToInternal($kavenegarStatuses[$messageId]);
-                    if ($newInternalStatus !== 'pending') {
-                        $appointment->reminder_sms_status = $newInternalStatus;
-                        $updated = true;
-                        Log::info("Updated reminder SMS status for appointment {$appointment->id} to {$newInternalStatus}.");
-                    }
+    private function updateAppointmentSmsStatus(Appointment $appointment, string $type, array $statuses, SmsService $smsService): void
+    {
+        $statusField = "{$type}_sms_status";
+        $messageIdField = "{$type}_sms_message_id";
+
+        if ($appointment->$statusField === 'pending' && $appointment->$messageIdField) {
+            $messageId = $appointment->$messageIdField;
+            if (isset($statuses[$messageId])) {
+                $newStatus = $smsService->mapKavenegarStatusToInternal($statuses[$messageId]);
+                if ($newStatus !== 'pending') {
+                    $appointment->$statusField = $newStatus;
+                    $appointment->save();
+                    Log::info("Updated {$type} SMS status for appointment {$appointment->id} to {$newStatus}.");
                 }
-            }
-
-            // Check satisfaction survey SMS status
-            if ($appointment->satisfaction_sms_status === 'pending' && $appointment->satisfaction_sms_message_id) {
-                $messageId = $appointment->satisfaction_sms_message_id;
-                if (isset($kavenegarStatuses[$messageId])) {
-                    $newInternalStatus = $smsService->mapKavenegarStatusToInternal($kavenegarStatuses[$messageId]);
-                    if ($newInternalStatus !== 'pending') {
-                        $appointment->satisfaction_sms_status = $newInternalStatus;
-                        $updated = true;
-                        Log::info("Updated satisfaction survey SMS status for appointment {$appointment->id} to {$newInternalStatus}.");
-                    }
-                }
-            }
-
-            if ($updated) {
-                $appointment->save();
             }
         }
+    }
+
+    private function checkManualSmsTransactions(SmsService $smsService): void
+    {
+        $pendingTransactions = SmsTransaction::where('status', 'pending')
+            ->whereNotNull('external_response')
+            ->limit(100) // Process in chunks
+            ->get();
+
+        if ($pendingTransactions->isEmpty()) {
+            return;
+        }
+
+        $transactionsByMessageId = [];
+        foreach ($pendingTransactions as $transaction) {
+            $response = json_decode($transaction->external_response, true);
+            if (isset($response['messageid'])) {
+                $transactionsByMessageId[$response['messageid']] = $transaction;
+            }
+        }
+
+        $messageIds = array_keys($transactionsByMessageId);
+        if (empty($messageIds)) {
+            return;
+        }
+
+        Log::info("Checking status for " . count($messageIds) . " manual SMS transactions.");
+        $statuses = $smsService->checkSmsStatus($messageIds);
+
+        if (empty($statuses)) {
+            Log::warning('SMS Status Check: Failed to retrieve statuses for manual transactions.');
+            return;
+        }
+
+        $updatedCount = 0;
+        foreach ($statuses as $messageId => $kavenegarStatus) {
+            if (isset($transactionsByMessageId[$messageId])) {
+                $transaction = $transactionsByMessageId[$messageId];
+                $newStatus = $smsService->mapKavenegarStatusToInternal($kavenegarStatus);
+
+                if ($transaction->status !== $newStatus) {
+                    $transaction->status = $newStatus;
+                    $transaction->save();
+                    $updatedCount++;
+                }
+            }
+        }
+        Log::info("SMS Status Check: Updated {$updatedCount} manual SMS transactions.");
     }
 }
