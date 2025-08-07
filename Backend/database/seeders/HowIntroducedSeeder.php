@@ -50,7 +50,6 @@ class HowIntroducedSeeder extends Seeder
                 [
                     'name' => 'Default Salon',
                     'user_id' => 1, // Link to a default user, e.g., super admin
-                    'phone_number' => '09123456789',
                     'address' => 'Default Address',
                     'city_id' => 1, // Assuming city_id 1 exists
                     'province_id' => 1, // Assuming province_id 1 exists

@@ -19,8 +19,6 @@ class CustomerGroupSeeder extends Seeder
             'مشتریان جدید',
             'مشتریان وفادار',
             'مشتریان VIP',
-            'مشتریان غیرفعال',
-            'مشتریان بالقوه',
         ];
 
         $salons = Salon::all();
@@ -31,7 +29,6 @@ class CustomerGroupSeeder extends Seeder
                 [
                     'name' => 'Default Salon',
                     'user_id' => 1,
-                    'phone_number' => '09123456789',
                     'address' => 'Default Address',
                     'city_id' => 1,
                     'province_id' => 1,
