@@ -6,10 +6,10 @@ use App\Http\Controllers\Admin\SmsTemplateController;
 use App\Http\Controllers\Admin\AdminSmsSettingController;
 use App\Http\Controllers\Admin\AppUpdateController;
 use App\Http\Controllers\Admin\NotificationController;
-use App\Http\Controllers\Admin\HowIntroducedController; // Add this line
-use App\Http\Controllers\Admin\ProfessionController; // Add this line
-use App\Http\Controllers\Admin\CustomerGroupController; // Add this line
-use App\Http\Controllers\ManualSmsController; // Add this line
+use App\Http\Controllers\Admin\HowIntroducedController; 
+use App\Http\Controllers\Admin\ProfessionController; 
+use App\Http\Controllers\Admin\CustomerGroupController; 
+use App\Http\Controllers\ManualSmsController;
 use App\Http\Middleware\SuperAdminMiddleware;
 use Illuminate\Support\Facades\Route;
 
@@ -33,7 +33,7 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
     Route::post('sms-settings', [AdminSmsSettingController::class, 'update'])->name('sms_settings.update');
 
     // App Updates
-    Route::resource('app-updates', AppUpdateController::class)->except(['show', 'edit', 'update', 'destroy']);
+    Route::resource('app-updates', AppUpdateController::class);
 
     // Notifications
     Route::resource('notifications', NotificationController::class);
