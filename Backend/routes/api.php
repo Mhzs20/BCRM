@@ -127,7 +127,7 @@ Route::middleware('auth:api')->group(function () {
             });
 
             Route::prefix('sms-account')->name('sms_account.')->group(function () {
-                Route::get('packages', [UserSmsBalanceController::class, 'getSmsPackages'])->name('packages.index');
+                Route::get('packages', [SmsPackageController::class, 'index'])->name('packages.index');
                 Route::post('purchase-package', [UserSmsBalanceController::class, 'purchasePackage'])->name('packages.purchase');
                 Route::get('transactions', [SmsTransactionController::class, 'index'])->name('transactions.index');
             });
