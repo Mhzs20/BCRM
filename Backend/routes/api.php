@@ -22,9 +22,8 @@ use App\Http\Controllers\ZarinpalController;
 use App\Http\Controllers\AppointmentReportController;
 use App\Http\Controllers\ManualSmsController; // Add this line
 use App\Http\Controllers\SmsTransactionController;
-use App\Models\AppUpdate;
+use App\Http\Controllers\Api\AppController;
 use App\Http\Controllers\Api\NotificationController;
-
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -126,6 +125,12 @@ Route::middleware('auth:api')->group(function () {
                 Route::get('detailed', [AppointmentReportController::class, 'getDetailedReports'])->name('detailed');
                 Route::get('daily-summary', [AppointmentReportController::class, 'getDailySummaryReport'])->name('daily_summary');
             });
+
+            Route::prefix('sms-account')->name('sms_account.')->group(function () {
+                Route::get('packages', [UserSmsBalanceController::class, 'getSmsPackages'])->name('packages.index');
+                Route::post('purchase-package', [UserSmsBalanceController::class, 'purchasePackage'])->name('packages.purchase');
+                Route::get('transactions', [SmsTransactionController::class, 'index'])->name('transactions.index');
+            });
         });
     });
 
@@ -139,12 +144,6 @@ Route::middleware('auth:api')->group(function () {
     Route::prefix('salon-settings')->name('salon_settings.')->group(function () {
         Route::get('sms-templates', [SalonSmsTemplateController::class, 'index'])->name('sms_templates.index');
         Route::post('sms-templates', [SalonSmsTemplateController::class, 'storeOrUpdate'])->name('sms_templates.store_or_update');
-    });
-
-    Route::prefix('sms-account')->name('sms_account.')->group(function () {
-        Route::get('packages', [UserSmsBalanceController::class, 'getSmsPackages'])->name('packages.index');
-        Route::post('purchase-package', [UserSmsBalanceController::class, 'purchasePackage'])->name('packages.purchase');
-        Route::get('transactions', [SmsTransactionController::class, 'index'])->name('transactions.index');
     });
 
 });
@@ -170,13 +169,7 @@ Route::middleware('auth:api')->post('manual-sms/{salon}/send', [ManualSmsControl
 Route::post('/payment/purchase/{packageId}', [ZarinpalController::class, 'purchase']);
 Route::post('/payment/callback', [ZarinpalController::class, 'callback']);
 
-Route::get('/app/latest-version', function () {
-    $latestUpdate = AppUpdate::latest()->first();
-    if ($latestUpdate) {
-        return response()->json($latestUpdate);
-    }
-    return response()->json(['message' => 'No update information found.'], 404);
-});
+Route::get('/app/latest-version', [AppController::class, 'latestVersion']);
 
 Route::get('/notifications', [NotificationController::class, 'index']);
 
