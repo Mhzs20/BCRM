@@ -16,11 +16,7 @@ class SmsPackageController extends Controller
      */
     public function index()
     {
-        // Assuming only superadmin can view SMS packages
-        if (!Auth::user()->is_superadmin) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-        $packages = SmsPackage::orderBy('price')->get();
+        $packages = SmsPackage::where('is_active', true)->orderBy('price')->get();
         return response()->json($packages);
     }
 
