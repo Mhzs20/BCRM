@@ -10,7 +10,7 @@ class SmsPackage extends Model
         'name',
         'sms_count',
         'price',
+        'discount_price',
         'is_active',
-        'purchase_link',
     ];
 }
