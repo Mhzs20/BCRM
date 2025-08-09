@@ -12,5 +12,7 @@ class AppUpdate extends Model
         'google_play_link',
         'cafe_bazaar_link',
         'app_store_link',
+        'notes',
+        'force_update',
     ];
 }

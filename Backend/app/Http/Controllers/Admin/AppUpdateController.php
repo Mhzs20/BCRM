@@ -27,10 +27,46 @@ class AppUpdateController extends Controller
             'google_play_link' => 'nullable|url',
             'cafe_bazaar_link' => 'nullable|url',
             'app_store_link' => 'nullable|url',
+            'notes' => 'nullable|string',
+            'force_update' => 'boolean',
         ]);
 
-        AppUpdate::create($request->all());
+        $data = $request->all();
+        $data['force_update'] = $request->has('force_update');
+
+        AppUpdate::create($data);
 
         return redirect()->route('admin.app-updates.index')->with('success', 'لینک آپدیت جدید با موفقیت اضافه شد.');
+    }
+
+    public function edit(AppUpdate $appUpdate)
+    {
+        return view('admin.app-updates.edit', compact('appUpdate'));
+    }
+
+    public function update(Request $request, AppUpdate $appUpdate)
+    {
+        $request->validate([
+            'version' => 'required|string|max:255',
+            'direct_link' => 'nullable|url',
+            'google_play_link' => 'nullable|url',
+            'cafe_bazaar_link' => 'nullable|url',
+            'app_store_link' => 'nullable|url',
+            'notes' => 'nullable|string',
+            'force_update' => 'boolean',
+        ]);
+
+        $data = $request->all();
+        $data['force_update'] = $request->has('force_update');
+
+        $appUpdate->update($data);
+
+        return redirect()->route('admin.app-updates.index')->with('success', 'App update updated successfully.');
+    }
+
+    public function destroy(AppUpdate $appUpdate)
+    {
+        $appUpdate->delete();
+        return redirect()->route('admin.app-updates.index')->with('success', 'App update deleted successfully.');
     }
 }
