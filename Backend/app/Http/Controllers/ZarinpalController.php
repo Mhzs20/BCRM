@@ -64,11 +64,14 @@ class ZarinpalController extends Controller
             // Find the purchased SMS package
             $smsPackage = SmsPackage::findOrFail($transaction->sms_package_id);
 
-            // Increment the salon's SMS balance
-            $salon->increment('sms_balance', $smsPackage->sms_count);
+            // Find or create the user's SMS balance and increment it
+            $userSmsBalance = UserSmsBalance::firstOrCreate(
+                ['user_id' => $transaction->user_id],
+                ['balance' => 0]
+            );
+            $userSmsBalance->increment('balance', $smsPackage->sms_count);
 
             return redirect('/')->with('success', 'پرداخت با موفقیت انجام شد.');
-
         } catch (\Exception $e) {
             $transaction->update(['status' => 'failed']);
             return redirect('/')->with('error', 'پرداخت ناموفق بود.');
