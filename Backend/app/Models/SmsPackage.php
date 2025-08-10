@@ -13,4 +13,10 @@ class SmsPackage extends Model
         'discount_price',
         'is_active',
     ];
+
+    protected $casts = [
+        'price' => 'integer',
+        'discount_price' => 'integer',
+        'is_active' => 'boolean',
+    ];
 }
