@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\SmsPackage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class SmsPackageController extends Controller
 {
@@ -34,11 +35,14 @@ class SmsPackageController extends Controller
             'name' => 'required|string|max:255',
             'sms_count' => 'required|integer|min:1',
             'price' => 'required|integer|min:0',
-            'purchase_link' => 'nullable|url',
-            'is_active' => 'required|boolean',
+            'discount_price' => 'nullable|integer|min:0|lt:price',
+            'is_active' => 'sometimes|boolean',
         ]);
 
-        SmsPackage::create($request->all());
+        $data = $request->only(['name', 'sms_count', 'price', 'discount_price']);
+        $data['is_active'] = $request->has('is_active');
+
+        SmsPackage::create($data);
 
         return redirect()->route('admin.sms-packages.index')->with('success', 'پکیج با موفقیت ایجاد شد.');
     }
@@ -56,17 +60,32 @@ class SmsPackageController extends Controller
      */
     public function update(Request $request, SmsPackage $smsPackage)
     {
+        Log::info('SmsPackage update request received.', ['request_data' => $request->all(), 'smsPackage_id' => $smsPackage->id]);
+
         $request->validate([
             'name' => 'required|string|max:255',
             'sms_count' => 'required|integer|min:1',
-            'price' => 'required|integer|min:0',
-            'purchase_link' => 'nullable|url',
-            'is_active' => 'required|boolean',
+            'price' => 'required|numeric|min:0',
+            'discount_price' => 'nullable|numeric|min:0|lt:price',
+            'is_active' => 'sometimes|boolean',
         ]);
 
-        $smsPackage->update($request->all());
+        Log::info('SmsPackage validation passed.');
 
-        return redirect()->route('admin.sms-packages.index')->with('success', 'پکیج با موفقیت ویرایش شد.');
+        $data = $request->only(['name', 'sms_count', 'price', 'discount_price']);
+        $data['is_active'] = $request->has('is_active');
+
+        Log::info('SmsPackage data prepared for update.', ['prepared_data' => $data]);
+        Log::info('SmsPackage before update.', ['smsPackage_before' => $smsPackage->toArray()]);
+
+        try {
+            $smsPackage->update($data);
+            Log::info('SmsPackage updated successfully.', ['smsPackage_after' => $smsPackage->toArray()]);
+            return redirect()->route('admin.sms-packages.index')->with('success', 'پکیج با موفقیت ویرایش شد.');
+        } catch (\Exception $e) {
+            Log::error('SmsPackage update failed: ' . $e->getMessage(), ['exception' => $e]);
+            return redirect()->back()->with('error', 'خطا در به‌روزرسانی پکیج پیامک.');
+        }
     }
 
     /**
