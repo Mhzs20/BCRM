@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 
 class AppController extends Controller
 {
-    public function latestVersion()
+    public function latestHistory()
     {
         $latestUpdate = AppUpdate::latest()->first();
 
