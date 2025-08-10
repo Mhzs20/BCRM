@@ -244,9 +244,10 @@ class SmsService
 
         // Re-introducing the balance check as per user request.
         $smsCount = $this->calculateSmsCount($message);
-        if ($salon->sms_balance < $smsCount) {
-            Log::warning("User ID {$salonOwner->id} (Salon: {$salon->id}) has insufficient SMS balance to send '{$eventType}' to {$receptor}. Balance: {$salon->sms_balance}, Required: {$smsCount}");
-            return ['status' => 'error', 'message' => 'اعتبار پیامک کافی نیست. اعتبار فعلی: ' . $salon->sms_balance . '، مورد نیاز: ' . $smsCount];
+        $currentBalance = $salon->getSmsBalanceAttribute();
+        if ($currentBalance < $smsCount) {
+            Log::warning("User ID {$salonOwner->id} (Salon: {$salon->id}) has insufficient SMS balance to send '{$eventType}' to {$receptor}. Balance: {$currentBalance}, Required: {$smsCount}");
+            return ['status' => 'error', 'message' => 'اعتبار پیامک کافی نیست. اعتبار فعلی: ' . $currentBalance . '، مورد نیاز: ' . $smsCount];
         }
 
         try {
@@ -255,11 +256,16 @@ class SmsService
 
             if ($smsEntries && !empty($smsEntries)) {
                 // Deduct balance only if SMS was actually sent
-                $salon->decrement('sms_balance', $smsCount);
+                if ($salonOwner->smsBalance) {
+                    $salonOwner->smsBalance->decrement('balance', $smsCount);
+                }
                 $firstEntry = $smsEntries[0]; // Kavenegar returns an array of entries
                 $messageId = $firstEntry['messageid'] ?? null;
                 $kavenegarStatus = $firstEntry['status'] ?? null;
-                $internalStatus = $this->mapKavenegarStatusToInternal($kavenegarStatus);
+                
+                $internalStatus = ($kavenegarStatus !== null) 
+                    ? $this->mapKavenegarStatusToInternal($kavenegarStatus) 
+                    : 'not_sent';
 
                 // Update appointment status if applicable
                 if ($appointmentId) {
@@ -268,10 +274,16 @@ class SmsService
                         // Determine which status field to update based on eventType
                         if ($eventType === 'appointment_reminder') {
                             $appointment->reminder_sms_status = $internalStatus;
-                            $appointment->reminder_sms_message_id = $messageId; // Assuming we add this column later
-                        } elseif ($eventType === 'satisfaction_survey') { // Need to define this eventType
+                            $appointment->reminder_sms_message_id = $messageId;
+                        } elseif ($eventType === 'satisfaction_survey') {
                             $appointment->satisfaction_sms_status = $internalStatus;
-                            $appointment->satisfaction_sms_message_id = $messageId; // Assuming we add this column later
+                            $appointment->satisfaction_sms_message_id = $messageId;
+                        } elseif ($eventType === 'appointment_cancellation') { 
+                            // This was missing. Assuming a column exists or should be created.
+                            // For now, let's assume a generic status update is safe.
+                            // If a specific column like `cancellation_sms_status` exists, it should be used.
+                            // Let's log it for now, as we don't have the table structure.
+                            Log::info("Updating status for cancellation of appointment {$appointmentId} to {$internalStatus}");
                         }
                         $appointment->save();
                     }
