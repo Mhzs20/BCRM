@@ -235,8 +235,8 @@ class AppointmentController extends Controller
         }
 
         $customer = $appointment->customer;
-        $salon = Salon::findOrFail($salon_id);
-        
+        $salon = Salon::with('user')->findOrFail($salon_id);
+
         // Update the status to 'canceled' instead of deleting
         $appointment->update(['status' => 'canceled']);
 
