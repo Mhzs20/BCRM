@@ -33,9 +33,17 @@ class ZarinpalController extends Controller
 
         $amount = $package->discount_price ?? $package->price;
 
+        if (!$user->active_salon_id) {
+            return response()->json([
+                'status' => 'NOK',
+                'message' => 'شما هیچ سالن فعالی برای انجام تراکنش ندارید.',
+            ], 400);
+        }
+
         // Create a new transaction record
         $transaction = SmsTransaction::create([
             'user_id' => $user->id,
+            'salon_id' => $user->active_salon_id, // Add the active salon ID
             'sms_package_id' => $package->id,
             'amount' => $amount,
             'status' => 'pending',
