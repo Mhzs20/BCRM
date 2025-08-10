@@ -170,6 +170,7 @@ Route::post('/payment/purchase/{packageId}', [ZarinpalController::class, 'purcha
 Route::post('/payment/callback', [ZarinpalController::class, 'callback']);
 
 Route::get('/app-history', [AppController::class, 'latestHistory']);
+Route::get('/staff/{staffId}/appointments', [AppController::class, 'getStaffAppointments'])->whereNumber('staffId');
 
 Route::get('/notifications', [NotificationController::class, 'index']);
 
