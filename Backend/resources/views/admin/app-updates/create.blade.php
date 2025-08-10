@@ -26,7 +26,7 @@
             </div>
         @endif
         <div class="mt-5 md:mt-0 md:col-span-2">
-            <form action="{{ route('admin.app-updates.store') }}" method="POST">
+            <form action="{{ route('admin.app-updates.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="shadow overflow-hidden sm:rounded-md">
                     <div class="px-4 py-5 bg-white sm:p-6">
@@ -82,8 +82,14 @@
                             </div>
 
                             <div class="col-span-6">
+                                <label for="apk_file" class="block text-sm font-medium text-gray-700">فایل APK</label>
+                                <input type="file" name="apk_file" id="apk_file" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                            </div>
+
+                            <div class="col-span-6">
                                 <div class="flex items-center">
-                                    <input type="checkbox" name="force_update" id="force_update" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded" {{ old('force_update') ? 'checked' : '' }}>
+                                    <input type="hidden" name="force_update" value="0">
+                                    <input type="checkbox" name="force_update" id="force_update" value="1" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded" {{ old('force_update') ? 'checked' : '' }}>
                                     <label for="force_update" class="ml-2 block text-sm text-gray-900">Force Update</label>
                                 </div>
                             </div>

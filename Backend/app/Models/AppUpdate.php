@@ -14,5 +14,6 @@ class AppUpdate extends Model
         'app_store_link',
         'notes',
         'force_update',
+        'apk_path',
     ];
 }
