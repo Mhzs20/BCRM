@@ -3,78 +3,158 @@
 namespace App\Http\Controllers;
 
 use App\Models\SmsPackage;
+use App\Models\SmsTransaction;
 use App\Models\UserSmsBalance;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Shetabit\Multipay\Invoice;
 use Shetabit\Payment\Facade\Payment;
-use App\Models\SmsTransaction;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Shetabit\Multipay\Exceptions\InvalidPaymentException;
 
 class ZarinpalController extends Controller
 {
-    public function purchase(Request $request, $packageId)
+    /**
+     * Create a new payment request and get the payment URL.
+     * This endpoint should be protected by auth:sanctum.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function purchase(Request $request)
     {
-        $smsPackage = SmsPackage::findOrFail($packageId);
-        $user = Auth::user();
-        $activeSalon = $user->activeSalon;
-
-        if (!$activeSalon) {
-            // Or handle this case as you see fit, maybe return an error response
-            throw new \Exception('No active salon found for the user.');
-        }
-
-        $finalPrice = $smsPackage->discount_price ?? $smsPackage->price;
-
-        $invoice = new Invoice;
-        $invoice->amount($finalPrice);
-        $invoice->detail('description', 'خرید بسته پیامکی');
-        $invoice->detail('user_id', $user->id);
-        $invoice->detail('package_id', $smsPackage->id);
-        $invoice->detail('salon_id', $activeSalon->id);
-
-
-        $payment = Payment::purchase($invoice, function($driver, $transactionId) use ($user, $smsPackage, $activeSalon) {
-            SmsTransaction::create([
-                'user_id' => $user->id,
-                'salon_id' => $activeSalon->id,
-                'sms_package_id' => $smsPackage->id,
-                'amount' => $finalPrice,
-                'transaction_id' => $transactionId,
-                'status' => 'pending',
-            ]);
-        })->pay();
-
-        return response()->json([
-            'payment_url' => $payment->getAction(),
+        $request->validate([
+            'package_id' => 'required|exists:sms_packages,id',
+            'callback_url' => 'required|url', // The deep link for the app
         ]);
-    }
 
-    public function callback(Request $request)
-    {
-        $transaction = SmsTransaction::where('transaction_id', $request->client_ref_id)->firstOrFail();
+        $user = Auth::user();
+        $package = SmsPackage::findOrFail($request->package_id);
+
+        $amount = $package->discount_price ?? $package->price;
+
+        // Create a new transaction record
+        $transaction = SmsTransaction::create([
+            'user_id' => $user->id,
+            'sms_package_id' => $package->id,
+            'amount' => $amount,
+            'status' => 'pending',
+            'sms_count' => $package->sms_count,
+        ]);
 
         try {
-            $receipt = Payment::amount($transaction->amount)->transactionId($request->client_ref_id)->verify();
+            $invoice = new Invoice();
+            $invoice->amount($amount);
+            $invoice->detail('description', "خرید بسته پیامک برای کاربر {$user->id}");
+            $invoice->detail('mobile', $user->mobile);
 
-            $transaction->update(['status' => 'completed']);
+            // Zarinpal will redirect the user to this URL after payment attempt.
+            // The mobile app must catch this URL to get the 'Authority' query parameter.
+            $payment = Payment::via('zarinpal')
+                ->callbackUrl($request->callback_url)
+                ->purchase($invoice, function ($driver, $transactionId) use ($transaction) {
+                    // Store the gateway transaction ID (Authority)
+                    $transaction->update(['transaction_id' => $transactionId]);
+                });
 
-            // Find the salon associated with the transaction
-            $salon = \App\Models\Salon::findOrFail($transaction->salon_id);
+            $paymentUrl = $payment->getAction();
 
-            // Find the purchased SMS package
-            $smsPackage = SmsPackage::findOrFail($transaction->sms_package_id);
+            return response()->json([
+                'status' => 'OK',
+                'payment_url' => $paymentUrl,
+                'authority' => $transaction->transaction_id, // Return for client-side reference
+            ]);
 
-            // Find or create the user's SMS balance and increment it
-            $userSmsBalance = UserSmsBalance::firstOrCreate(
-                ['user_id' => $transaction->user_id],
-                ['balance' => 0]
-            );
-            $userSmsBalance->increment('balance', $smsPackage->sms_count);
-
-            return redirect('/')->with('success', 'پرداخت با موفقیت انجام شد.');
         } catch (\Exception $e) {
-            $transaction->update(['status' => 'failed']);
-            return redirect('/')->with('error', 'پرداخت ناموفق بود.');
+            $transaction->update(['status' => 'failed', 'description' => 'Error during purchase setup']);
+            Log::error('Zarinpal Purchase Error: ' . $e->getMessage());
+
+            return response()->json([
+                'status' => 'NOK',
+                'message' => 'خطا در ایجاد لینک پرداخت.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Verify the payment using the authority from the client app.
+     * This endpoint must be protected by auth:sanctum.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function verify(Request $request)
+    {
+        $request->validate([
+            'authority' => 'required|string',
+        ]);
+
+        $authority = $request->authority;
+        $user = Auth::user();
+
+        $transaction = SmsTransaction::where('transaction_id', $authority)
+                                     ->where('user_id', $user->id)
+                                     ->first();
+
+        if (!$transaction) {
+            return response()->json([
+                'status' => 'NOK',
+                'message' => 'تراکنش یافت نشد یا متعلق به این کاربر نیست.',
+            ], 404);
+        }
+
+        if ($transaction->status === 'completed') {
+            return response()->json([
+                'status' => 'NOK',
+                'message' => 'این تراکنش قبلا با موفقیت تایید شده است.',
+            ], 409); // 409 Conflict
+        }
+
+        try {
+            // Verify the payment with Zarinpal
+            $receipt = Payment::via('zarinpal')
+                ->amount($transaction->amount)
+                ->transactionId($authority)
+                ->verify();
+
+            // Payment is successful, update transaction and user balance
+            $transaction->update([
+                'status' => 'completed',
+                'reference_id' => $receipt->getReferenceId(),
+                'description' => 'پرداخت با موفقیت تایید شد',
+            ]);
+
+            $userBalance = UserSmsBalance::firstOrCreate(['user_id' => $transaction->user_id]);
+            $userBalance->increment('balance', $transaction->sms_count);
+
+            return response()->json([
+                'status' => 'OK',
+                'message' => 'پرداخت با موفقیت تایید شد.',
+                'purchased_sms' => $transaction->sms_count,
+                'total_balance' => $userBalance->balance,
+                'reference_id' => $receipt->getReferenceId(),
+            ]);
+
+        } catch (InvalidPaymentException $e) {
+            // This exception is specifically for failed verifications (e.g., user cancelled)
+            $transaction->update(['status' => 'failed', 'description' => $e->getMessage()]);
+            Log::warning('Zarinpal Verification Failed: ' . $e->getMessage(), ['authority' => $authority]);
+
+            return response()->json([
+                'status' => 'NOK',
+                'message' => 'پرداخت ناموفق بود یا توسط کاربر لغو شده است.',
+                'error' => $e->getMessage(),
+            ], 400);
+        } catch (\Exception $e) {
+            // Other exceptions (e.g., network issues, config problems)
+            // We don't change the transaction status here, it remains 'pending' for a potential retry.
+            Log::error('Zarinpal Verification Error: ' . $e->getMessage(), ['authority' => $authority]);
+
+            return response()->json([
+                'status' => 'NOK',
+                'message' => 'خطا در فرآیند تایید پرداخت. لطفا با پشتیبانی تماس بگیرید.',
+                'error' => $e->getMessage(),
+            ], 500);
         }
     }
 }

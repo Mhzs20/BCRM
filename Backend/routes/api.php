@@ -20,7 +20,7 @@ use App\Http\Controllers\SmsPackageController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ZarinpalController;
 use App\Http\Controllers\AppointmentReportController;
-use App\Http\Controllers\ManualSmsController; // Add this line
+use App\Http\Controllers\ManualSmsController;
 use App\Http\Controllers\SmsTransactionController;
 use App\Http\Controllers\Api\AppController;
 use App\Http\Controllers\Api\NotificationController;
@@ -146,6 +146,10 @@ Route::middleware('auth:api')->group(function () {
         Route::post('sms-templates', [SalonSmsTemplateController::class, 'storeOrUpdate'])->name('sms_templates.store_or_update');
     });
 
+    Route::prefix('payment')->name('payment.')->group(function () {
+        Route::post('purchase', [ZarinpalController::class, 'purchase'])->name('purchase');
+        Route::post('verify', [ZarinpalController::class, 'verify'])->name('verify');
+    });
 });
 
 Route::middleware(['auth:api', 'superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
@@ -165,9 +169,6 @@ Route::middleware(['auth:api', 'superadmin'])->prefix('superadmin')->name('super
 Route::middleware('auth:api')->post('manual-sms/{salon}/send', [ManualSmsController::class, 'sendManualSms'])
     ->whereNumber('salon')
     ->name('manual_sms.send');
-
-Route::post('/payment/purchase/{packageId}', [ZarinpalController::class, 'purchase']);
-Route::post('/payment/callback', [ZarinpalController::class, 'callback']);
 
 Route::get('/app-history', [AppController::class, 'latestHistory']);
 Route::get('/staff/{staffId}/appointments', [AppController::class, 'getStaffAppointments'])->whereNumber('staffId');
