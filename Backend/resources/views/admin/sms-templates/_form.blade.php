@@ -10,7 +10,8 @@
         <p class="mt-2 text-sm text-gray-500">متغیرهای قابل استفاده: {customer_name}, {salon_name}, {appointment_date}, {appointment_time}</p>
     </div>
 </div>
-<div class="mt-6">
-    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">ذخیره</button>
-    <a href="{{ route('admin.sms-templates.index') }}" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400">انصراف</a>
+    <div class="mt-6 flex justify-end">
+        <a href="{{ route('admin.sms-templates.index') }}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md mr-2 hover:bg-gray-300">انصراف</a>
+        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">ذخیره</button>
+    </div>
 </div>
