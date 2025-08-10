@@ -71,8 +71,8 @@ class ZarinpalController extends Controller
             // 3. Generate the redirection form.
             $redirectionForm = $payment->pay();
 
-            // 4. Get the payment URL from the redirection form.
-            $paymentUrl = $redirectionForm->getTargetUrl();
+            // 4. Get the payment URL from the redirection form by casting it to a string.
+            $paymentUrl = (string) $redirectionForm;
 
             return response()->json([
                 'status' => 'OK',
