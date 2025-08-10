@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AppUpdate;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class AppUpdateController extends Controller
 {
@@ -29,10 +30,16 @@ class AppUpdateController extends Controller
             'app_store_link' => 'nullable|url',
             'notes' => 'nullable|string',
             'force_update' => 'boolean',
+            'apk_file' => 'nullable|file|mimes:apk', // Add validation for APK file
         ]);
 
         $data = $request->all();
         $data['force_update'] = $request->has('force_update');
+
+        if ($request->hasFile('apk_file')) {
+            $apkPath = $request->file('apk_file')->store('public/apks');
+            $data['apk_path'] = $apkPath;
+        }
 
         AppUpdate::create($data);
 
@@ -54,10 +61,20 @@ class AppUpdateController extends Controller
             'app_store_link' => 'nullable|url',
             'notes' => 'nullable|string',
             'force_update' => 'boolean',
+            'apk_file' => 'nullable|file|mimes:apk', // Add validation for APK file
         ]);
 
         $data = $request->all();
         $data['force_update'] = $request->has('force_update');
+
+        if ($request->hasFile('apk_file')) {
+            // Delete old APK if exists
+            if ($appUpdate->apk_path) {
+                Storage::delete($appUpdate->apk_path);
+            }
+            $apkPath = $request->file('apk_file')->store('public/apks');
+            $data['apk_path'] = $apkPath;
+        }
 
         $appUpdate->update($data);
 
