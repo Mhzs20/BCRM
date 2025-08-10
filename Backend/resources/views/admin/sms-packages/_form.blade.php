@@ -47,5 +47,7 @@
 </div>
 
 <!-- Action Buttons -->
-<div class="mt-8 flex justify-end">
+<div class="mt-8 flex justify-between">
+    <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">ذخیره</button>
     <a href="{{ route('admin.sms-packages.index') }}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md mr-2 hover:bg-gray-300">انصراف</a>
+</div>
