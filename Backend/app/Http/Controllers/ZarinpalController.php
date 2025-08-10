@@ -56,16 +56,23 @@ class ZarinpalController extends Controller
             $invoice->detail('description', "خرید بسته پیامک برای کاربر {$user->id}");
             $invoice->detail('mobile', $user->mobile);
 
-            // Zarinpal will redirect the user to this URL after payment attempt.
-            // The mobile app must catch this URL to get the 'Authority' query parameter.
-            $payment = Payment::via('zarinpal')
-                ->callbackUrl($request->callback_url)
-                ->purchase($invoice, function ($driver, $transactionId) use ($transaction) {
+            // 1. Create the payment object and set the callback URL.
+            $payment = Payment::via('zarinpal')->callbackUrl($request->callback_url);
+
+            // 2. Prepare the invoice and the transaction callback.
+            $payment->purchase(
+                $invoice,
+                function ($driver, $transactionId) use ($transaction) {
                     // Store the gateway transaction ID (Authority)
                     $transaction->update(['transaction_id' => $transactionId]);
-                });
+                }
+            );
 
-            $paymentUrl = $payment->getAction();
+            // 3. Generate the redirection form.
+            $redirectionForm = $payment->pay();
+
+            // 4. Get the payment URL from the redirection form.
+            $paymentUrl = $redirectionForm->getTargetUrl();
 
             return response()->json([
                 'status' => 'OK',
