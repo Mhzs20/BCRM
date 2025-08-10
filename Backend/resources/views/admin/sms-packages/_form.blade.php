@@ -19,14 +19,14 @@
         <!-- Price -->
         <div>
             <label for="price" class="block text-sm font-medium text-gray-700">قیمت اصلی (تومان)</label>
-            <input type="number" name="price" id="price" value="{{ old('price', $smsPackage->price ?? '') }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+            <input type="number" name="price" id="price" value="{{ old('price', $smsPackage->price ?? '') }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required step="1">
             <p class="mt-2 text-sm text-gray-500">قیمت اصلی بسته بدون تخفیف.</p>
         </div>
 
         <!-- Discount Price -->
         <div>
             <label for="discount_price" class="block text-sm font-medium text-gray-700">قیمت با تخفیف (تومان)</label>
-            <input type="number" name="discount_price" id="discount_price" value="{{ old('discount_price', $smsPackage->discount_price ?? '') }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+            <input type="number" name="discount_price" id="discount_price" value="{{ old('discount_price', $smsPackage->discount_price ?? '') }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" step="1">
             <p class="mt-2 text-sm text-gray-500">اختیاری. در صورت پر کردن، این قیمت به کاربر نمایش داده می‌شود.</p>
         </div>
     </div>
