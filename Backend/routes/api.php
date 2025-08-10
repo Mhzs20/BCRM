@@ -169,7 +169,7 @@ Route::middleware('auth:api')->post('manual-sms/{salon}/send', [ManualSmsControl
 Route::post('/payment/purchase/{packageId}', [ZarinpalController::class, 'purchase']);
 Route::post('/payment/callback', [ZarinpalController::class, 'callback']);
 
-Route::get('/app-latest-version', [AppController::class, 'latestVersion']);
+Route::get('/app-versions', [AppController::class, 'latestVersion']);
 
 Route::get('/notifications', [NotificationController::class, 'index']);
 
