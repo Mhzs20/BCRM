@@ -25,7 +25,7 @@ class ZarinpalController extends Controller
     {
         $request->validate([
             'package_id' => 'required|exists:sms_packages,id',
-            'callback_url' => 'required|url', // The deep link for the app
+            'callback_url' => ['required', 'regex:/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//'], // Allow custom schemes
         ]);
 
         $user = Auth::user();
