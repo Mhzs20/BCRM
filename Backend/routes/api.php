@@ -24,6 +24,7 @@ use App\Http\Controllers\ManualSmsController;
 use App\Http\Controllers\SmsTransactionController;
 use App\Http\Controllers\Api\AppController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\SatisfactionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -103,8 +104,10 @@ Route::middleware('auth:api')->group(function () {
 
             Route::get('appointments', [AppointmentController::class, 'getAppointments']);
 
-             Route::apiResource('appointments', AppointmentController::class)->except(['create', 'edit']);
+            Route::post('appointments/{appointment}/send-reminder', [AppointmentController::class, 'sendReminderSms'])->name('appointments.send_reminder');
+            Route::post('appointments/{appointment}/send-modification-sms', [AppointmentController::class, 'sendModificationSms'])->name('appointments.send_modification_sms');
 
+            Route::apiResource('appointments', AppointmentController::class)->except(['create', 'edit']);
             Route::apiResource('payments', PaymentController::class)->except(['create', 'edit']);
             Route::apiResource('how-introduced', HowIntroducedController::class)->except(['create', 'edit'])->names('howIntroduced');
             Route::apiResource('customer-groups', CustomerGroupController::class)->except(['create', 'edit'])->names('customerGroups');
@@ -174,6 +177,8 @@ Route::get('/app-history', [AppController::class, 'latestHistory']);
 Route::get('/staff/{staffId}/appointments', [AppController::class, 'getStaffAppointments'])->whereNumber('staffId');
 
 Route::get('/notifications', [NotificationController::class, 'index']);
+
+Route::middleware('auth:api')->post('/appointments/{appointment}/send-satisfaction-survey', [SatisfactionController::class, 'sendSurvey'])->name('api.appointments.send-satisfaction-survey');
 
 Route::fallback(function(){
     return response()->json(['message' => 'مسیر API درخواستی یافت نشد یا متد HTTP مجاز نیست.'], 404);

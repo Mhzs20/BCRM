@@ -29,7 +29,8 @@ class CompleteProfileRequest extends FormRequest
             'avatar' => 'nullable|image|max:2048', // Changed from 'image'
             'business_name' => 'required|string|max:255',
             'business_category_id' => 'required|exists:business_categories,id',
-            'business_subcategory_id' => 'nullable|exists:business_subcategories,id',
+            'business_subcategory_ids' => 'nullable|array',
+            'business_subcategory_ids.*' => 'exists:business_subcategories,id',
             'province_id' => 'required|exists:provinces,id',
             'city_id' => 'required|exists:cities,id',
             'address' => 'required|string|max:1000',
@@ -62,7 +63,7 @@ class CompleteProfileRequest extends FormRequest
             'business_name.required' => 'وارد کردن نام کسب و کار (سالن) الزامی است.',
             'business_category_id.required' => 'انتخاب دسته‌بندی کسب و کار الزامی است.',
             'business_category_id.exists' => 'دسته‌بندی کسب و کار انتخاب شده معتبر نیست.',
-            'business_subcategory_id.exists' => 'زیرمجموعه کسب و کار انتخاب شده معتبر نیست.',
+            'business_subcategory_ids.exists' => 'یکی از زیرمجموعه‌های کسب و کار انتخاب شده معتبر نیست.',
             'province_id.required' => 'انتخاب استان الزامی است.',
             'province_id.exists' => 'استان انتخاب شده معتبر نیست.',
             'city_id.required' => 'انتخاب شهر الزامی است.',
