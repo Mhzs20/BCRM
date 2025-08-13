@@ -27,6 +27,8 @@ class AppointmentResource extends JsonResource
             'start_time' => Carbon::parse($this->start_time)->format('H:i:s'),
             'end_time' => Carbon::parse($this->end_time)->format('H:i:s'),
             'total_price' => $this->total_price,
+            'deposit_amount' => $this->deposit_amount,
+            'deposit_payment_method' => $this->deposit_payment_method,
             'total_duration' => $this->total_duration,
             'status' => $this->status,
             'notes' => $this->notes,
@@ -61,14 +63,14 @@ class AppointmentResource extends JsonResource
     }
 
     /**
-     * یک مثال برای ترجمه وضعیت به فارسی
+     * 
      */
     private function getStatusInFarsi(string $status): string
     {
         return match ($status) {
             'pending_confirmation' => 'در انتظار تایید',
             'confirmed' => 'تایید شده',
-            'completed' => 'انجام شده',
+            'done' => 'انجام شده',
             'cancelled' => 'لغو شده',
             'no_show' => 'عدم حضور',
             default => 'نامشخص',

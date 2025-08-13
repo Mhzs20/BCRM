@@ -18,12 +18,14 @@ use App\Http\Requests\CalendarQueryRequest;
 use App\Http\Requests\GetMonthlyAppointmentsRequest;
 use App\Services\AppointmentBookingService;
 use App\Services\SmsService;
+use App\Jobs\SendAppointmentConfirmationSms;
+use App\Jobs\SendAppointmentModificationSms;
 use Morilog\Jalali\Jalalian;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 use Hashids\Hashids;
-use Illuminate\Pagination\LengthAwarePaginator; // <-- این خط اضافه می‌شود
+use Illuminate\Pagination\LengthAwarePaginator;  
 use Illuminate\Support\Facades\Validator;
 use Morilog\Jalali\JalaliException; 
 
@@ -62,15 +64,34 @@ class AppointmentController extends Controller
                     ->whereNull('deleted_at')
                     ->findOrFail($validatedData['customer_id']);
             } elseif (isset($validatedData['new_customer']['name']) && isset($validatedData['new_customer']['phone_number'])) {
-                $customerData = [
-                    'salon_id' => $salon_id,
-                    'name' => $validatedData['new_customer']['name'],
-                    'phone_number' => $validatedData['new_customer']['phone_number'],
-                ];
-                if(isset($validatedData['new_customer']['email'])) {
-                    $customerData['email'] = $validatedData['new_customer']['email'];
+                $customer = Customer::withTrashed()
+                    ->where('salon_id', $salon_id)
+                    ->where('phone_number', $validatedData['new_customer']['phone_number'])
+                    ->first();
+
+                if ($customer) {
+                    // If customer was soft-deleted, restore them
+                    if ($customer->trashed()) {
+                        $customer->restore();
+                    }
+                    // Update their name if it has changed
+                    $customer->name = $validatedData['new_customer']['name'];
+                    if (isset($validatedData['new_customer']['email'])) {
+                        $customer->email = $validatedData['new_customer']['email'];
+                    }
+                    $customer->save();
+                } else {
+                    // If customer does not exist at all, create a new one
+                    $customerData = [
+                        'salon_id' => $salon_id,
+                        'name' => $validatedData['new_customer']['name'],
+                        'phone_number' => $validatedData['new_customer']['phone_number'],
+                    ];
+                    if (isset($validatedData['new_customer']['email'])) {
+                        $customerData['email'] = $validatedData['new_customer']['email'];
+                    }
+                    $customer = Customer::create($customerData);
                 }
-                $customer = Customer::create($customerData);
             } else {
                 DB::rollBack();
                 return response()->json(['message' => 'اطلاعات مشتری برای ثبت نوبت ناقص است.'], 422);
@@ -95,6 +116,8 @@ class AppointmentController extends Controller
                     'status' => $validatedData['status'] ?? 'confirmed',
                     'deposit_required' => $validatedData['deposit_required'] ?? false,
                     'deposit_paid' => $validatedData['deposit_paid'] ?? false,
+                    'deposit_amount' => $validatedData['deposit_amount'] ?? 0,
+                    'deposit_payment_method' => $validatedData['deposit_payment_method'] ?? null,
                     'reminder_time' => $validatedData['reminder_time'] ?? null,
                     'send_reminder_sms' => $validatedData['send_reminder_sms'] ?? filter_var($salonSettings->get('enable_reminder_sms_globally', true), FILTER_VALIDATE_BOOLEAN),
                     'send_satisfaction_sms' => $validatedData['send_satisfaction_sms'] ?? filter_var($salonSettings->get('enable_satisfaction_sms_globally', true), FILTER_VALIDATE_BOOLEAN),
@@ -122,12 +145,10 @@ class AppointmentController extends Controller
             
             DB::commit();
 
-            $smsResult = $this->smsService->sendAppointmentConfirmation($customer, $appointment, $appointment->salon);
+            // Dispatch the job to send SMS in the background
+            SendAppointmentConfirmationSms::dispatch($customer, $appointment, $appointment->salon);
             
-            $message = 'نوبت با موفقیت ثبت شد.';
-            if (isset($smsResult['status']) && $smsResult['status'] === 'error') {
-                $message .= ' اما پیامک ارسال نشد: ' . $smsResult['message'];
-            }
+            $message = 'نوبت با موفقیت ثبت شد. پیامک تایید به زودی ارسال خواهد شد.';
 
             $appointment->load(['customer', 'staff', 'services']);
 
@@ -211,12 +232,7 @@ class AppointmentController extends Controller
 
             DB::commit();
 
-            $smsResult = $this->smsService->sendAppointmentModification($appointment->customer, $appointment, $salon);
-
             $message = 'نوبت با موفقیت به‌روزرسانی شد.';
-            if (isset($smsResult['status']) && $smsResult['status'] === 'error') {
-                $message .= ' اما پیامک ارسال نشد: ' . $smsResult['message'];
-            }
 
             $appointment->refresh()->load(['customer', 'staff', 'services']);
             return response()->json(['message' => $message, 'data' => new AppointmentResource($appointment)]);
@@ -317,16 +333,13 @@ class AppointmentController extends Controller
         return [$startDate, $endDate];
     }
     /**
-     * دریافت تعداد نوبت‌ها در هر روز از یک ماه شمسی مشخص.
-     * این متد برای نمایش یک تقویم با تعداد نوبت‌ها در هر روز مناسب است.
      *
      * @param GetMonthlyAppointmentsRequest $request
      * @param int $salon_id
      * @return \Illuminate\Http\JsonResponse
      */
-public function getMonthlyAppointmentsCount($salon_id, $year, $month) // پارامترها از URL خوانده می‌شوند
+public function getMonthlyAppointmentsCount($salon_id, $year, $month)
 {
-    // ولیدیشن ورودی‌ها به صورت دستی اضافه شد
     $validator = Validator::make(['year' => $year, 'month' => $month], [
         'year' => 'required|integer|min:1300|max:1500',
         'month' => 'required|integer|min:1|max:12',
@@ -337,7 +350,6 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month) // پار�
     }
 
     try {
-        // استفاده از تابع کمکی برای دریافت بازه زمانی صحیح و دقیق شمسی
         [$startDate, $endDate] = $this->getJalaliMonthDateRange($year, $month);
 
         $appointmentsCount = Appointment::where('salon_id', $salon_id)
@@ -366,9 +378,6 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month) // پار�
 }
 
     /**
-     * دریافت لیست کامل نوبت‌های یک ماه شمسی مشخص با صفحه‌بندی (Pagination).
-     * این متد جایگزین getYearlyAppointments شده و از یک API استاندارد پیروی می‌کند.
-     * مسیر پیشنهادی: GET /api/salons/{salon_id}/appointments-by-month/{year}/{month}
      *
      * @param Request $request
      * @param int $salon_id
@@ -378,7 +387,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month) // پار�
      */
     public function getAppointmentsByMonth(Request $request, $salon_id, $year, $month)
     {
-        // ولیدیشن ورودی‌ها
+
         $validator = Validator::make(['year' => $year, 'month' => $month], [
             'year' => 'required|integer|min:1300|max:1500',
             'month' => 'required|integer|min:1|max:12',
@@ -408,6 +417,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month) // پار�
                     'start_time' => Carbon::parse($appointment->start_time)->format('H:i'),
                     'end_time' => Carbon::parse($appointment->end_time)->format('H:i'),
                     'total_price' => $appointment->total_price,
+                    'deposit_amount' => $appointment->deposit_amount,
                     'notes' => $appointment->notes,
                     'customer' => $appointment->customer,
                     'staff' => $appointment->staff,
@@ -424,8 +434,6 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month) // پار�
     }
 
     /**
-     * دریافت لیست کامل نوبت‌ها از یک روز مشخص تا همان روز در ماه بعدی.
-     * مسیر پیشنهادی: GET /api/salons/{salon_id}/appointments-by-month/{year}/{month}/{day}
      *
      * @param Request $request
      * @param int $salon_id
@@ -455,18 +463,15 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month) // پار�
                 $query->where('appointment_date', '>=', $gregorianStartDate);
             }
 
-            // اعمال فیلتر تاریخ پایان به صورت داینامیک
             if ($request->has('end_date')) {
                 $gregorianEndDate = Jalalian::fromFormat('Y-m-d', $request->input('end_date'))->toCarbon()->endOfDay();
                 $query->where('appointment_date', '<=', $gregorianEndDate);
             }
 
-            // اعمال فیلتر وضعیت
             if ($request->has('status')) {
                 $query->where('status', $request->input('status'));
             }
 
-            // اعمال فیلتر آرایشگر
             if ($request->has('staff_id')) {
                 $query->where('staff_id', $request->input('staff_id'));
             }
@@ -477,13 +482,62 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month) // پار�
                 ->orderBy('start_time', 'desc')
                 ->paginate($request->input('per_page', 15));
 
-            // ✅ 2. بلوک through() به طور کامل حذف شده است
-            // ✅ 3. از ریسورس برای بازگرداندن پاسخ استفاده می‌شود
             return AppointmentResource::collection($appointments);
 
         } catch (\Exception $e) {
             Log::error('Error in getAppointments:', ['error' => $e]);
             return response()->json(['message' => 'خطا در دریافت نوبت‌ها.', 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function sendReminderSms(Request $request, Salon $salon, Appointment $appointment)
+    {
+        if ($appointment->salon_id != $salon->id) {
+            return response()->json(['message' => 'نوبت یافت نشد.'], 404);
+        }
+
+        try {
+            $customer = $appointment->customer;
+            if (!$customer) {
+                return response()->json(['message' => 'مشتری این نوبت یافت نشد.'], 404);
+            }
+
+            $smsResult = $this->smsService->sendManualAppointmentReminder($customer, $appointment, $salon);
+
+            if (isset($smsResult['status']) && $smsResult['status'] === 'success') {
+                // We don't update reminder_sms_sent_at here to allow the cron job to run
+                return response()->json(['message' => 'پیامک یادآوری دستی با موفقیت ارسال شد.']);
+            } else {
+                return response()->json(['message' => 'خطا در ارسال پیامک یادآوری دستی.', 'details' => $smsResult['message'] ?? ''], 500);
+            }
+        } catch (\Exception $e) {
+            Log::error('Error sending manual reminder SMS for appointment ' . $appointment->id . ': ' . $e->getMessage());
+            return response()->json(['message' => 'خطای سیستمی در ارسال پیامک یادآوری دستی رخ داد.'], 500);
+        }
+    }
+
+    public function sendModificationSms(Request $request, Salon $salon, Appointment $appointment)
+    {
+        if ($appointment->salon_id != $salon->id) {
+            return response()->json(['message' => 'نوبت یافت نشد.'], 404);
+        }
+
+        try {
+            $customer = $appointment->customer;
+            if (!$customer) {
+                return response()->json(['message' => 'مشتری این نوبت یافت نشد.'], 404);
+            }
+
+            $smsResult = $this->smsService->sendAppointmentModification($customer, $appointment, $salon);
+
+            if (isset($smsResult['status']) && $smsResult['status'] === 'success') {
+                return response()->json(['message' => 'پیامک اصلاح نوبت با موفقیت ارسال شد.']);
+            } else {
+                return response()->json(['message' => 'خطا در ارسال پیامک اصلاح نوبت.', 'details' => $smsResult['message'] ?? ''], 500);
+            }
+        } catch (\Exception $e) {
+            Log::error('Error sending modification SMS for appointment ' . $appointment->id . ': ' . $e->getMessage());
+            return response()->json(['message' => 'خطای سیستمی در ارسال پیامک اصلاح نوبت رخ داد.'], 500);
         }
     }
 }

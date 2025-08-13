@@ -3,75 +3,31 @@
 namespace App\Observers;
 
 use App\Models\Appointment;
+use App\Jobs\SendAppointmentModificationSms;
 use App\Jobs\SendSatisfactionSurveySms;
-use App\Services\SmsService;
-use Illuminate\Support\Facades\Log;
 use Hashids\Hashids;
 
 class AppointmentObserver
 {
     /**
      * Handle the Appointment "updated" event.
+     *
+     * @param  \App\Models\Appointment  $appointment
+     * @return void
      */
-    public function updated(Appointment $appointment): void
+    public function updated(Appointment $appointment)
     {
-        // Check if the status changed to 'completed' and satisfaction SMS is enabled
-        if ($appointment->isDirty('status') && $appointment->status === 'completed' && $appointment->send_satisfaction_sms) {
-            // Ensure customer and salon exist
-            if ($appointment->customer && $appointment->salon) {
-                // Dispatch the job
-                SendSatisfactionSurveySms::dispatch($appointment, $appointment->salon);
-                Log::info("Dispatched satisfaction survey SMS job for completed appointment {$appointment->id}.");
-            } else {
-                Log::warning("Cannot dispatch satisfaction survey SMS for appointment {$appointment->id}: customer or salon not found.");
-            }
+        if ($appointment->isDirty('status') && $appointment->status === 'done') {
+            SendSatisfactionSurveySms::dispatch($appointment);
         }
-    }
+        elseif ($appointment->isDirty('status') || $appointment->isDirty('appointment_date') || $appointment->isDirty('start_time')) {
+            // Regenerate the hash to ensure a unique URL in the SMS
+            $hashids = new Hashids(env('HASHIDS_SALT', 'your-default-salt'), 8);
+            $appointment->hash = $hashids->encode($appointment->id, now()->timestamp);
+            $appointment->saveQuietly(); // Use saveQuietly to avoid an infinite loop of updated events
+            $appointment->refresh(); // Ensure the model has the latest hash before dispatching
 
-    /**
-     * Handle the Appointment "created" event.
-     */
-    public function created(Appointment $appointment): void
-    {
-        // Generate a unique hash for the appointment
-        $hashids = new Hashids(env('HASHIDS_SALT', 'your-default-salt'), 8);
-        $hash = $hashids->encode($appointment->id);
-        $appointment->hash = $hash;
-        $appointment->saveQuietly();
-
-        if ($appointment->customer && $appointment->salon) {
-            try {
-                $smsService = new SmsService();
-                $detailsUrl = route('appointments.show.hash', ['hash' => $appointment->hash]);
-                $smsService->sendAppointmentConfirmation($appointment->customer, $appointment, $appointment->salon, $detailsUrl);
-                Log::info("Dispatched appointment confirmation SMS for appointment {$appointment->id}.");
-            } catch (\Exception $e) {
-                Log::error("Failed to send appointment confirmation SMS for appointment {$appointment->id}: " . $e->getMessage());
-            }
+            SendAppointmentModificationSms::dispatch($appointment->customer, $appointment, $appointment->salon);
         }
-    }
-
-    /**
-     * Handle the Appointment "deleted" event.
-     */
-    public function deleted(Appointment $appointment): void
-    {
-        //
-    }
-
-    /**
-     * Handle the Appointment "restored" event.
-     */
-    public function restored(Appointment $appointment): void
-    {
-        //
-    }
-
-    /**
-     * Handle the Appointment "forceDeleted" event.
-     */
-    public function forceDeleted(Appointment $appointment): void
-    {
-        //
     }
 }
