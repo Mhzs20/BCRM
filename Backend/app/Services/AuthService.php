@@ -145,8 +145,8 @@ class AuthService
         if (isset($data['business_category_id'])) {
             $userDataToUpdate['business_category_id'] = $data['business_category_id'];
         }
-        if (array_key_exists('business_subcategory_id', $data)) {
-            $userDataToUpdate['business_subcategory_id'] = $data['business_subcategory_id'];
+        if (array_key_exists('business_subcategory_ids', $data) && is_array($data['business_subcategory_ids'])) {
+            $userDataToUpdate['business_subcategory_ids'] = $data['business_subcategory_ids'];
         }
 
         $user->update($userDataToUpdate);
@@ -163,8 +163,13 @@ class AuthService
             'credit_score' => 0,
         ];
 
+        if (isset($data['business_subcategory_ids']) && is_array($data['business_subcategory_ids']) && count($data['business_subcategory_ids']) > 0) {
+            $salonData['business_subcategory_id'] = $data['business_subcategory_ids'][0];
+        } else {
+            $salonData['business_subcategory_id'] = null;
+        }
+
         $optionalFields = [
-            'business_subcategory_id',
             'support_phone_number',
             'bio',
             'instagram',

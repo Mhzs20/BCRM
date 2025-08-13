@@ -25,7 +25,7 @@ class User extends Authenticatable implements JWTSubject
         'password',
         'business_name',
         'business_category_id',
-        'business_subcategory_id',
+        'business_subcategory_ids',
         'avatar',
         'otp_code',
         'otp_expires_at',
@@ -67,7 +67,7 @@ class User extends Authenticatable implements JWTSubject
         'profile_completed' => 'boolean',
         'active_salon_id' => 'integer',
         'business_category_id' => 'integer',
-        'business_subcategory_id' => 'integer',
+        'business_subcategory_ids' => 'array',
         // Do NOT cast date_of_birth here, let the accessor handle it
     ];
 
@@ -109,11 +109,11 @@ class User extends Authenticatable implements JWTSubject
     }
 
     /**
-     * Get the business subcategory associated with the user.
+     * Get the business subcategories associated with the user.
      */
-    public function businessSubcategory()
+    public function businessSubcategories()
     {
-        return $this->belongsTo(BusinessSubcategory::class, 'business_subcategory_id');
+        return $this->belongsToMany(BusinessSubcategory::class, 'user_business_subcategory', 'user_id', 'business_subcategory_id');
     }
 
     /**
