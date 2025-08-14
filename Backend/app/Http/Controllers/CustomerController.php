@@ -176,48 +176,12 @@ class CustomerController extends Controller
         return response()->json(['message' => count($customers) . ' مشتری و نوبت‌های فعال آن‌ها با موفقیت لغو شدند.']);
     }
 
-    /**
-     * Import customers from an Excel file.
-     */
     public function importExcel(ImportCustomersExcelRequest $request, Salon $salon)
     {
         $this->authorize('create', [Customer::class, $salon]);
 
-        $file = $request->file('file');
-        $import = new CustomersImport($salon->id);
-
-        DB::beginTransaction();
-        try {
-            Excel::import($import, $file);
-            DB::commit();
-
-            $importedCount = $import->getImportedCount();
-            $skippedRows = $import->getSkippedRows();
-
-            if ($importedCount === 0 && count($skippedRows) > 0) {
-                return response()->json([
-                    'message' => 'هیچ مشتری جدیدی اضافه نشد. ممکن است مشتریان در فایل اکسل از قبل در سیستم موجود باشند.',
-                    'imported_count' => 0,
-                    'skipped_rows_count' => count($skippedRows),
-                    'skipped_details' => $skippedRows,
-                ], 409);
-            }
-
-            return response()->json([
-                'message' => 'ایمپورت مشتریان از فایل اکسل انجام شد.',
-                'imported_count' => $importedCount,
-                'skipped_rows_count' => count($skippedRows),
-                'skipped_details' => $skippedRows,
-            ]);
-        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
-            DB::rollBack();
-            // ... مدیریت خطا
-            return response()->json(['message' => 'خطا در اعتبارسنجی فایل اکسل.', 'errors' => $e->failures()], 422);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('خطا در هنگام ایمپورت فایل اکسل: ' . $e->getMessage());
-            return response()->json(['message' => 'خطا در هنگام ایمپورت فایل اکسل رخ داد.'], 500);
-        }
+        $dashboardController = new DashboardController(new \App\Services\SmsService());
+        return $dashboardController->importCustomers($request, $salon->id);
     }
 
     /**

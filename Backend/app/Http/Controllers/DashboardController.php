@@ -16,6 +16,10 @@ use Carbon\Carbon;
 use Morilog\Jalali\Jalalian;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use App\Imports\CustomersImport;
+use Illuminate\Database\QueryException;
+use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\Validators\ValidationException;
 
 class DashboardController extends Controller
 {
@@ -391,5 +395,62 @@ class DashboardController extends Controller
         });
 
         return response()->json($formattedLogs);
+    }
+
+    public function importCustomers(Request $request, $salon_id)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls,csv'
+        ]);
+
+        try {
+            $import = new CustomersImport((int)$salon_id);
+            Excel::import($import, $request->file('file'));
+
+            $importedCount = $import->getImportedCount();
+            $skippedRows = $import->getSkippedRows();
+
+            $message = "ایمپورت با موفقیت انجام شد. {$importedCount} مشتری جدید اضافه شد.";
+            if (count($skippedRows) > 0) {
+                $message .= " " . count($skippedRows) . " رکورد نادیده گرفته شد.";
+            }
+
+            return response()->json([
+                'message' => $message,
+                'imported_count' => $importedCount,
+                'skipped_rows' => $skippedRows,
+            ], 200);
+
+        } catch (QueryException $e) {
+            Log::error('خطا در هنگام ایمپورت فایل اکسل: ' . $e->getMessage());
+            $import = new CustomersImport((int)$salon_id);
+            $skippedRows = $import->getSkippedRows();
+
+            if ($e->errorInfo[1] == 1062) { // Duplicate entry
+                return response()->json([
+                    'message' => 'خطا: برخی از رکوردها از قبل در سیستم موجود هستند.',
+                    'skipped_rows' => $skippedRows,
+                ], 409);
+            }
+            return response()->json(['message' => 'خطای پایگاه داده در هنگام ایمپورت فایل اکسل رخ داد.'], 500);
+        } catch (ValidationException $e) {
+            $failures = $e->failures();
+            $errors = [];
+            foreach ($failures as $failure) {
+                $errors[] = [
+                    'row' => $failure->row(),
+                    'attribute' => $failure->attribute(),
+                    'errors' => $failure->errors(),
+                    'values' => $failure->values()
+                ];
+            }
+            return response()->json([
+                'message' => 'خطای اعتبارسنجی در فایل اکسل.',
+                'errors' => $errors
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('خطا در هنگام ایمپورت فایل اکسل: ' . $e->getMessage());
+            return response()->json(['message' => 'خطا در هنگام ایمپورت فایل اکسل رخ داد.'], 500);
+        }
     }
 }

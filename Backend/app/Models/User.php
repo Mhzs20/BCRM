@@ -170,4 +170,16 @@ class User extends Authenticatable implements JWTSubject
         }
         return null;
     }
+
+    /**
+     * Get the business_subcategory_ids attribute.
+     *
+     * @param  string|null  $value
+     * @return array
+     */
+    public function getBusinessSubcategoryIdsAttribute($value)
+    {
+        $decoded = json_decode($value, true);
+        return is_array($decoded) ? $decoded : [];
+    }
 }
