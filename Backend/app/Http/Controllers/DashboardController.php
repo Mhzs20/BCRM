@@ -352,4 +352,44 @@ class DashboardController extends Controller
             ],
         ]);
     }
+
+    public function recentActivities(Request $request)
+    {
+        $user = Auth::user();
+        $salonIds = $user->salons()->pluck('id');
+
+        $logs = ActivityLog::whereIn('salon_id', $salonIds)
+            ->with(['loggable', 'user'])
+            ->orderBy('created_at', 'desc')
+            ->take(20)
+            ->get();
+
+        $formattedLogs = $logs->map(function ($log) {
+            $loggableType = class_basename($log->loggable_type);
+            $details = "فعالیت نامشخص";
+            $user = $log->user ? $log->user->name : 'کاربر سیستم';
+
+            switch ($loggableType) {
+                case 'Appointment':
+                    $details = "{$log->activity_type} برای نوبت در تاریخ {$log->loggable->appointment_date}";
+                    break;
+                case 'Customer':
+                    $details = "مشتری جدید: {$log->loggable->name}";
+                    break;
+                case 'SmsPackage':
+                    $details = "خرید پکیج SMS: {$log->loggable->name}";
+                    break;
+            }
+
+            return [
+                'id' => $log->id,
+                'user' => $user,
+                'activity' => $details,
+                'salon' => $log->salon->name,
+                'time' => $log->created_at->diffForHumans(),
+            ];
+        });
+
+        return response()->json($formattedLogs);
+    }
 }
