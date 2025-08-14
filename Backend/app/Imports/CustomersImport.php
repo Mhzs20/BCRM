@@ -10,6 +10,7 @@ use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Validators\Failure;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Illuminate\Database\QueryException;
 
 
 class CustomersImport implements ToModel, WithHeadingRow, WithValidation, SkipsOnFailure
@@ -34,22 +35,22 @@ class CustomersImport implements ToModel, WithHeadingRow, WithValidation, SkipsO
             return null;
         }
 
-        $existingCustomer = Customer::where('salon_id', $this->salon_id)
-            ->where('phone_number', $phoneNumber)
-            ->whereNull('deleted_at')
-            ->first();
-        if ($existingCustomer) {
-            $this->skippedRows[] = ['row_data' => $row, 'reason' => 'مشتری با این شماره تلفن (' . $phoneNumber . ') از قبل موجود است.'];
+        try {
+            $customer = Customer::create([
+                'salon_id'     => $this->salon_id,
+                'name'         => $name,
+                'phone_number' => $phoneNumber,
+            ]);
+            $this->importedCount++;
+            return $customer;
+        } catch (QueryException $e) {
+            if ($e->errorInfo[1] == 1062) { // Duplicate entry
+                $this->skippedRows[] = ['row_data' => $row, 'reason' => 'مشتری با این شماره تلفن (' . $phoneNumber . ') از قبل موجود است.'];
+            } else {
+                $this->skippedRows[] = ['row_data' => $row, 'reason' => 'خطای پایگاه داده: ' . $e->getMessage()];
+            }
             return null;
         }
-
-        $this->importedCount++;
-        return new Customer([
-            'salon_id'     => $this->salon_id,
-            'name'         => $name,
-            'phone_number' => $phoneNumber,
-
-        ]);
     }
 
     public function rules(): array

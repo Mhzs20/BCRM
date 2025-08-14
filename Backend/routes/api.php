@@ -83,7 +83,7 @@ Route::middleware('auth:api')->group(function () {
             Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete'])->name('customers.bulkDelete');
             Route::get('customers/{customer}/appointments', [CustomerController::class, 'listCustomerAppointments'])->name('customers.appointments');
 //            Route::get('customers/search', [CustomerController::class, 'search'])->name('customers.search');
-            Route::post('customers/import/excel', [CustomerController::class, 'importExcel'])->name('customers.import.excel');
+            Route::post('customers/import/excel', [DashboardController::class, 'importCustomers'])->name('customers.import.excel');
             Route::post('customers/import/contacts', [CustomerController::class, 'importContacts'])->name('customers.import.contacts');
             Route::apiResource('customers', CustomerController::class)->except(['create', 'edit']);
 
@@ -142,6 +142,7 @@ Route::middleware('auth:api')->group(function () {
         Route::get('all-salon-appointments', [DashboardController::class, 'allSalonAppointments'])->name('all_appointments');
         Route::get('recent-activities', [DashboardController::class, 'recentActivities'])->name('recent_activities');
         Route::get('sms-balance', [DashboardController::class, 'showSmsBalance'])->name('sms_balance.show');
+        Route::post('{salon}/import-customers', [DashboardController::class, 'importCustomers'])->name('import_customers');
     });
 
     Route::prefix('salon-settings')->name('salon_settings.')->group(function () {
