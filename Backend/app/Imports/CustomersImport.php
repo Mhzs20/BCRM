@@ -11,6 +11,7 @@ use Maatwebsite\Excel\Validators\Failure;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Database\QueryException;
+use App\Rules\IranianPhoneNumber;
 
 
 class CustomersImport implements ToModel, WithHeadingRow, WithValidation, SkipsOnFailure
@@ -35,29 +36,29 @@ class CustomersImport implements ToModel, WithHeadingRow, WithValidation, SkipsO
             return null;
         }
 
-        try {
-            $customer = Customer::create([
-                'salon_id'     => $this->salon_id,
-                'name'         => $name,
-                'phone_number' => $phoneNumber,
-            ]);
-            $this->importedCount++;
-            return $customer;
-        } catch (QueryException $e) {
-            if ($e->errorInfo[1] == 1062) { // Duplicate entry
-                $this->skippedRows[] = ['row_data' => $row, 'reason' => 'مشتری با این شماره تلفن (' . $phoneNumber . ') از قبل موجود است.'];
-            } else {
-                $this->skippedRows[] = ['row_data' => $row, 'reason' => 'خطای پایگاه داده: ' . $e->getMessage()];
-            }
+        $existingCustomer = Customer::where('salon_id', $this->salon_id)
+            ->where('phone_number', normalizePhoneNumber($phoneNumber))
+            ->first();
+
+        if ($existingCustomer) {
+            $this->skippedRows[] = ['row_data' => $row, 'reason' => 'مشتری با این شماره تلفن (' . $phoneNumber . ') از قبل در این سالن موجود است.'];
             return null;
         }
+
+        $customer = Customer::create([
+            'salon_id'     => $this->salon_id,
+            'name'         => $name,
+            'phone_number' => normalizePhoneNumber($phoneNumber),
+        ]);
+        $this->importedCount++;
+        return $customer;
     }
 
     public function rules(): array
     {
         return [
             '*.name' => ['required_unless:*.نام,null', 'string', 'max:255'],
-            '*.phone_number' => ['required', 'string', 'max:20'],
+            '*.phone_number' => ['required', 'string', new IranianPhoneNumber()],
         ];
     }
 

@@ -21,7 +21,8 @@ class UpdateSalonRequest extends FormRequest
         return [
             'name'                      => 'sometimes|string|min:3|max:255',
             'business_category_id'      => 'sometimes|integer|exists:business_categories,id',
-            'business_subcategory_id'   => 'sometimes|nullable|integer|exists:business_subcategories,id',
+            'business_subcategory_ids'   => 'sometimes|nullable|array',
+            'business_subcategory_ids.*' => 'exists:business_subcategories,id',
             'province_id'               => 'sometimes|integer|exists:provinces,id',
             'city_id'                   => ['sometimes', 'integer', Rule::exists('cities', 'id')->where('province_id', $provinceId)],
             'address'                   => 'sometimes|string|max:1000',

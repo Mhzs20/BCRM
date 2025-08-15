@@ -181,8 +181,8 @@ class DashboardController extends Controller
     public function getSalonUser(Request $request)
     {
         $user = Auth::user();
-        // $salon = $user->salons()->with('businessCategory', 'businessSubcategory')->first();
-        $salon = Salon::where('user_id', $user->id)->with(['businessCategory', 'businessSubcategory', 'province', 'city'])->first();
+        // $salon = $user->salons()->with('businessCategory', 'businessSubcategories')->first();
+        $salon = Salon::where('user_id', $user->id)->with(['businessCategory', 'businessSubcategories', 'province', 'city'])->first();
 
         if (!$user) {
             return response()->json(['error'  => 'User not authenticated'], 401);
@@ -421,18 +421,6 @@ class DashboardController extends Controller
                 'skipped_rows' => $skippedRows,
             ], 200);
 
-        } catch (QueryException $e) {
-            Log::error('خطا در هنگام ایمپورت فایل اکسل: ' . $e->getMessage());
-            $import = new CustomersImport((int)$salon_id);
-            $skippedRows = $import->getSkippedRows();
-
-            if ($e->errorInfo[1] == 1062) { // Duplicate entry
-                return response()->json([
-                    'message' => 'خطا: برخی از رکوردها از قبل در سیستم موجود هستند.',
-                    'skipped_rows' => $skippedRows,
-                ], 409);
-            }
-            return response()->json(['message' => 'خطای پایگاه داده در هنگام ایمپورت فایل اکسل رخ داد.'], 500);
         } catch (ValidationException $e) {
             $failures = $e->failures();
             $errors = [];
