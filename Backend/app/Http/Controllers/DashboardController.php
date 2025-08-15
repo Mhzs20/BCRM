@@ -358,44 +358,71 @@ class DashboardController extends Controller
     }
 
     public function recentActivities(Request $request)
-    {
-        $user = Auth::user();
-        $salonIds = $user->salons()->pluck('id');
+{
+    $user = Auth::user();
+    $activeSalon = $user->activeSalon;
 
-        $logs = ActivityLog::whereIn('salon_id', $salonIds)
-            ->with(['loggable', 'user'])
-            ->orderBy('created_at', 'desc')
-            ->take(20)
-            ->get();
-
-        $formattedLogs = $logs->map(function ($log) {
-            $loggableType = class_basename($log->loggable_type);
-            $details = "فعالیت نامشخص";
-            $user = $log->user ? $log->user->name : 'کاربر سیستم';
-
-            switch ($loggableType) {
-                case 'Appointment':
-                    $details = "{$log->activity_type} برای نوبت در تاریخ {$log->loggable->appointment_date}";
-                    break;
-                case 'Customer':
-                    $details = "مشتری جدید: {$log->loggable->name}";
-                    break;
-                case 'SmsPackage':
-                    $details = "خرید پکیج SMS: {$log->loggable->name}";
-                    break;
-            }
-
-            return [
-                'id' => $log->id,
-                'user' => $user,
-                'activity' => $details,
-                'salon' => $log->salon->name,
-                'time' => $log->created_at->diffForHumans(),
-            ];
-        });
-
-        return response()->json($formattedLogs);
+    if (!$activeSalon) {
+        return response()->json(['message' => 'No active salon found.'], 404);
     }
+
+    $logs = ActivityLog::where('salon_id', $activeSalon->id)
+        ->with(['loggable', 'user', 'salon'])
+        ->orderBy('created_at', 'desc')
+        ->take(20)
+        ->get();
+
+    $formattedLogs = $logs->map(function ($log) {
+        if (!$log->loggable) {
+            return null; 
+        }
+
+        $loggableType = class_basename($log->loggable_type);
+        $details = "فعالیت نامشخص";
+        $userName = optional($log->user)->name ?: 'کاربر سیستم';
+        $customerName = '';
+
+        switch ($loggableType) {
+            case 'Appointment':
+                $customerName = optional($log->loggable->customer)->name;
+                $appointmentDate = Jalalian::fromCarbon($log->loggable->appointment_date)->format('Y/m/d');
+                switch ($log->activity_type) {
+                    case 'created':
+                        $details = "نوبت جدید برای {$customerName} در تاریخ {$appointmentDate} ثبت شد.";
+                        break;
+                    case 'updated':
+                        $details = "نوبت {$customerName} در تاریخ {$appointmentDate} به‌روزرسانی شد.";
+                        break;
+                    case 'cancelled':
+                        $details = "نوبت {$customerName} در تاریخ {$appointmentDate} لغو شد.";
+                        break;
+                    default:
+                        $details = "فعالیتی در مورد نوبت {$customerName} رخ داد.";
+                }
+                break;
+            case 'Customer':
+                $details = "مشتری جدید با نام {$log->loggable->name} اضافه شد.";
+                break;
+            case 'SmsPackage':
+                $details = "پکیج پیامک {$log->loggable->name} خریداری شد.";
+                break;
+            case 'Payment':
+                $amount = number_format($log->loggable->amount) . ' تومان';
+                $details = "یک پرداختی جدید با مبلغ {$amount} ثبت شد.";
+                break;
+        }
+
+        return [
+            'id' => $log->id,
+            'user' => $userName,
+            'activity' => $details,
+            'salon' => optional($log->salon)->name,
+            'time' => Jalalian::fromCarbon($log->created_at)->format('Y/m/d H:i'),
+        ];
+    })->filter()->values();
+
+    return response()->json($formattedLogs);
+}
 
     public function importCustomers(Request $request, $salon_id)
     {
