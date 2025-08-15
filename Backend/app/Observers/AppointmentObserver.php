@@ -5,29 +5,64 @@ namespace App\Observers;
 use App\Models\Appointment;
 use App\Jobs\SendAppointmentModificationSms;
 use App\Jobs\SendSatisfactionSurveySms;
+use App\Models\ActivityLog;
 use Hashids\Hashids;
+use Illuminate\Support\Facades\Auth;
 
 class AppointmentObserver
 {
-    /**
-     * Handle the Appointment "updated" event.
-     *
-     * @param  \App\Models\Appointment  $appointment
-     * @return void
-     */
+    public function created(Appointment $appointment)
+    {
+        $customerName = optional($appointment->customer)->name ?? 'N/A';
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'salon_id' => $appointment->salon_id,
+            'activity_type' => 'created',
+            'description' => "New appointment created for customer: {$customerName}",
+            'loggable_id' => $appointment->id,
+            'loggable_type' => Appointment::class,
+        ]);
+    }
+
     public function updated(Appointment $appointment)
     {
+        if ($appointment->isDirty('status')) {
+            $activityType = $appointment->status === 'cancelled' ? 'cancelled' : 'updated';
+            $customerName = optional($appointment->customer)->name ?? 'N/A';
+            $description = "Appointment for customer {$customerName} was {$activityType}.";
+
+            ActivityLog::create([
+                'user_id' => Auth::id(),
+                'salon_id' => $appointment->salon_id,
+                'activity_type' => $activityType,
+                'description' => $description,
+                'loggable_id' => $appointment->id,
+                'loggable_type' => Appointment::class,
+            ]);
+        }
+
         if ($appointment->isDirty('status') && $appointment->status === 'done') {
             SendSatisfactionSurveySms::dispatch($appointment);
-        }
-        elseif ($appointment->isDirty('status') || $appointment->isDirty('appointment_date') || $appointment->isDirty('start_time')) {
-            // Regenerate the hash to ensure a unique URL in the SMS
+        } elseif ($appointment->isDirty('status') || $appointment->isDirty('appointment_date') || $appointment->isDirty('start_time')) {
             $hashids = new Hashids(env('HASHIDS_SALT', 'your-default-salt'), 8);
             $appointment->hash = $hashids->encode($appointment->id, now()->timestamp);
-            $appointment->saveQuietly(); // Use saveQuietly to avoid an infinite loop of updated events
-            $appointment->refresh(); // Ensure the model has the latest hash before dispatching
+            $appointment->saveQuietly();
+            $appointment->refresh();
 
             SendAppointmentModificationSms::dispatch($appointment->customer, $appointment, $appointment->salon);
         }
+    }
+
+    public function deleted(Appointment $appointment)
+    {
+        $customerName = optional($appointment->customer)->name ?? 'N/A';
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'salon_id' => $appointment->salon_id,
+            'activity_type' => 'deleted',
+            'description' => "Appointment for customer {$customerName} was deleted.",
+            'loggable_id' => $appointment->id,
+            'loggable_type' => Appointment::class,
+        ]);
     }
 }
