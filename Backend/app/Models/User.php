@@ -180,6 +180,9 @@ class User extends Authenticatable implements JWTSubject
     public function getBusinessSubcategoryIdsAttribute($value)
     {
         $decoded = json_decode($value, true);
-        return is_array($decoded) ? $decoded : [];
+        if (!is_array($decoded)) {
+            return [];
+        }
+        return array_map('strval', $decoded);
     }
 }
