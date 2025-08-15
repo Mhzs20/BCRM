@@ -305,7 +305,7 @@ class AuthController extends Controller
             'activeSalon.province',
             'activeSalon.city',
             'activeSalon.businessCategory',
-            'activeSalon.businessSubcategory'
+            'activeSalon.businessSubcategories'
         ]);
 
         // Eager load counts for the active salon if it exists
@@ -396,8 +396,8 @@ class AuthController extends Controller
                 if (isset($salonData['business_category_id'])) {
                     $userUpdateData['business_category_id'] = $salonData['business_category_id'];
                 }
-                if (isset($salonData['business_subcategory_id'])) {
-                    $userUpdateData['business_subcategory_id'] = $salonData['business_subcategory_id'];
+                if (isset($salonData['business_subcategory_ids'])) {
+                    $userUpdateData['business_subcategory_ids'] = $salonData['business_subcategory_ids'];
                 }
 
                 if (!empty($userUpdateData)) {
@@ -410,7 +410,7 @@ class AuthController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'پروفایل با موفقیت به‌روزرسانی شد.',
-                'data' => $user->load('salons', 'smsBalance', 'activeSalon.province', 'activeSalon.city', 'activeSalon.businessCategory', 'activeSalon.businessSubcategory')
+                'data' => $user->load('salons', 'smsBalance', 'activeSalon.province', 'activeSalon.city', 'activeSalon.businessCategory', 'activeSalon.businessSubcategories')
             ]);
 
         } catch (\Exception $e) {

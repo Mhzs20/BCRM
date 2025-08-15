@@ -27,7 +27,6 @@ class Salon extends Model
         'user_id',
         'name',
         'business_category_id',
-        'business_subcategory_id',
         'province_id',
         'city_id',
         'address',
@@ -71,9 +70,9 @@ class Salon extends Model
     /**
      * Get the business subcategory of the salon.
      */
-    public function businessSubcategory()
+    public function businessSubcategories()
     {
-        return $this->belongsTo(BusinessSubcategory::class);
+        return $this->belongsToMany(BusinessSubcategory::class, 'salon_business_subcategory', 'salon_id', 'business_subcategory_id');
     }
 
     /**

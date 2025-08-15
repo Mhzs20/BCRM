@@ -163,10 +163,8 @@ class AuthService
             'credit_score' => 0,
         ];
 
-        if (isset($data['business_subcategory_ids']) && is_array($data['business_subcategory_ids']) && count($data['business_subcategory_ids']) > 0) {
-            $salonData['business_subcategory_id'] = $data['business_subcategory_ids'][0];
-        } else {
-            $salonData['business_subcategory_id'] = null;
+        if (isset($data['business_subcategory_ids']) && is_array($data['business_subcategory_ids'])) {
+            $salonData['business_subcategory_ids'] = $data['business_subcategory_ids'];
         }
 
         $optionalFields = [

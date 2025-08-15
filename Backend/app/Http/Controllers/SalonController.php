@@ -22,7 +22,7 @@ class SalonController extends Controller
     public function getUserSalons(): JsonResponse
     {
         $user = Auth::user();
-        $salons = $user->salons()->with(['businessCategory', 'businessSubcategory', 'province', 'city'])->get();
+        $salons = $user->salons()->with(['businessCategory', 'businessSubcategories', 'province', 'city'])->get();
         return response()->json(['status' => 'success', 'data' => $salons]);
     }
 
@@ -48,7 +48,7 @@ class SalonController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'سالن با موفقیت ایجاد شد.',
-                'data' => $salon->load(['businessCategory', 'businessSubcategory', 'province', 'city'])
+                'data' => $salon->load(['businessCategory', 'businessSubcategories', 'province', 'city'])
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -68,7 +68,7 @@ class SalonController extends Controller
                 return response()->json([
                     'status' => 'success',
                     'message' => 'هیچ اطلاعات جدیدی برای ویرایش ارسال نشده است.',
-                    'data' => $salon->load(['businessCategory', 'businessSubcategory', 'province', 'city'])
+                    'data' => $salon->load(['businessCategory', 'businessSubcategories', 'province', 'city'])
                 ]);
             }
 
@@ -99,12 +99,17 @@ class SalonController extends Controller
                 unset($validatedData['longitude']);
             }
 
+            if (isset($validatedData['business_subcategory_ids'])) {
+                $salon->businessSubcategories()->sync($validatedData['business_subcategory_ids']);
+                unset($validatedData['business_subcategory_ids']);
+            }
+
             $salon->update($validatedData);
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'اطلاعات سالن با موفقیت ویرایش شد.',
-                'data' => $salon->load(['businessCategory', 'businessSubcategory', 'province', 'city'])
+                'data' => $salon->load(['businessCategory', 'businessSubcategories', 'province', 'city'])
             ]);
 
         } catch (Exception $e) {
@@ -121,10 +126,10 @@ class SalonController extends Controller
     {
         try {
             $user = Auth::user();
-            $activeSalon = $user->activeSalon()->with(['businessCategory', 'businessSubcategory', 'province', 'city'])->first();
+            $activeSalon = $user->activeSalon()->with(['businessCategory', 'businessSubcategories', 'province', 'city'])->first();
 
             if (!$activeSalon) {
-                $firstSalon = $user->salons()->with(['businessCategory', 'businessSubcategory', 'province', 'city'])->first();
+                $firstSalon = $user->salons()->with(['businessCategory', 'businessSubcategories', 'province', 'city'])->first();
                 if (!$firstSalon) {
                     return response()->json([
                         'status' => 'error',
@@ -166,7 +171,7 @@ class SalonController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'سالن فعال با موفقیت انتخاب شد.',
-                'data' => $salon->load(['businessCategory', 'businessSubcategory', 'province', 'city'])
+                'data' => $salon->load(['businessCategory', 'businessSubcategories', 'province', 'city'])
             ]);
         } catch (\Exception $e) {
             Log::error("خطا در انتخاب سالن فعال برای سالن با شناسه {$salon->id} و کاربر با شناسه " . (Auth::id() ?? 'ناشناس') . ": " . $e->getMessage());
@@ -184,7 +189,7 @@ class SalonController extends Controller
         $this->authorize('view', $salon);
 
         try {
-            $salon->load(['businessCategory', 'businessSubcategory', 'province', 'city'])
+            $salon->load(['businessCategory', 'businessSubcategories', 'province', 'city'])
                 ->loadCount(['customers', 'appointments']);
 
             $user = Auth::user();
