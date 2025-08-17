@@ -22,6 +22,7 @@ use App\Http\Controllers\ZarinpalController;
 use App\Http\Controllers\AppointmentReportController;
 use App\Http\Controllers\ManualSmsController;
 use App\Http\Controllers\SmsTransactionController;
+use App\Http\Controllers\SmsCampaignController;
 use App\Http\Controllers\Api\AppController;
 use App\Http\Controllers\Api\NotificationController;
 use Illuminate\Http\Request;
@@ -131,7 +132,12 @@ Route::middleware('auth:api')->group(function () {
                 Route::post('purchase-package', [UserSmsBalanceController::class, 'purchasePackage'])->name('packages.purchase');
                 Route::get('transactions', [SmsTransactionController::class, 'index'])->name('transactions.index');
             });
+
+            Route::prefix('sms-campaign')->name('sms_campaign.')->group(function () {
+                Route::post('prepare', [SmsCampaignController::class, 'prepareCampaign'])->name('prepare');
+            });
         });
+        Route::post('sms-campaign/{campaign}/send', [SmsCampaignController::class, 'sendCampaign'])->name('sms_campaign.send');
     });
 
     Route::prefix('dashboard')->name('dashboard.')->group(function () {

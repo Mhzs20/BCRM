@@ -60,15 +60,15 @@ class ZarinpalController extends Controller
             $payment = Payment::via('zarinpal')->callbackUrl($request->callback_url);
 
             // 2. Prepare the invoice and the transaction callback.
-            $payment->purchase(
-                $invoice,
-                function ($driver, $transactionId) use ($transaction) {
-                    // Store the gateway transaction ID (Authority)
-                    $transaction->update(['transaction_id' => $transactionId]);
-                }
-            );
+            $payment->purchase($invoice);
 
-            // 3. Generate the redirection form.
+            // 3. Get the transaction ID (Authority) from the driver.
+            $transactionId = $payment->getTransactionId();
+
+            // 4. Store the gateway transaction ID.
+            $transaction->update(['transaction_id' => $transactionId]);
+
+            // 5. Generate the redirection form.
             $redirectionForm = $payment->pay();
 
             // 4. Get the payment URL from the redirection form by casting it to a string.
