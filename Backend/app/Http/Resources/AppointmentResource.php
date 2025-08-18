@@ -30,6 +30,7 @@ class AppointmentResource extends JsonResource
             'total_duration' => $this->total_duration,
             'status' => $this->status,
             'notes' => $this->notes,
+            'internal_note' => $this->internal_note,
             'deposit_required' => $this->deposit_required,
             'deposit_paid' => $this->deposit_paid,
             'reminder_sms_sent_at' => $this->reminder_sms_sent_at,
