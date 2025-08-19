@@ -89,6 +89,11 @@ class Appointment extends Model
         return null;
     }
 
+    public function getAppointmentDateAttribute($value)
+    {
+        return \Carbon\Carbon::parse($value)->format('Y-m-d');
+    }
+
     // Scopes
     public function scopeMonthlyCount($query, $year, $month)
     {
