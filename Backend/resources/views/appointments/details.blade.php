@@ -6,7 +6,7 @@
     <title>جزئیات نوبت</title>
     <meta name="lat" content="{{ $appointment->salon->lat ?? 35.7219 }}">
     <meta name="lang" content="{{ $appointment->salon->lang ?? 51.3347 }}">
-    <meta name="appointment-date" content="{{ $appointment->appointment_date }}">
+    <meta name="appointment-date" content="{{ \Carbon\Carbon::parse($appointment->appointment_date . ' ' . $appointment->start_time)->toIso8601String() }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -69,7 +69,7 @@
                     class="w-10 h-10 mx-auto  rounded-full flex items-center justify-center">
                     <img src="{{ asset('assets/img/calender.png') }}" alt="calender" class="w-full h-full"/>
                 </div>
-                <p class="text-neutral-700 text-lg font-bold mt-2 font-iranyekan">{{ str_replace($englishDigits, $persianDigits, verta($appointment->appointment_date)->format('Y/m/d')) }}</p>
+                <p class="text-neutral-700 text-lg font-bold mt-2 font-iranyekan">{{ str_replace($englishDigits, $persianDigits, verta($appointment->appointment_date)->format('jY/jm/jd')) }}</p>
                 <p class="text-neutral-400 text-xs font-bold">{{ verta($appointment->appointment_date)->format('l') }}</p>
             </div>
             <div class="bg-white rounded-lg shadow p-4">
@@ -79,7 +79,7 @@
                 </div>
                 <p id="appointment-time-display" class="text-neutral-700 text-lg font-bold mt-2 font-iranyekan"
                    data-time="{{ \Carbon\Carbon::parse($appointment->start_time)->format('H:i') }}">{{ str_replace($englishDigits, $persianDigits, \Carbon\Carbon::parse($appointment->start_time)->format('H:i')) }}</p>
-                <p class="text-neutral-400 text-xs font-bold">بعد از ظهر</p>
+                <p class="text-neutral-400 text-xs font-bold">{{ \Carbon\Carbon::parse($appointment->start_time)->format('H') < 12 ? 'قبل از ظهر' : 'بعد از ظهر' }}</p>
             </div>
             <div class="bg-white rounded-lg shadow p-4">
                 <div
@@ -129,7 +129,7 @@
         </div>
         <div class="grid grid-cols-3 gap-2 mt-3.5">
             @if($appointment->salon->whatsapp)
-                <a href="https://wa.me/{{ $appointment->salon->whatsapp }}"
+                <a href="https://wa.me/0098{{ $appointment->salon->whatsapp }}"
                    class="bg-white rounded-lg shadow p-4 text-center">
                     <div
                         class="w-10 h-10 mx-auto  rounded-full flex items-center justify-center">
@@ -163,7 +163,7 @@
             @endif
         </div>
         <div class="grid grid-cols-1 mt-3.5">
-            <a href="tell:{{ $appointment->salon->support_phone_number }}"
+            <a href="tel:{{ $appointment->salon->support_phone_number }}"
                class="bg-white flex rounded-lg shadow p-4 text-center justify-center items-center">
                 <div
                     class="w-10 h-10  rounded-full flex items-center justify-center">
@@ -234,10 +234,7 @@
         }
 
         const appointmentDateStr = document.querySelector('meta[name="appointment-date"]').getAttribute('content');
-        const rawTime = document.getElementById('appointment-time-display').getAttribute('data-time');
-        const dateParts = appointmentDateStr.split(' ')[0].split('-');
-        const timeParts = rawTime.split(':');
-        const appointmentDateTime = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], timeParts[0], timeParts[1]).getTime();
+        const appointmentDateTime = new Date(appointmentDateStr).getTime();
 
         const countdownElement = document.getElementById("countdown");
         const x = setInterval(function () {
