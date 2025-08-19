@@ -16,6 +16,10 @@ use Carbon\Carbon;
 use Morilog\Jalali\Jalalian;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use App\Imports\CustomersImport;
+use Illuminate\Database\QueryException;
+use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\Validators\ValidationException;
 
 class DashboardController extends Controller
 {
@@ -177,8 +181,8 @@ class DashboardController extends Controller
     public function getSalonUser(Request $request)
     {
         $user = Auth::user();
-        // $salon = $user->salons()->with('businessCategory', 'businessSubcategory')->first();
-        $salon = Salon::where('user_id', $user->id)->with(['businessCategory', 'businessSubcategory', 'province', 'city'])->first();
+        // $salon = $user->salons()->with('businessCategory', 'businessSubcategories')->first();
+        $salon = Salon::where('user_id', $user->id)->with(['businessCategory', 'businessSubcategories', 'province', 'city'])->first();
 
         if (!$user) {
             return response()->json(['error'  => 'User not authenticated'], 401);
@@ -351,5 +355,117 @@ class DashboardController extends Controller
                 'to' => $transactions->lastItem(),
             ],
         ]);
+    }
+
+    public function recentActivities(Request $request)
+{
+    $user = Auth::user();
+    $activeSalon = $user->activeSalon;
+
+    if (!$activeSalon) {
+        return response()->json(['message' => 'No active salon found.'], 404);
+    }
+
+    $logs = ActivityLog::where('salon_id', $activeSalon->id)
+        ->with(['loggable', 'user', 'salon'])
+        ->orderBy('created_at', 'desc')
+        ->take(20)
+        ->get();
+
+    $formattedLogs = $logs->map(function ($log) {
+        if (!$log->loggable) {
+            return null; 
+        }
+
+        $loggableType = class_basename($log->loggable_type);
+        $details = "فعالیت نامشخص";
+        $userName = optional($log->user)->name ?: 'کاربر سیستم';
+        $customerName = '';
+
+        switch ($loggableType) {
+            case 'Appointment':
+                $customerName = optional($log->loggable->customer)->name;
+                $appointmentDate = Jalalian::fromCarbon($log->loggable->appointment_date)->format('Y/m/d');
+                switch ($log->activity_type) {
+                    case 'created':
+                        $details = "نوبت جدید برای {$customerName} در تاریخ {$appointmentDate} ثبت شد.";
+                        break;
+                    case 'updated':
+                        $details = "نوبت {$customerName} در تاریخ {$appointmentDate} به‌روزرسانی شد.";
+                        break;
+                    case 'cancelled':
+                        $details = "نوبت {$customerName} در تاریخ {$appointmentDate} لغو شد.";
+                        break;
+                    default:
+                        $details = "فعالیتی در مورد نوبت {$customerName} رخ داد.";
+                }
+                break;
+            case 'Customer':
+                $details = "مشتری جدید با نام {$log->loggable->name} اضافه شد.";
+                break;
+            case 'SmsPackage':
+                $details = "پکیج پیامک {$log->loggable->name} خریداری شد.";
+                break;
+            case 'Payment':
+                $amount = number_format($log->loggable->amount) . ' تومان';
+                $details = "یک پرداختی جدید با مبلغ {$amount} ثبت شد.";
+                break;
+        }
+
+        return [
+            'id' => $log->id,
+            'user' => $userName,
+            'activity' => $details,
+            'salon' => optional($log->salon)->name,
+            'time' => Jalalian::fromCarbon($log->created_at)->format('Y/m/d H:i'),
+        ];
+    })->filter()->values();
+
+    return response()->json($formattedLogs);
+}
+
+    public function importCustomers(Request $request, $salon_id)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls,csv'
+        ]);
+
+        try {
+            $import = new CustomersImport((int)$salon_id);
+            Excel::import($import, $request->file('file'));
+
+            $importedCount = $import->getImportedCount();
+            $skippedRows = $import->getSkippedRows();
+
+            $message = "ایمپورت با موفقیت انجام شد. {$importedCount} مشتری جدید اضافه شد.";
+            if (count($skippedRows) > 0) {
+                $message .= " " . count($skippedRows) . " رکورد نادیده گرفته شد.";
+            }
+
+            return response()->json([
+                'message' => $message,
+                'imported_count' => $importedCount,
+                'skipped_rows' => $skippedRows,
+            ], 200);
+
+        } catch (ValidationException $e) {
+            $failures = $e->failures();
+            $errors = [];
+            foreach ($failures as $failure) {
+                $errors[] = [
+                    'row' => $failure->row(),
+                    'attribute' => $failure->attribute(),
+                    'errors' => $failure->errors(),
+                    'values' => $failure->values()
+                ];
+            }
+            return response()->json([
+                'message' => 'خطای اعتبارسنجی در فایل اکسل.',
+                'errors' => $errors
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('خطا در هنگام ایمپورت فایل اکسل: ' . $e->getMessage());
+            return response()->json(['message' => 'خطا در هنگام ایمپورت فایل اکسل رخ داد.'], 500);
+        }
     }
 }

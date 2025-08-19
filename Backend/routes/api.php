@@ -25,6 +25,7 @@ use App\Http\Controllers\SmsTransactionController;
 use App\Http\Controllers\SmsCampaignController;
 use App\Http\Controllers\Api\AppController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\SatisfactionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -83,7 +84,7 @@ Route::middleware('auth:api')->group(function () {
             Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete'])->name('customers.bulkDelete');
             Route::get('customers/{customer}/appointments', [CustomerController::class, 'listCustomerAppointments'])->name('customers.appointments');
 //            Route::get('customers/search', [CustomerController::class, 'search'])->name('customers.search');
-            Route::post('customers/import/excel', [CustomerController::class, 'importExcel'])->name('customers.import.excel');
+            Route::post('customers/import/excel', [DashboardController::class, 'importCustomers'])->name('customers.import.excel');
             Route::post('customers/import/contacts', [CustomerController::class, 'importContacts'])->name('customers.import.contacts');
             Route::apiResource('customers', CustomerController::class)->except(['create', 'edit']);
 
@@ -104,8 +105,10 @@ Route::middleware('auth:api')->group(function () {
 
             Route::get('appointments', [AppointmentController::class, 'getAppointments']);
 
-             Route::apiResource('appointments', AppointmentController::class)->except(['create', 'edit']);
+            Route::post('appointments/{appointment}/send-reminder', [AppointmentController::class, 'sendReminderSms'])->name('appointments.send_reminder');
+            Route::post('appointments/{appointment}/send-modification-sms', [AppointmentController::class, 'sendModificationSms'])->name('appointments.send_modification_sms');
 
+            Route::apiResource('appointments', AppointmentController::class)->except(['create', 'edit']);
             Route::apiResource('payments', PaymentController::class)->except(['create', 'edit']);
             Route::apiResource('how-introduced', HowIntroducedController::class)->except(['create', 'edit'])->names('howIntroduced');
             Route::apiResource('customer-groups', CustomerGroupController::class)->except(['create', 'edit'])->names('customerGroups');
@@ -145,6 +148,7 @@ Route::middleware('auth:api')->group(function () {
         Route::get('all-salon-appointments', [DashboardController::class, 'allSalonAppointments'])->name('all_appointments');
         Route::get('recent-activities', [DashboardController::class, 'recentActivities'])->name('recent_activities');
         Route::get('sms-balance', [DashboardController::class, 'showSmsBalance'])->name('sms_balance.show');
+        Route::post('{salon}/import-customers', [DashboardController::class, 'importCustomers'])->name('import_customers');
     });
 
     Route::prefix('salon-settings')->name('salon_settings.')->group(function () {
@@ -180,6 +184,8 @@ Route::get('/app-history', [AppController::class, 'latestHistory']);
 Route::get('/staff/{staffId}/appointments', [AppController::class, 'getStaffAppointments'])->whereNumber('staffId');
 
 Route::get('/notifications', [NotificationController::class, 'index']);
+
+Route::middleware('auth:api')->post('/appointments/{appointment}/send-satisfaction-survey', [SatisfactionController::class, 'sendSurvey'])->name('api.appointments.send-satisfaction-survey');
 
 Route::fallback(function(){
     return response()->json(['message' => 'مسیر API درخواستی یافت نشد یا متد HTTP مجاز نیست.'], 404);

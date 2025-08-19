@@ -6,6 +6,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use App\Models\Salon;
 use Illuminate\Support\Facades\Auth;
+use App\Rules\IranianPhoneNumber;
 
 class StoreAppointmentRequest extends FormRequest
 {
@@ -25,7 +26,7 @@ class StoreAppointmentRequest extends FormRequest
                 Rule::exists('customers', 'id')->where('salon_id', $salonId)->whereNull('deleted_at')
             ],
             'new_customer.name' => ['required_without:customer_id', 'nullable', 'string', 'max:255'],
-            'new_customer.phone_number' => ['required_without:customer_id', 'nullable', 'string', 'max:20'],
+            'new_customer.phone_number' => ['required_without:customer_id', 'nullable', 'string', new IranianPhoneNumber],
 
             'service_ids' => ['required', 'array', 'min:1'],
             'service_ids.*' => [
@@ -51,12 +52,6 @@ class StoreAppointmentRequest extends FormRequest
             'total_price' => ['nullable', 'numeric', 'min:0'],
             'total_duration' => ['required', 'integer', 'min:1'], // Added total_duration validation
         ];
-
-        if ($this->filled('new_customer.phone_number') && $salonId) {
-            $rules['new_customer.phone_number'][] = Rule::unique('customers', 'phone_number')
-                ->where('salon_id', $salonId)
-                ->whereNull('deleted_at');
-        }
 
         return $rules;
     }

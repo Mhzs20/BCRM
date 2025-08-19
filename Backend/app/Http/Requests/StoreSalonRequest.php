@@ -18,7 +18,8 @@ class StoreSalonRequest extends FormRequest
         return [
             'name'                      => 'required|string|max:255',
             'business_category_id'      => 'required|integer|exists:business_categories,id',
-            'business_subcategory_id'   => 'nullable|integer|exists:business_subcategories,id',
+            'business_subcategory_ids'   => 'nullable|array',
+            'business_subcategory_ids.*' => 'exists:business_subcategories,id',
             'province_id'               => 'required|integer|exists:provinces,id',
             'city_id'                   => ['required', 'integer', Rule::exists('cities', 'id')->where('province_id', $this->input('province_id'))],
             'address'                   => 'required|string|max:1000',

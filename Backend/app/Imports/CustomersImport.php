@@ -10,6 +10,8 @@ use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Validators\Failure;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Illuminate\Database\QueryException;
+use App\Rules\IranianPhoneNumber;
 
 
 class CustomersImport implements ToModel, WithHeadingRow, WithValidation, SkipsOnFailure
@@ -35,28 +37,28 @@ class CustomersImport implements ToModel, WithHeadingRow, WithValidation, SkipsO
         }
 
         $existingCustomer = Customer::where('salon_id', $this->salon_id)
-            ->where('phone_number', $phoneNumber)
-            ->whereNull('deleted_at')
+            ->where('phone_number', normalizePhoneNumber($phoneNumber))
             ->first();
+
         if ($existingCustomer) {
-            $this->skippedRows[] = ['row_data' => $row, 'reason' => 'مشتری با این شماره تلفن (' . $phoneNumber . ') از قبل موجود است.'];
+            $this->skippedRows[] = ['row_data' => $row, 'reason' => 'مشتری با این شماره تلفن (' . $phoneNumber . ') از قبل در این سالن موجود است.'];
             return null;
         }
 
-        $this->importedCount++;
-        return new Customer([
+        $customer = Customer::create([
             'salon_id'     => $this->salon_id,
             'name'         => $name,
-            'phone_number' => $phoneNumber,
-
+            'phone_number' => normalizePhoneNumber($phoneNumber),
         ]);
+        $this->importedCount++;
+        return $customer;
     }
 
     public function rules(): array
     {
         return [
             '*.name' => ['required_unless:*.نام,null', 'string', 'max:255'],
-            '*.phone_number' => ['required', 'string', 'max:20'],
+            '*.phone_number' => ['required', 'string', new IranianPhoneNumber()],
         ];
     }
 

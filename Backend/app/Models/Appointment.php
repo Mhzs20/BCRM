@@ -37,6 +37,8 @@ class Appointment extends Model
         'send_satisfaction_sms',
         'satisfaction_sms_status',
         'satisfaction_sms_message_id',
+        'deposit_amount',
+        'deposit_payment_method',
     ];
 
     protected $casts = [
@@ -48,6 +50,8 @@ class Appointment extends Model
         'survey_sms_sent_at' => 'datetime',
         'total_price' => 'decimal:2',
         'total_duration' => 'integer',
+        'deposit_amount' => 'decimal:2',
+        'deposit_payment_method' => 'string',
     ];
 
     protected $dates = ['deleted_at'];
@@ -97,5 +101,10 @@ class Appointment extends Model
                      ->select(DB::raw('appointment_date, COUNT(*) as count'))
                      ->groupBy('appointment_date')
                      ->orderBy('appointment_date');
+    }
+
+    public function feedback()
+    {
+        return $this->hasOne(CustomerFeedback::class);
     }
 }
