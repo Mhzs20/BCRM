@@ -54,13 +54,13 @@ class SendSatisfactionSurveySms implements ShouldQueue
             return;
         }
 
-        $sent = $smsService->sendSatisfactionSurvey($customer, $appointment, $this->salon);
+        $smsResult = $smsService->sendSatisfactionSurvey($customer, $appointment, $this->salon);
 
-        if ($sent) {
-            Log::info("Satisfaction survey SMS dispatched for appointment {$appointment->id}.");
+        if ($smsResult['status'] === 'success') {
+            Log::info("Successfully sent satisfaction survey SMS for appointment {$appointment->id}.");
         } else {
-            Log::error("Failed to dispatch satisfaction survey SMS for appointment {$appointment->id}.");
-            // Optionally, re-queue the job or log a more specific error
+            Log::error("Failed to send satisfaction survey SMS for appointment {$appointment->id}: " . $smsResult['message']);
+            $appointment->update(['satisfaction_sms_status' => 'failed']);
         }
     }
 }

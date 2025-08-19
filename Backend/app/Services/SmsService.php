@@ -379,7 +379,7 @@ class SmsService
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->appointment_date))->format('Y/m/d'),
+            'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->start_time))->format('Y/m/d'),
             'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'),
             'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
             'services_list' => $appointment->services->pluck('name')->implode('، '),
@@ -402,7 +402,7 @@ class SmsService
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->appointment_date))->format('Y/m/d'),
+            'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->start_time))->format('Y/m/d'),
             'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'), // Correctly format the time
             'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
             'services_list' => $appointment->services->pluck('name')->implode('، '),
@@ -423,7 +423,7 @@ class SmsService
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->appointment_date))->format('Y/m/d'),
+            'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->start_time))->format('Y/m/d'),
             'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'),
         ];
         return $this->sendMessageUsingTemplate(
@@ -442,7 +442,7 @@ class SmsService
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->appointment_date))->format('Y/m/d'),
+            'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->start_time))->format('Y/m/d'),
             'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'),
             'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
         ];
@@ -478,7 +478,7 @@ class SmsService
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->appointment_date))->format('Y/m/d'),
+            'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->start_time))->format('Y/m/d'),
             'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'),
             // Add survey link here if available
         ];

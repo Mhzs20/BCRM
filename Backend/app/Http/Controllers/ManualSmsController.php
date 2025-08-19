@@ -40,12 +40,13 @@ class ManualSmsController extends Controller
             'customer_ids.*' => 'exists:customers,id',
             'phone_numbers' => 'array|required_if:recipients_type,phone_contacts',
             'phone_numbers.*' => ['string', new IranianPhoneNumber()], // Use the custom rule
-            'message_content' => 'required|string|max:500', // Max length for SMS
+            'message_content' => 'required_without:template_id|string|max:500', // Max length for SMS
+            'template_id' => 'required_without:message_content|exists:salon_sms_templates,id',
         ]);
 
         $user = Auth::user();
 
-        if (!$user->is_superadmin && $user->salon_id !== $salon->id) {
+        if (!$user->is_superadmin && !$user->salons->contains($salon)) {
             return response()->json(['message' => 'شما مجاز به ارسال پیامک برای این سالن نیستید.'], 403);
         }
 
@@ -66,6 +67,7 @@ class ManualSmsController extends Controller
         }
 
         $smsContent = $request->message_content;
+        $isCustomMessage = !$request->has('template_id');
         $smsPartsPerMessage = $this->smsService->calculateSmsCount($smsContent);
         $totalSmsCountForAllRecipients = $smsPartsPerMessage * count($recipients);
 
@@ -91,11 +93,19 @@ class ManualSmsController extends Controller
                     'content' => $smsContent,
                     'sms_parts' => $smsPartsPerMessage,
                     'status' => 'pending',
-                    'approval_status' => 'pending',
+                    'approval_status' => $isCustomMessage ? 'pending' : 'approved',
                 ]);
             }
             DB::commit();
-            return response()->json(['message' => 'درخواست پیامک دستی برای تایید ارسال شد.'], 200);
+
+            if ($isCustomMessage) {
+                return response()->json(['message' => 'درخواست پیامک دستی برای تایید ارسال شد.'], 200);
+            } else {
+                // If it's an approved template, we can proceed to send it.
+                // This part can be refactored into a job or a separate method if it becomes complex.
+                $this->approveAndSendBatch($batchId, $user);
+                return response()->json(['message' => 'پیامک با موفقیت ارسال شد.'], 200);
+            }
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['message' => 'ثبت درخواست پیامک با شکست مواجه شد.', 'error' => $e->getMessage()], 500);
@@ -393,5 +403,80 @@ class ManualSmsController extends Controller
         );
 
         return view('admin.sms-reports.index', compact('smsBatches'));
+    }
+
+    private function approveAndSendBatch(string $batchId, User $approver)
+    {
+        $transactions = SmsTransaction::where('batch_id', $batchId)
+                                      ->where('approval_status', 'pending')
+                                      ->get();
+
+        if ($transactions->isEmpty()) {
+            return; // Or throw an exception
+        }
+
+        $salon = $transactions->first()->salon;
+        if (!$salon) {
+            return; // Or throw an exception
+        }
+
+        $totalSmsCount = $transactions->sum('sms_parts');
+
+        if ($salon->user->smsBalance->balance < $totalSmsCount) {
+            SmsTransaction::where('batch_id', $batchId)->update([
+                'approval_status' => 'rejected',
+                'rejection_reason' => 'اعتبار پیامک سالن کافی نیست.',
+                'approved_by' => $approver->id,
+                'approved_at' => now(),
+            ]);
+            return;
+        }
+
+        DB::beginTransaction();
+        try {
+            $recipients = $transactions->pluck('receptor')->toArray();
+            $content = $transactions->first()->content;
+            $recipientChunks = array_chunk($recipients, 50);
+
+            foreach ($recipientChunks as $chunk) {
+                SmsTransaction::where('batch_id', $batchId)
+                    ->whereIn('receptor', $chunk)
+                    ->update([
+                        'status' => 'failed',
+                        'external_response' => 'ارسال اولیه ناموفق بود یا پاسخی از API دریافت نشد.',
+                        'approval_status' => 'approved',
+                        'approved_by' => $approver->id,
+                        'approved_at' => now(),
+                        'sent_at' => now(),
+                    ]);
+
+                $receptorsString = implode(',', $chunk);
+                $smsEntries = $this->smsService->sendSms($receptorsString, $content);
+
+                if ($smsEntries && !empty($smsEntries)) {
+                    foreach ($smsEntries as $entry) {
+                        SmsTransaction::where('batch_id', $batchId)
+                            ->where('receptor', $entry['receptor'])
+                            ->update([
+                                'status' => $this->smsService->mapKavenegarStatusToInternal($entry['status'] ?? null),
+                                'external_response' => json_encode($entry),
+                            ]);
+                    }
+                }
+            }
+
+            $salon->user->smsBalance->decrement('balance', $totalSmsCount);
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            SmsTransaction::where('batch_id', $batchId)->update([
+                'status' => 'error',
+                'external_response' => $e->getMessage(),
+                'approval_status' => 'rejected',
+                'rejection_reason' => 'خطای سیستمی هنگام ارسال پیامک.',
+                'approved_by' => $approver->id,
+                'approved_at' => now(),
+            ]);
+        }
     }
 }
