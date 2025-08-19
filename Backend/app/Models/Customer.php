@@ -80,4 +80,16 @@ class Customer extends Model
     {
         return $value ? asset('storage/' . $value) : null;
     }
+
+    /**
+     * Set the customer's phone number.
+     *
+     * @param  string  $value
+     * @return void
+     */
+    public function setPhoneNumberAttribute($value)
+    {
+        // Trim whitespace and remove non-numeric characters
+        $this->attributes['phone_number'] = preg_replace('/[^0-9]/', '', $value);
+    }
 }
