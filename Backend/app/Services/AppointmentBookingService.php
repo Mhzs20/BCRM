@@ -106,7 +106,7 @@ class AppointmentBookingService
             'appointment_date' => $appointmentDate,
             'start_time' => $carbonStartTime->format('H:i:s'),
             'end_time' => $endTime,
-            'status' => 'confirmed',
+            'status' => 'notconfirmed',
             'notes' => $notes,
             'total_price' => $totalPrice,
             'total_duration' => $totalDuration,
