@@ -25,6 +25,7 @@ use App\Http\Controllers\SmsTransactionController;
 use App\Http\Controllers\SmsCampaignController;
 use App\Http\Controllers\Api\AppController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\BannerController as ApiBannerController;
 use App\Http\Controllers\SatisfactionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -184,6 +185,8 @@ Route::get('/app-history', [AppController::class, 'latestHistory']);
 Route::get('/staff/{staffId}/appointments', [AppController::class, 'getStaffAppointments'])->whereNumber('staffId');
 
 Route::get('/notifications', [NotificationController::class, 'index']);
+
+Route::get('/banners', [ApiBannerController::class, 'index']);
 
 Route::middleware('auth:api')->post('/appointments/{appointment}/send-satisfaction-survey', [SatisfactionController::class, 'sendSurvey'])->name('api.appointments.send-satisfaction-survey');
 
