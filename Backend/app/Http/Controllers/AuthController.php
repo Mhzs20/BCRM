@@ -397,11 +397,7 @@ class AuthController extends Controller
                     $userUpdateData['business_category_id'] = $salonData['business_category_id'];
                 }
                 if (isset($salonData['business_subcategory_ids'])) {
-                    $userUpdateData['business_subcategory_ids'] = $salonData['business_subcategory_ids'];
-                }
-
-                if (!empty($userUpdateData)) {
-                    $user->update($userUpdateData);
+                    $salon->businessSubcategories()->sync($salonData['business_subcategory_ids']);
                 }
             }
 

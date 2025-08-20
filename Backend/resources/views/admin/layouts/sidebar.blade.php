@@ -50,6 +50,10 @@
             <i class="ri-file-line text-xl"></i>
             <span class="mr-4">فایل ها</span>
         </a>
+        <a href="{{ route('admin.banners.index') }}" class="flex items-center py-3 px-6 transition duration-200 hover:bg-gray-700 @if(request()->routeIs('admin.banners.*')) bg-gray-700 @endif">
+            <i class="ri-image-line text-xl"></i>
+            <span class="mr-4">مدیریت بنرها</span>
+        </a>
         <div x-data="{ open: {{ request()->routeIs('admin.how-introduced.*') || request()->routeIs('admin.professions.*') || request()->routeIs('admin.customer-groups.*') ? 'true' : 'false' }} }">
             <a @click="open = !open" href="#" class="flex items-center justify-between py-3 px-6 transition duration-200 hover:bg-gray-700 cursor-pointer">
                 <div class="flex items-center">
