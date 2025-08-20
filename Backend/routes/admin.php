@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\HowIntroducedController;
 use App\Http\Controllers\Admin\ProfessionController; 
 use App\Http\Controllers\Admin\CustomerGroupController;
 use App\Http\Controllers\Admin\FileController;
+use App\Http\Controllers\Admin\BannerController;
 use App\Http\Controllers\ManualSmsController;
 use App\Http\Middleware\SuperAdminMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -50,4 +51,7 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
 
     // Files
     Route::resource('files', FileController::class);
+
+    // Banners
+    Route::resource('banners', BannerController::class);
 });
