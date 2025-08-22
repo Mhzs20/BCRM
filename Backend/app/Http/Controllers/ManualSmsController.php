@@ -50,6 +50,9 @@ class ManualSmsController extends Controller
             return response()->json(['message' => 'شما مجاز به ارسال پیامک برای این سالن نیستید.'], 403);
         }
 
+        // Ensure user's SMS balance is loaded for the check
+        $salon->loadMissing('user.smsBalance');
+
         $recipients = [];
         if ($request->recipients_type === 'all_customers') {
             $recipients = Customer::where('salon_id', $salon->id)->pluck('phone_number')->toArray();
@@ -98,10 +101,12 @@ class ManualSmsController extends Controller
             }
             DB::commit();
 
+            // If it's a custom message, it's submitted for approval.
+            // If it's an approved template, we can proceed to send it immediately.
+            // The balance check has already occurred above for both cases.
             if ($isCustomMessage) {
                 return response()->json(['message' => 'درخواست پیامک دستی برای تایید ارسال شد.'], 200);
             } else {
-                // If it's an approved template, we can proceed to send it.
                 // This part can be refactored into a job or a separate method if it becomes complex.
                 $this->approveAndSendBatch($batchId, $user);
                 return response()->json(['message' => 'پیامک با موفقیت ارسال شد.'], 200);

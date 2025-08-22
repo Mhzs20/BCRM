@@ -12,6 +12,17 @@ class UpdateProfileRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation()
+    {
+        if ($this->has('salon.business_subcategory_ids')) {
+            $this->merge([
+                'salon' => array_merge($this->input('salon', []), [
+                    'business_subcategory_ids' => $this->input('salon.business_subcategory_ids', []),
+                ]),
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         $user = $this->user();
@@ -31,7 +42,7 @@ class UpdateProfileRequest extends FormRequest
             'salon.name' => 'sometimes|string|min:3|max:255',
             'salon.business_category_id' => 'sometimes|integer|exists:business_categories,id',
             'salon.business_subcategory_ids' => 'sometimes|nullable|array',
-            'salon.business_subcategory_ids.*' => 'exists:business_subcategories,id',
+            'salon.business_subcategory_ids.*' => 'integer|exists:business_subcategories,id',
             'salon.province_id' => 'sometimes|integer|exists:provinces,id',
             'salon.city_id' => $provinceId ? ['sometimes', 'integer', Rule::exists('cities', 'id')->where('province_id', $provinceId)] : 'sometimes|integer|exists:cities,id',
             'salon.address' => 'sometimes|string|max:1000',
