@@ -328,7 +328,7 @@ class SmsService
     {
         switch ($eventType) {
             case 'appointment_confirmation':
-                return "مشتری گرامی {customer_name}، نوبت شما در سالن {salon_name} برای تاریخ {appointment_date} ساعت {appointment_time} ثبت شد. برای مشاهده جزئیات نوبت خود، روی لینک زیر کلیک کنید:\n{details_url}";
+                return "{customer_name} عزیز نوبتت تاریخ: {appointment_date} ساعت: {appointment_time} تو سالن {salon_name} ثبت شد 🤗 لینک نوبت👇 {details_url}";
             case 'appointment_reminder':
                 return "یادآوری نوبت:\nمشتری گرامی {customer_name}، {reminder_time_text} ساعت {appointment_time} در سالن {salon_name} منتظر شما هستیم.\nجزئیات نوبت: {details_url}";
             case 'manual_reminder':
