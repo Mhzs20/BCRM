@@ -43,7 +43,7 @@ class AppointmentObserver
 
         if ($appointment->isDirty('status') && $appointment->status === 'done') {
             SendSatisfactionSurveySms::dispatch($appointment);
-        } elseif ($appointment->isDirty('status') || $appointment->isDirty('appointment_date') || $appointment->isDirty('start_time')) {
+        } elseif (($appointment->isDirty('status') && $appointment->status !== 'cancelled') || $appointment->isDirty('appointment_date') || $appointment->isDirty('start_time')) {
             $hashids = new Hashids(env('HASHIDS_SALT', 'your-default-salt'), 8);
             $appointment->hash = $hashids->encode($appointment->id, now()->timestamp);
             $appointment->saveQuietly();

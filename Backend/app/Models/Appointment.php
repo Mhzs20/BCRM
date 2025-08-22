@@ -25,6 +25,7 @@ class Appointment extends Model
         'total_duration',
         'status',
         'notes',
+        'internal_note',
         'deposit_required',
         'deposit_paid',
         'reminder_sms_sent_at',

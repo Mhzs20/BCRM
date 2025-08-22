@@ -148,7 +148,7 @@ Route::middleware('auth:api')->group(function () {
         Route::get('summary', [DashboardController::class, 'summary'])->name('summary');
         Route::get('all-salon-appointments', [DashboardController::class, 'allSalonAppointments'])->name('all_appointments');
         Route::get('recent-activities', [DashboardController::class, 'recentActivities'])->name('recent_activities');
-        Route::get('sms-balance', [DashboardController::class, 'showSmsBalance'])->name('sms_balance.show');
+        Route::get('sms-balance', [AppController::class, 'getSmsBalance'])->name('sms_balance.show');
         Route::post('{salon}/import-customers', [DashboardController::class, 'importCustomers'])->name('import_customers');
     });
 
