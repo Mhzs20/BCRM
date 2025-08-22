@@ -139,8 +139,20 @@ class ZarinpalController extends Controller
                 'description' => 'پرداخت با موفقیت تایید شد',
             ]);
 
+            Log::info('Attempting to update user SMS balance.', [
+                'user_id' => $transaction->user_id,
+                'sms_count_to_add' => $transaction->sms_count,
+                'transaction_id' => $transaction->id,
+            ]);
+
             $userBalance = UserSmsBalance::firstOrCreate(['user_id' => $transaction->user_id]);
             $userBalance->increment('balance', $transaction->sms_count);
+
+            Log::info('User SMS balance updated successfully.', [
+                'user_id' => $transaction->user_id,
+                'new_balance' => $userBalance->balance,
+                'transaction_id' => $transaction->id,
+            ]);
 
             return response()->json([
                 'status' => 'OK',
@@ -162,7 +174,8 @@ class ZarinpalController extends Controller
             ], 400);
         } catch (\Exception $e) {
             // Other exceptions (e.g., network issues, config problems)
-            // We don't change the transaction status here, it remains 'pending' for a potential retry.
+            // Update transaction status to failed for any unexpected errors
+            $transaction->update(['status' => 'failed', 'description' => 'خطای ناشناخته در تایید پرداخت: ' . $e->getMessage()]);
             Log::error('Zarinpal Verification Error: ' . $e->getMessage(), ['authority' => $authority]);
 
             return response()->json([

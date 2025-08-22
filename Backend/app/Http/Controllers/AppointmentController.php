@@ -46,7 +46,7 @@ class AppointmentController extends Controller
             ->orderBy($request->input('sort_by', 'appointment_date'), $request->input('sort_direction', 'desc'))
             ->orderBy('start_time', $request->input('sort_direction', 'desc'))
             ->paginate($request->input('per_page', 15));
-        return response()->json($appointments);
+        return AppointmentResource::collection($appointments);
     }
     public function store(StoreAppointmentRequest $request, $salon_id)
     {
@@ -114,6 +114,7 @@ class AppointmentController extends Controller
                 [
                     'total_price' => $validatedData['total_price'] ?? $appointmentDetails['appointment_data']['total_price'],
                     'status' => $validatedData['status'] ?? 'confirmed',
+                    'internal_note' => $validatedData['internal_notes'] ?? null, // Map internal_notes to internal_note
                     'deposit_required' => $validatedData['deposit_required'] ?? false,
                     'deposit_paid' => $validatedData['deposit_paid'] ?? false,
                     'deposit_amount' => $validatedData['deposit_amount'] ?? 0,
@@ -172,7 +173,7 @@ class AppointmentController extends Controller
 
         $appointment->load(['customer', 'staff', 'services']);
 
-        return response()->json($appointment);
+        return new AppointmentResource($appointment);
     }
 
     public function update(UpdateAppointmentRequest $request, Salon $salon, Appointment $appointment)
@@ -224,10 +225,16 @@ class AppointmentController extends Controller
                 $appointment->services()->sync($appointmentDetails['service_pivot_data']);
             }
 
-            $updateData = Arr::except($validatedData, ['service_ids']);
+            $updateData = Arr::except($validatedData, ['service_ids', 'internal_notes']);
 
             if (!empty($updateData)) {
                 $appointment->update($updateData);
+            }
+
+            // Manually update internal_note if present in validatedData
+            if (isset($validatedData['internal_notes'])) {
+                $appointment->internal_note = $validatedData['internal_notes'];
+                $appointment->save();
             }
 
             DB::commit();
@@ -286,7 +293,7 @@ class AppointmentController extends Controller
 
             $appointments = $query->orderBy('start_time')->get();
 
-            return response()->json(['data' => $appointments]);
+            return response()->json(['data' => AppointmentResource::collection($appointments)]);
         } catch (\Exception $e) {
             Log::error('خطا در دریافت نوبت‌ها: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در دریافت نوبت‌ها: ' . $e->getMessage()], 500);
@@ -308,7 +315,7 @@ class AppointmentController extends Controller
             $query->where('staff_id', $validated['staff_id']);
         }
         $appointments = $query->orderBy('appointment_date')->orderBy('start_time')->get();
-            return response()->json(['data' => $appointments]);
+            return response()->json(['data' => AppointmentResource::collection($appointments)]);
     }
     /**
      * یک تابع کمکی خصوصی برای محاسبه دقیق بازه تاریخ یک ماه شمسی.
@@ -407,25 +414,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
                 ->orderBy('start_time')
                 ->paginate($request->input('per_page', 15)); 
 
-            $appointments->through(function ($appointment) {
-                return [
-                    'id' => $appointment->id,
-                    'hash' => $appointment->hash,
-                    'status' => $appointment->status,
-                    'appointment_date' => $appointment->appointment_date->format('Y-m-d'),
-                    'jalali_appointment_date' => Jalalian::fromCarbon($appointment->appointment_date)->format('Y/m/d'),
-                    'start_time' => Carbon::parse($appointment->start_time)->format('H:i'),
-                    'end_time' => Carbon::parse($appointment->end_time)->format('H:i'),
-                    'total_price' => $appointment->total_price,
-                    'deposit_amount' => $appointment->deposit_amount,
-                    'notes' => $appointment->notes,
-                    'customer' => $appointment->customer,
-                    'staff' => $appointment->staff,
-                    'services' => $appointment->services,
-                ];
-            });
-
-            return response()->json($appointments);
+            return AppointmentResource::collection($appointments);
 
         } catch (\Exception $e) {
             Log::error('Error fetching appointments by month: ' . $e->getMessage());

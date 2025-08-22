@@ -23,6 +23,8 @@ class Salon extends Model
 {
     use HasFactory;
 
+    protected $with = ['businessCategory', 'businessSubcategories'];
+
     protected $fillable = [
         'user_id',
         'name',

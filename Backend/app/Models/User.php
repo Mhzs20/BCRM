@@ -25,7 +25,6 @@ class User extends Authenticatable implements JWTSubject
         'password',
         'business_name',
         'business_category_id',
-        'business_subcategory_ids',
         'avatar',
         'otp_code',
         'otp_expires_at',
@@ -67,7 +66,6 @@ class User extends Authenticatable implements JWTSubject
         'profile_completed' => 'boolean',
         'active_salon_id' => 'integer',
         'business_category_id' => 'integer',
-        'business_subcategory_ids' => 'array',
         // Do NOT cast date_of_birth here, let the accessor handle it
     ];
 
@@ -177,12 +175,4 @@ class User extends Authenticatable implements JWTSubject
      * @param  string|null  $value
      * @return array
      */
-    public function getBusinessSubcategoryIdsAttribute($value)
-    {
-        $decoded = json_decode($value, true);
-        if (!is_array($decoded)) {
-            return [];
-        }
-        return array_map('strval', $decoded);
-    }
 }

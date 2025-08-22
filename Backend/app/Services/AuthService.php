@@ -202,6 +202,11 @@ class AuthService
         $salon = Salon::create($salonData);
         Log::info("AuthService::completeProfile - New salon CREATED for user ID: {$user->id}, Salon ID: {$salon->id}, Address: {$data['address']}");
 
+        if (isset($data['business_subcategory_ids']) && is_array($data['business_subcategory_ids'])) {
+            $salon->businessSubcategories()->sync($data['business_subcategory_ids']);
+            Log::info("AuthService::completeProfile - Synced business subcategories for Salon ID: {$salon->id}");
+        }
+
         $user->active_salon_id = $salon->id;
         $user->save();
         Log::info("AuthService::completeProfile - Salon ID: {$salon->id} set as active for user ID: {$user->id}");

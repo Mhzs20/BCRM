@@ -14,6 +14,11 @@ use Morilog\Jalali\Jalalian;
 
 class AppointmentReportController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth:api');
+    }
+
     private function checkAccess(Salon $salon)
     {
         // Check if the authenticated user owns the requested salon
@@ -44,9 +49,10 @@ class AppointmentReportController extends Controller
 
         switch ($period) {
             case 'daily':
-                $query = (clone $baseQuery)->whereDate('start_time', $date);
+                $query = (clone $baseQuery)->whereDate('appointment_date', $date);
                 $totalAppointments = $query->count();
-                $cancelledAppointments = (clone $query)->where('status', 'cancelled')->count();
+                $cancelledAppointments = (clone $query)->where('status', 'canceled')->count();
+                $cancelledAppointments = (clone $query)->where('status', 'canceled')->count();
 
                 $dbReport = (clone $query)
                     ->select(DB::raw('HOUR(start_time) as unit'), DB::raw('count(*) as total_appointments'))
@@ -66,16 +72,16 @@ class AppointmentReportController extends Controller
                 $startOfWeek = $date->copy()->subDays($dayOfWeek)->startOfDay();
                 $endOfWeek = $date->copy()->addDays(6 - $dayOfWeek)->endOfDay();
 
-                $query = (clone $baseQuery)->whereBetween('start_time', [$startOfWeek, $endOfWeek]);
+                $query = (clone $baseQuery)->whereBetween('appointment_date', [$startOfWeek, $endOfWeek]);
                 $totalAppointments = $query->count();
-                $cancelledAppointments = (clone $query)->where('status', 'cancelled')->count();
+                $cancelledAppointments = (clone $query)->where('status', 'canceled')->count();
                 $appointments = $query->get();
 
                 $daysOfWeek = ['شنبه' => 0, 'یکشنبه' => 0, 'دوشنبه' => 0, 'سه‌شنبه' => 0, 'چهارشنبه' => 0, 'پنج‌شنبه' => 0, 'جمعه' => 0];
                 $dayMap = ['Saturday' => 'شنبه', 'Sunday' => 'یکشنبه', 'Monday' => 'دوشنبه', 'Tuesday' => 'سه‌شنبه', 'Wednesday' => 'چهارشنبه', 'Thursday' => 'پنج‌شنبه', 'Friday' => 'جمعه'];
 
                 foreach ($appointments as $appointment) {
-                    $dayName = $appointment->start_time->format('l');
+                    $dayName = $appointment->appointment_date->format('l');
                     $jalaliDayName = $dayMap[$dayName];
                     $daysOfWeek[$jalaliDayName]++;
                 }
@@ -90,16 +96,16 @@ class AppointmentReportController extends Controller
                 $startOfMonth = (new Jalalian($jalali->getYear(), $jalali->getMonth(), 1))->toCarbon();
                 $endOfMonth = (new Jalalian($jalali->getYear(), $jalali->getMonth(), $jalali->getMonthDays()))->toCarbon()->endOfDay();
 
-                $query = (clone $baseQuery)->whereBetween('start_time', [$startOfMonth, $endOfMonth]);
+                $query = (clone $baseQuery)->whereBetween('appointment_date', [$startOfMonth, $endOfMonth]);
                 $totalAppointments = $query->count();
-                $cancelledAppointments = (clone $query)->where('status', 'cancelled')->count();
+                $cancelledAppointments = (clone $query)->where('status', 'canceled')->count();
                 $appointments = $query->get();
 
                 $weeksOfMonth = ['هفته اول' => 0, 'هفته دوم' => 0, 'هفته سوم' => 0, 'هفته چهارم' => 0, 'هفته پنجم' => 0];
                 $weekNames = array_keys($weeksOfMonth);
 
                 foreach ($appointments as $appointment) {
-                    $dayOfMonth = Jalalian::fromCarbon($appointment->start_time)->getDay();
+                    $dayOfMonth = Jalalian::fromCarbon($appointment->appointment_date)->getDay();
                     $weekIndex = (int)ceil($dayOfMonth / 7) - 1;
                     if ($weekIndex >= 4) $weekIndex = 4; // Cap at 5th week (index 4)
                     $weeksOfMonth[$weekNames[$weekIndex]]++;
@@ -115,16 +121,16 @@ class AppointmentReportController extends Controller
                 $start_date = (new Jalalian($j_year, 1, 1))->toCarbon();
                 $end_date = (new Jalalian($j_year, 12, (new Jalalian($j_year, 12, 1))->getMonthDays()))->toCarbon();
 
-                $query = (clone $baseQuery)->whereBetween('start_time', [$start_date, $end_date]);
+                $query = (clone $baseQuery)->whereBetween('appointment_date', [$start_date, $end_date]);
                 $totalAppointments = $query->count();
-                $cancelledAppointments = (clone $query)->where('status', 'cancelled')->count();
+                $cancelledAppointments = (clone $query)->where('status', 'canceled')->count();
 
                 $jalaliMonths = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
                 $monthlyCounts = array_fill_keys($jalaliMonths, 0);
 
                 $appointments = $query->get();
                 foreach($appointments as $appointment) {
-                    $monthIndex = Jalalian::fromCarbon($appointment->start_time)->getMonth() - 1;
+                    $monthIndex = Jalalian::fromCarbon($appointment->appointment_date)->getMonth() - 1;
                     $monthlyCounts[$jalaliMonths[$monthIndex]]++;
                 }
 
@@ -164,7 +170,7 @@ class AppointmentReportController extends Controller
         $baseQuery = Appointment::where('salon_id', $salon->id)->where('start_time', '>=', $startDate);
 
         $totalAppointments = (clone $baseQuery)->count();
-        $cancelledAppointments = (clone $baseQuery)->where('status', 'cancelled')->count();
+        $cancelledAppointments = (clone $baseQuery)->where('status', 'canceled')->count();
         $completedAppointments = (clone $baseQuery)->where('status', 'completed')->count();
         $cancellationPercentage = $totalAppointments > 0 ? ($cancelledAppointments / $totalAppointments) * 100 : 0;
 
@@ -220,13 +226,13 @@ class AppointmentReportController extends Controller
     {
         $this->checkAccess($salon);
 
-        $cancellationTrendByDay = Appointment::where('salon_id', $salon->id)->where('status', 'cancelled')
+        $cancellationTrendByDay = Appointment::where('salon_id', $salon->id)->where('status', 'canceled')
             ->select(DB::raw('DAYNAME(start_time) as day'), DB::raw('count(*) as count'))
             ->groupBy('day')
             ->orderBy('count', 'desc')
             ->get();
 
-        $cancellationTrendByHour = Appointment::where('salon_id', $salon->id)->where('status', 'cancelled')
+        $cancellationTrendByHour = Appointment::where('salon_id', $salon->id)->where('status', 'canceled')
             ->select(DB::raw('HOUR(start_time) as hour'), DB::raw('count(*) as count'))
             ->groupBy('hour')
             ->orderBy('count', 'desc')
