@@ -26,6 +26,7 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
     Route::resource('sms-packages', SmsPackageController::class);
     Route::get('manual-sms-approval', [ManualSmsController::class, 'showApprovalPage'])->name('manual_sms.approval');
     Route::get('manual-sms-reports', [ManualSmsController::class, 'showReportsPage'])->name('manual_sms.reports');
+    Route::post('manual-sms-approval/{batchId}/update-content', [ManualSmsController::class, 'updateManualSmsContent'])->name('manual_sms.update_content');
     Route::post('manual-sms-approval/{batchId}/approve', [ManualSmsController::class, 'approveManualSms'])->name('manual_sms.approve');
     Route::post('manual-sms-approval/{batchId}/reject', [ManualSmsController::class, 'rejectManualSms'])->name('manual_sms.reject');
     Route::resource('sms-templates', SmsTemplateController::class);

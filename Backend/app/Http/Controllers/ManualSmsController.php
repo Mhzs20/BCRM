@@ -83,6 +83,9 @@ class ManualSmsController extends Controller
 
         DB::beginTransaction();
         try {
+            // Deduct balance immediately upon submission
+            $salon->user->smsBalance->decrement('balance', $totalSmsCountForAllRecipients);
+
             $batchId = Str::uuid();
             foreach ($recipients as $recipient) {
                 SmsTransaction::create([
@@ -93,26 +96,29 @@ class ManualSmsController extends Controller
                     'recipients_type' => $request->recipients_type,
                     'recipients_count' => count($recipients),
                     'sms_type' => 'manual_sms',
-                    'content' => $smsContent,
+                    'content' => $smsContent, // Original content from the user
+                    'original_content' => $smsContent, // Store as original
+                    'edited_content' => null, // Initially null
                     'sms_parts' => $smsPartsPerMessage,
+                    'balance_deducted_at_submission' => $smsPartsPerMessage, // Store deducted amount
                     'status' => 'pending',
                     'approval_status' => $isCustomMessage ? 'pending' : 'approved',
                 ]);
             }
             DB::commit();
 
-            // If it's a custom message, it's submitted for approval.
-            // If it's an approved template, we can proceed to send it immediately.
-            // The balance check has already occurred above for both cases.
             if ($isCustomMessage) {
-                return response()->json(['message' => 'درخواست پیامک دستی برای تایید ارسال شد.'], 200);
+                return response()->json(['message' => ' درخواست پیامک دستی برای تایید ارسال شد. اعتبار از حساب شما کسر گردید در صورت رد شدن پیام شما توسط کارشناسان ما اعتبار کسر شده به حساب شما عودت داده میشود. '], 200);
             } else {
-                // This part can be refactored into a job or a separate method if it becomes complex.
                 $this->approveAndSendBatch($batchId, $user);
                 return response()->json(['message' => 'پیامک با موفقیت ارسال شد.'], 200);
             }
         } catch (\Exception $e) {
             DB::rollBack();
+            // If an error occurs after balance deduction but before transaction creation, refund the balance
+            if (isset($totalSmsCountForAllRecipients)) {
+                $salon->user->smsBalance->increment('balance', $totalSmsCountForAllRecipients);
+            }
             return response()->json(['message' => 'ثبت درخواست پیامک با شکست مواجه شد.', 'error' => $e->getMessage()], 500);
         }
     }
@@ -139,11 +145,14 @@ class ManualSmsController extends Controller
         // Group by batch_id to show unique manual SMS requests
         $groupedBatches = $pendingSmsTransactions->groupBy('batch_id')->map(function ($batch) {
             $firstTransaction = $batch->first();
-            return (object) [
+            return (object) [ // Cast to object for view access
                 'batch_id' => $firstTransaction->batch_id,
                 'salon_id' => $firstTransaction->salon_id,
                 'user_id' => $firstTransaction->user_id,
-                'content' => $firstTransaction->content,
+                'content' => $firstTransaction->content, // Original content from the user
+                'original_content' => $firstTransaction->original_content,
+                'edited_content' => $firstTransaction->edited_content,
+                'display_content' => $firstTransaction->edited_content ?? $firstTransaction->original_content ?? $firstTransaction->content, // Content to display in the editable field
                 'recipients_type' => $firstTransaction->recipients_type,
                 'recipients_count' => $firstTransaction->recipients_count,
                 'sms_parts' => $firstTransaction->sms_parts,
@@ -186,6 +195,10 @@ class ManualSmsController extends Controller
             return redirect()->back()->with('error', 'اقدام غیرمجاز.');
         }
 
+        $request->validate([
+            'edited_message_content' => 'nullable|string|max:500', // Allow edited content
+        ]);
+
         $transactions = SmsTransaction::where('batch_id', $batchId)
                                       ->where('approval_status', 'pending')
                                       ->get();
@@ -201,22 +214,66 @@ class ManualSmsController extends Controller
             return redirect()->back()->with('error', 'سالن مرتبط یافت نشد.');
         }
 
-        $totalSmsCount = $transactions->sum('sms_parts');
+        $totalSmsCountAtSubmission = $transactions->sum('balance_deducted_at_submission');
 
-        if ($salon->user->smsBalance->balance < $totalSmsCount) {
-            SmsTransaction::where('batch_id', $batchId)->update([
-                'approval_status' => 'rejected',
-                'rejection_reason' => 'اعتبار پیامک سالن کافی نیست.',
-                'approved_by' => $approver->id,
-                'approved_at' => now(),
-            ]);
-            return redirect()->back()->with('error', 'پیامک به دلیل عدم موجودی کافی رد شد.');
-        }
+        // No need to check balance here, it was already deducted at submission.
+        // However, we need to re-calculate totalSmsCount based on potentially edited content
+        // and ensure the salon still has enough balance if the message length changed.
 
         DB::beginTransaction();
         try {
             $recipients = $transactions->pluck('receptor')->toArray();
-            $content = $transactions->first()->content;
+            $firstTransaction = $transactions->first();
+
+            // Determine the content to send
+            $contentToSend = $request->edited_message_content ?? $firstTransaction->edited_content ?? $firstTransaction->original_content ?? $firstTransaction->content;
+
+            // Update original_content if it's null (for older entries) and set edited_content
+            foreach ($transactions as $transaction) {
+                if (is_null($transaction->original_content)) {
+                    $transaction->original_content = $transaction->content;
+                }
+                $transaction->edited_content = $request->edited_message_content ?? $transaction->edited_content; // Update if provided in request, else keep existing edited_content
+                $transaction->save();
+            }
+
+            $smsPartsPerMessage = $this->smsService->calculateSmsCount($contentToSend);
+
+            // Recalculate total SMS count based on potentially new content
+            $totalSmsCountAfterEdit = $smsPartsPerMessage * $transactions->count();
+
+            // If the message length changed, we need to adjust the balance.
+            // If totalSmsCountAfterEdit > totalSmsCountAtSubmission, deduct the difference.
+            // If totalSmsCountAfterEdit < totalSmsCountAtSubmission, refund the difference.
+            $balanceDifference = $totalSmsCountAfterEdit - $totalSmsCountAtSubmission;
+
+            if ($balanceDifference > 0) {
+                // Need to deduct more balance
+                if ($salon->user->smsBalance->balance < $balanceDifference) {
+                    // Refund the initially deducted balance before rejecting
+                    $salon->user->smsBalance->increment('balance', $totalSmsCountAtSubmission);
+                    SmsTransaction::where('batch_id', $batchId)->update([
+                        'approval_status' => 'rejected',
+                        'rejection_reason' => 'اعتبار پیامک سالن کافی نیست (پس از ویرایش و نیاز به کسر بیشتر).',
+                        'approved_by' => $approver->id,
+                        'approved_at' => now(),
+                    ]);
+                    DB::rollBack();
+                    return redirect()->back()->with('error', 'پیامک به دلیل عدم موجودی کافی (پس از ویرایش و نیاز به کسر بیشتر) رد شد.');
+                }
+                $salon->user->smsBalance->decrement('balance', $balanceDifference);
+            } elseif ($balanceDifference < 0) {
+                // Need to refund some balance
+                $salon->user->smsBalance->increment('balance', abs($balanceDifference));
+            }
+
+            // Update sms_parts and balance_deducted_at_submission for all transactions in the batch
+            SmsTransaction::where('batch_id', $batchId)->update([
+                'sms_parts' => $smsPartsPerMessage,
+                'balance_deducted_at_submission' => $smsPartsPerMessage, // Update to reflect new sms_parts
+            ]);
+
+
             $recipientChunks = array_chunk($recipients, 50);
 
             foreach ($recipientChunks as $chunk) {
@@ -234,7 +291,7 @@ class ManualSmsController extends Controller
                     ]);
 
                 $receptorsString = implode(',', $chunk);
-                $smsEntries = $this->smsService->sendSms($receptorsString, $content);
+                $smsEntries = $this->smsService->sendSms($receptorsString, $contentToSend);
 
                 // If the API call was successful, update the status for each recipient in the response.
                 if ($smsEntries && !empty($smsEntries)) {
@@ -250,11 +307,15 @@ class ManualSmsController extends Controller
                 }
             }
 
-            $salon->user->smsBalance->decrement('balance', $totalSmsCount);
+            // No need to decrement balance here, it's handled by the difference calculation above.
             DB::commit();
             return redirect()->route('admin.manual_sms.reports')->with('success', 'عملیات ارسال پیامک‌ها انجام شد. وضعیت نهایی در این صفحه قابل مشاهده است.');
         } catch (\Exception $e) {
             DB::rollBack();
+            // If an error occurs during sending, refund the balance that was adjusted/deducted during approval
+            if (isset($balanceDifference) && $balanceDifference > 0) {
+                $salon->user->smsBalance->increment('balance', $balanceDifference);
+            }
             SmsTransaction::where('batch_id', $batchId)->update([
                 'status' => 'error',
                 'external_response' => $e->getMessage(),
@@ -292,6 +353,16 @@ class ManualSmsController extends Controller
 
         $approver = Auth::user();
 
+        // Ensure original_content is set if it's null (for older entries)
+        foreach ($transactions as $transaction) {
+            if (is_null($transaction->original_content)) {
+                $transaction->original_content = $transaction->content;
+                $transaction->save();
+            }
+        }
+
+        $totalDeductedBalance = $transactions->sum('balance_deducted_at_submission');
+
         SmsTransaction::where('batch_id', $batchId)->update([
             'approval_status' => 'rejected',
             'rejection_reason' => $request->rejection_reason,
@@ -299,7 +370,56 @@ class ManualSmsController extends Controller
             'approved_at' => now(),
         ]);
 
-        return redirect()->back()->with('success', 'درخواست پیامک با موفقیت رد شد.');
+        // Refund the deducted balance
+        $salon = $transactions->first()->salon;
+        if ($salon && $salon->user && $salon->user->smsBalance) {
+            $salon->user->smsBalance->increment('balance', $totalDeductedBalance);
+        }
+
+        return redirect()->back()->with('success', 'درخواست پیامک با موفقیت رد شد. اعتبار کسر شده به حساب کاربر بازگردانده شد.');
+    }
+
+    /**
+     * Update the content of a manual SMS batch before approval.
+     *
+     * @param Request $request
+     * @param string $batchId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateManualSmsContent(Request $request, string $batchId)
+    {
+        if (!Auth::user()->is_superadmin) {
+            return response()->json(['message' => 'دسترسی غیرمجاز.'], 403);
+        }
+
+        $request->validate([
+            'edited_message_content' => 'required|string|max:500',
+        ]);
+
+        $transactions = SmsTransaction::where('batch_id', $batchId)
+                                      ->where('approval_status', 'pending')
+                                      ->get();
+
+        if ($transactions->isEmpty()) {
+            return response()->json(['message' => 'تراکنش پیامک یافت نشد یا در انتظار تایید نیست.'], 404);
+        }
+
+        DB::beginTransaction();
+        try {
+            foreach ($transactions as $transaction) {
+                // If original_content is null, set it to the current content before editing
+                if (is_null($transaction->original_content)) {
+                    $transaction->original_content = $transaction->content;
+                }
+                $transaction->edited_content = $request->edited_message_content;
+                $transaction->save();
+            }
+            DB::commit();
+            return response()->json(['message' => 'محتوای پیامک با موفقیت ویرایش شد.'], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'خطا در ویرایش محتوای پیامک: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -327,7 +447,10 @@ class ManualSmsController extends Controller
                 'batch_id' => $firstTransaction->batch_id,
                 'salon_id' => $firstTransaction->salon_id,
                 'user_id' => $firstTransaction->user_id,
-                'content' => $firstTransaction->content,
+                'content' => $firstTransaction->content, // Original content from the user
+                'original_content' => $firstTransaction->original_content,
+                'edited_content' => $firstTransaction->edited_content,
+                'display_content' => $firstTransaction->edited_content ?? $firstTransaction->original_content ?? $firstTransaction->content, // Content to display in the editable field
                 'recipients_type' => $firstTransaction->recipients_type,
                 'recipients_count' => $firstTransaction->recipients_count,
                 'sms_parts' => $firstTransaction->sms_parts,
@@ -384,7 +507,9 @@ class ManualSmsController extends Controller
                 'batch_id' => $firstTransaction->batch_id,
                 'salon_name' => $firstTransaction->salon->name ?? 'N/A',
                 'user_name' => $firstTransaction->user->name ?? 'N/A',
-                'content' => $firstTransaction->content,
+                'content' => $firstTransaction->content, // Original content from the user
+                'original_content' => $firstTransaction->original_content,
+                'edited_content' => $firstTransaction->edited_content,
                 'recipients_count' => $batch->count(),
                 'approval_status' => $firstTransaction->approval_status,
                 'created_at' => $firstTransaction->created_at,
@@ -425,22 +550,17 @@ class ManualSmsController extends Controller
             return; // Or throw an exception
         }
 
-        $totalSmsCount = $transactions->sum('sms_parts');
+        $totalSmsCountAtSubmission = $transactions->sum('balance_deducted_at_submission');
 
-        if ($salon->user->smsBalance->balance < $totalSmsCount) {
-            SmsTransaction::where('batch_id', $batchId)->update([
-                'approval_status' => 'rejected',
-                'rejection_reason' => 'اعتبار پیامک سالن کافی نیست.',
-                'approved_by' => $approver->id,
-                'approved_at' => now(),
-            ]);
-            return;
-        }
+        // No need to check balance here, it was already deducted at submission.
+        // However, we need to ensure the salon still has enough balance if the message length changed
+        // (though for approved templates, content is usually fixed, but good to be safe).
+        // For simplicity, we assume content doesn't change for approved templates here.
 
         DB::beginTransaction();
         try {
             $recipients = $transactions->pluck('receptor')->toArray();
-            $content = $transactions->first()->content;
+            $content = $transactions->first()->content; // Use original content for approved templates
             $recipientChunks = array_chunk($recipients, 50);
 
             foreach ($recipientChunks as $chunk) {
@@ -470,10 +590,14 @@ class ManualSmsController extends Controller
                 }
             }
 
-            $salon->user->smsBalance->decrement('balance', $totalSmsCount);
+            // Balance was already decremented at submission, no need to do it again here.
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
+            // If an error occurs during sending, refund the balance that was deducted at submission
+            if ($salon && $salon->user->smsBalance) {
+                $salon->user->smsBalance->increment('balance', $totalSmsCountAtSubmission);
+            }
             SmsTransaction::where('batch_id', $batchId)->update([
                 'status' => 'error',
                 'external_response' => $e->getMessage(),

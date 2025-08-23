@@ -42,7 +42,7 @@
                                         نوع گیرندگان
                                     </th>
                                     <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        متن پیام
+                                        متن پیام (اصلی / ویرایش شده)
                                     </th>
                                     <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         تعداد گیرندگان
@@ -85,7 +85,10 @@
                                             {{ $recipientsType }}
                                         </td>
                                         <td class="px-6 py-4 text-sm text-gray-500" style="white-space: normal; word-break: break-word;">
-                                            {{ $batch->content }}
+                                            <p id="display_content_{{ $batch->batch_id }}" class="text-gray-900">{{ $batch->display_content }}</p>
+                                            @if ($batch->original_content && $batch->original_content != $batch->edited_content)
+                                                <p class="text-xs text-gray-400 mt-1">متن اصلی: {{ $batch->original_content }}</p>
+                                            @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {{ $batch->recipients_count }}
@@ -94,10 +97,14 @@
                                             {{ \Morilog\Jalali\Jalalian::fromCarbon($batch->created_at)->format('Y/m/d H:i') }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <form action="{{ route('admin.manual_sms.approve', $batch->batch_id) }}" method="POST" class="inline-block mr-2">
+                                            <button onclick="openEditModal('{{ $batch->batch_id }}', '{{ addslashes($batch->display_content) }}')" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mb-2">
+                                                ویرایش پیام
+                                            </button>
+                                            <form id="approveForm_{{ $batch->batch_id }}" action="{{ route('admin.manual_sms.approve', $batch->batch_id) }}" method="POST" class="inline-block mr-2">
                                                 @csrf
+                                                <input type="hidden" name="edited_message_content" id="approve_message_content_{{ $batch->batch_id }}" value="{{ $batch->display_content }}">
                                                 <button type="submit" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                                                    تایید
+                                                    تایید و ارسال
                                                 </button>
                                             </form>
                                             <button onclick="openRejectModal('{{ $batch->batch_id }}')" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
@@ -124,23 +131,61 @@
         </div>
     </div>
 
+    <!-- Edit Message Modal -->
+    <div id="editMessageModal" class="fixed z-10 inset-0 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-lg text-right overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start w-full">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <!-- Heroicon name: outline/pencil -->
+                            <svg class="h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-right w-full">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                                ویرایش پیامک
+                            </h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">
+                                    متن پیامک را ویرایش کنید.
+                                </p>
+                                <textarea id="edit_message_content_textarea" rows="6" class="mt-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse w-full justify-between">
+                    <button type="button" id="saveEditedContentButton" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        ذخیره ویرایش
+                    </button>
+                    <button type="button" onclick="closeEditModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm">
+                        انصراف
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Reject Modal -->
     <div id="rejectModal" class="fixed z-10 inset-0 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
         <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div class="inline-block align-bottom bg-white rounded-lg text-right overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="inline-block w-full align-bottom bg-white rounded-lg text-right overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
                 <form id="rejectForm" method="POST">
                     @csrf
-                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                        <div class="sm:flex sm:items-start">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 w-full sm:pb-4">
+                        <div class="sm:flex sm:items-start w-full">
                             <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                                <!-- Heroicon name: outline/exclamation -->
                                 <svg class="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                 </svg>
                             </div>
-                            <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-right">
+                            <div class="mt-3 w-full text-center sm:mt-0 sm:ml-4 sm:text-right w-full">
                                 <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
                                     رد کردن درخواست پیامک
                                 </h3>
@@ -148,12 +193,12 @@
                                     <p class="text-sm text-gray-500">
                                         لطفا دلیل رد کردن این درخواست را وارد کنید. این دلیل به کاربر نمایش داده خواهد شد.
                                     </p>
-                                    <textarea name="rejection_reason" id="rejection_reason" rows="3" class="mt-2 shadow-sm focus:ring-red-500 focus:border-red-500 block w-full sm:text-sm border-gray-300 rounded-md" required></textarea>
+                                    <textarea name="rejection_reason" id="rejection_reason" rows="3" class="mt-2 w-full shadow-sm focus:ring-red-500 focus:border-red-500 block w-full sm:text-sm border-gray-300 rounded-md" required></textarea>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse w-full justify-between">
                         <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
                             رد کردن
                         </button>
@@ -167,6 +212,8 @@
     </div>
 
     <script>
+        let currentEditingBatchId = null;
+
         function openRejectModal(batchId) {
             const modal = document.getElementById('rejectModal');
             const form = document.getElementById('rejectForm');
@@ -178,5 +225,52 @@
             const modal = document.getElementById('rejectModal');
             modal.classList.add('hidden');
         }
+
+        function openEditModal(batchId, content) {
+            currentEditingBatchId = batchId;
+            const modal = document.getElementById('editMessageModal');
+            const textarea = document.getElementById('edit_message_content_textarea');
+            textarea.value = content;
+            modal.classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editMessageModal').classList.add('hidden');
+            currentEditingBatchId = null;
+        }
+
+        document.getElementById('saveEditedContentButton').addEventListener('click', async () => {
+            if (!currentEditingBatchId) return;
+
+            const textarea = document.getElementById('edit_message_content_textarea');
+            const editedContent = textarea.value;
+
+            try {
+                const response = await fetch(`/admin/manual-sms-approval/${currentEditingBatchId}/update-content`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ edited_message_content: editedContent })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(data.message);
+                    // Update the displayed content in the table
+                    document.getElementById(`display_content_${currentEditingBatchId}`).innerText = editedContent;
+                    // Update the hidden input for the approve form
+                    document.getElementById(`approve_message_content_${currentEditingBatchId}`).value = editedContent;
+                    closeEditModal();
+                } else {
+                    alert('خطا در ذخیره ویرایش: ' + (data.message || 'خطای ناشناخته'));
+                }
+            } catch (error) {
+                console.error('Error saving edited content:', error);
+                alert('خطا در ارتباط با سرور برای ذخیره ویرایش.');
+            }
+        });
     </script>
 @endsection
