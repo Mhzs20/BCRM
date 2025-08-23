@@ -33,6 +33,13 @@ class Staff extends Model
     ];
 
     /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = []; // Remove profile_image_url from appends as we are overriding the original attribute
+
+    /**
      * The attributes that should be cast.
      *
      * @var array
@@ -40,6 +47,17 @@ class Staff extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    /**
+     * Get the staff's profile image path.
+     *
+     * @param  string|null  $value
+     * @return string|null
+     */
+    public function getProfileImageAttribute($value)
+    {
+        return $value ? '/storage/' . $value : null;
+    }
 
     /**
      * Get the salon that owns the staff.

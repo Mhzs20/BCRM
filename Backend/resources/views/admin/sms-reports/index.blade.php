@@ -18,7 +18,7 @@
                                 سالن
                             </th>
                             <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                محتوای پیام
+                                محتوای پیام (اصلی / ارسال شده)
                             </th>
                             <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 تعداد گیرندگان
@@ -29,7 +29,7 @@
                             <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 آمار ارسال
                             </th>
-                            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
                                 تاریخ درخواست
                             </th>
                         </tr>
@@ -40,8 +40,13 @@
                                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                                     <p class="text-gray-900 whitespace-no-wrap">{{ $batch->salon_name }}</p>
                                 </td>
-                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                    <p class="text-gray-900 whitespace-no-wrap">{{ Str::limit($batch->content, 50) }}</p>
+                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm" style="white-space: normal; word-break: break-word;">
+                                    @if ($batch->edited_content)
+                                        <p class="text-gray-900">ارسال شده: {{ Str::limit($batch->edited_content, 50) }}</p>
+                                        <p class="text-gray-500 text-xs mt-1">اصلی: {{ Str::limit($batch->original_content, 50) }}</p>
+                                    @else
+                                        <p class="text-gray-900">اصلی: {{ Str::limit($batch->original_content ?? $batch->content, 50) }}</p>
+                                    @endif
                                 </td>
                                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                                     <p class="text-gray-900 whitespace-no-wrap">{{ $batch->recipients_count }}</p>

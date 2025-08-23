@@ -401,6 +401,8 @@ class AuthController extends Controller
                     $salon->businessSubcategories()->sync($salonData['business_subcategory_ids']);
                 }
             }
+            // Reload the activeSalon relationship to ensure the user object has the latest salon data
+            $user->load('activeSalon');
 
             DB::commit();
 
