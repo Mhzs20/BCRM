@@ -128,4 +128,30 @@ class ServiceController extends Controller
 
         return response()->json(['data' => $services]);
     }
+
+    /**
+     * Search for services within a salon.
+     */
+    public function search(Request $request, Salon $salon)
+    {
+        $this->authorize('viewAny', [Service::class, $salon]);
+
+        $query = $salon->services();
+
+        if ($request->filled('q')) {
+            $searchTerm = $request->input('q');
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('name', 'like', "%{$searchTerm}%")
+                    ->orWhere('description', 'like', "%{$searchTerm}%");
+            });
+        }
+
+        $sortBy = $request->input('sort_by', 'name');
+        $sortDirection = $request->input('sort_direction', 'asc');
+
+        $services = $query->orderBy($sortBy, $sortDirection)
+            ->paginate($request->input('per_page', 15));
+
+        return response()->json($services);
+    }
 }
