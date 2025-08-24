@@ -46,6 +46,15 @@
                             </div>
                         </div>
 
+                        <div>
+                            <label for="sms_purchase_price_per_part" class="block text-md font-medium text-gray-700">قیمت خرید هر پارت پیامک (تومان)</label>
+                            <div class="mt-2">
+                                <input type="number" step="0.01" name="sms_purchase_price_per_part" id="sms_purchase_price_per_part"
+                                       class="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                       value="{{ old('sms_purchase_price_per_part', $smsPurchasePricePerPart->value ?? '') }}" required>
+                            </div>
+                        </div>
+
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label for="sms_part_char_limit_fa" class="block text-md font-medium text-gray-700">کاراکتر هر پارت (فارسی)</label>

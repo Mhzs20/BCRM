@@ -48,6 +48,7 @@ class ZarinpalController extends Controller
             'amount' => $amount,
             'status' => 'pending',
             'sms_count' => $package->sms_count,
+            'sms_type' => 'purchase', // Set sms_type to 'purchase'
         ]);
 
         try {

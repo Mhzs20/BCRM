@@ -18,8 +18,9 @@ class AdminSmsSettingController extends Controller
         $smsCostPerPart = Setting::where('key', 'sms_cost_per_part')->first();
         $smsCharacterLimitFa = Setting::where('key', 'sms_part_char_limit_fa')->first();
         $smsCharacterLimitEn = Setting::where('key', 'sms_part_char_limit_en')->first();
+        $smsPurchasePricePerPart = Setting::where('key', 'sms_purchase_price_per_part')->first();
 
-        return view('admin.sms-settings.index', compact('smsCostPerPart', 'smsCharacterLimitFa', 'smsCharacterLimitEn'));
+        return view('admin.sms-settings.index', compact('smsCostPerPart', 'smsCharacterLimitFa', 'smsCharacterLimitEn', 'smsPurchasePricePerPart'));
     }
 
     /**
@@ -34,11 +35,17 @@ class AdminSmsSettingController extends Controller
             'sms_cost_per_part' => 'required|numeric|min:0',
             'sms_part_char_limit_fa' => 'required|integer|min:1',
             'sms_part_char_limit_en' => 'required|integer|min:1',
+            'sms_purchase_price_per_part' => 'required|numeric|min:0',
         ]);
 
         Setting::updateOrCreate(
             ['key' => 'sms_cost_per_part'],
             ['value' => $request->sms_cost_per_part]
+        );
+
+        Setting::updateOrCreate(
+            ['key' => 'sms_purchase_price_per_part'],
+            ['value' => $request->sms_purchase_price_per_part]
         );
 
         Setting::updateOrCreate(

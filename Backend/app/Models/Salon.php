@@ -18,21 +18,26 @@ use App\Models\ActivityLog;
 use App\Models\Payment;
 use App\Models\SalonSmsTemplate;
 use App\Models\Profession;
+use App\Models\SalonSmsBalance;
+use App\Models\SmsTransaction;
+use App\Models\SalonNote; // New model for notes
 
 class Salon extends Model
 {
     use HasFactory;
 
-    protected $with = ['businessCategory', 'businessSubcategories'];
+    protected $with = ['businessCategory', 'businessSubcategories', 'user', 'city', 'province'];
 
     protected $fillable = [
         'user_id',
         'name',
         'business_category_id',
+        'business_subcategory_id',
         'province_id',
         'city_id',
         'address',
         'mobile',
+        'email', // Added email to fillable
         'phone',
         'website',
         'support_phone_number',
@@ -51,6 +56,7 @@ class Salon extends Model
 
     protected $casts = [
         'credit_expiry_date' => 'date',
+        'is_active' => 'boolean',
     ];
 
     /**
@@ -58,7 +64,15 @@ class Salon extends Model
      */
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * Get the owner (user) that owns the salon. This is an alias for user() for clarity in admin panel.
+     */
+    public function owner()
+    {
+        return $this->user(); // Use the existing user relationship
     }
 
     /**
@@ -185,19 +199,51 @@ class Salon extends Model
     }
 
     /**
-     * Get the SMS balance for the salon's user.
+     * Get the SMS balance for the salon.
      */
     public function smsBalance()
     {
-        return $this->user->smsBalance();
+        return $this->hasOne(SalonSmsBalance::class);
     }
 
     /**
-     * Accessor to get the current SMS balance.
-     * This will allow $salon->sms_balance to work correctly.
+     * Get the SMS transactions for the salon.
      */
-    public function getSmsBalanceAttribute()
+    public function smsTransactions()
     {
-        return $this->user->smsBalance->balance ?? 0;
+        return $this->hasMany(SmsTransaction::class);
+    }
+
+    /**
+     * Get the notes for the salon.
+     */
+    public function notes()
+    {
+        return $this->hasMany(SalonNote::class);
+    }
+
+    /**
+     * Get the last SMS purchase date for the salon.
+     */
+    public function getLastSmsPurchaseDateAttribute()
+    {
+        return $this->smsTransactions()->where('sms_type', 'purchase')->latest()->first()?->created_at;
+    }
+
+    public function scopeWhereSearch($query, $search)
+    {
+        $query->where(function ($q) use ($search) {
+            $q->where('name', 'like', '%' . $search . '%')
+                ->orWhere('mobile', 'like', '%' . $search . '%')
+                ->orWhere('email', 'like', '%' . $search . '%')
+                ->orWhereHas('user', function ($q) use ($search) {
+                    $q->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('mobile', 'like', '%' . $search . '%')
+                        ->orWhere('email', 'like', '%' . $search . '%');
+                })
+                ->orWhereHas('city', function ($q) use ($search) {
+                    $q->where('name', 'like', '%' . $search . '%');
+                });
+        });
     }
 }

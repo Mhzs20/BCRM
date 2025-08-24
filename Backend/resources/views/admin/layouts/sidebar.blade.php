@@ -1,13 +1,28 @@
-<div class="w-64 bg-gray-800 text-white flex-shrink-0">
+<div class="w-64 bg-gray-800 text-white flex-shrink-0 h-full overflow-y-auto">
     <div class="p-6 text-center">
         <a href="{{ route('admin.dashboard') }}" class="text-2xl font-bold">پنل مدیریت</a>
     </div>
-    <nav class="mt-6">
+    <nav class="mt-6 flex-1 overflow-y-auto">
         <a href="{{ route('admin.dashboard') }}" class="flex items-center py-3 px-6 transition duration-200 hover:bg-gray-700 @if(request()->routeIs('admin.dashboard')) bg-gray-700 @endif">
             <i class="ri-dashboard-line text-xl"></i>
             <span class="mr-4">داشبورد</span>
         </a>
-        <div x-data="{ open: {{ request()->routeIs('admin.sms-packages.*') || request()->routeIs('admin.manual_sms.*') || request()->routeIs('admin.sms-templates.*') || request()->routeIs('admin.sms_settings.*') ? 'true' : 'false' }} }">
+        <div x-data="{ open: {{ request()->routeIs('admin.salons.*') ? 'true' : 'false' }} }">
+            <a @click="open = !open" href="#" class="flex items-center justify-between py-3 px-6 transition duration-200 hover:bg-gray-700 cursor-pointer">
+                <div class="flex items-center">
+                    <i class="ri-community-line text-xl"></i>
+                    <span class="mr-4">مدیریت سالن‌ها</span>
+                </div>
+                <i class="ri-arrow-down-s-line" :class="{'rotate-180': open}"></i>
+            </a>
+            <div x-show="open" class="pl-8 bg-gray-750">
+                <a href="{{ route('admin.salons.index') }}" class="flex items-center py-2 px-4 transition duration-200 hover:bg-gray-700 @if(request()->routeIs('admin.salons.index')) bg-gray-600 @endif">
+                    <i class="ri-list-check text-lg"></i>
+                    <span class="mr-3">لیست سالن‌ها</span>
+                </a>
+            </div>
+        </div>
+        <div x-data="{ open: {{ request()->routeIs('admin.sms-packages.*') || request()->routeIs('admin.manual_sms.*') || request()->routeIs('admin.sms-templates.*') || request()->routeIs('admin.sms_settings.*') || request()->routeIs('admin.bulk-sms-gift.*') ? 'true' : 'false' }} }">
             <a @click="open = !open" href="#" class="flex items-center justify-between py-3 px-6 transition duration-200 hover:bg-gray-700 cursor-pointer">
                 <div class="flex items-center">
                     <i class="ri-message-2-line text-xl"></i>
@@ -35,6 +50,10 @@
                 <a href="{{ route('admin.sms_settings.index') }}" class="flex items-center py-2 px-4 transition duration-200 hover:bg-gray-700 @if(request()->routeIs('admin.sms_settings.*')) bg-gray-600 @endif">
                     <i class="ri-settings-3-line text-lg"></i>
                     <span class="mr-3">تنظیمات پیامک</span>
+                </a>
+                <a href="{{ route('admin.bulk-sms-gift.index') }}" class="flex items-center py-2 px-4 transition duration-200 hover:bg-gray-700 @if(request()->routeIs('admin.bulk-sms-gift.*')) bg-gray-600 @endif">
+                    <i class="ri-gift-line text-lg"></i>
+                    <span class="mr-3">شارژ گروهی هدیه</span>
                 </a>
             </div>
         </div>
