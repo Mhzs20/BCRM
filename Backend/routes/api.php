@@ -59,6 +59,10 @@ Route::prefix('general')->name('general.')->group(function() {
     Route::get('locations/provinces', [LocationController::class, 'getProvinces'])->name('locations.provinces');
     Route::get('locations/provinces/{province}/cities', [LocationController::class, 'getCities'])->name('locations.cities');
     Route::get('locations/provinces-with-cities', [LocationController::class, 'getAllProvincesWithCities'])->name('locations.provinces_with_cities');
+
+    // New routes for cascading dropdowns
+    Route::get('provinces/{provinceId}/cities', [AppController::class, 'getCitiesByProvince'])->name('provinces.cities');
+    Route::get('business-categories/{categoryId}/subcategories', [AppController::class, 'getSubcategoriesByCategory'])->name('business_categories.subcategories_by_category');
 });
 
 

@@ -10,5 +10,6 @@ class Setting extends Model
         'key',
         'value',
         'salon_id',
+        'sms_purchase_price_per_part',
     ];
 }
