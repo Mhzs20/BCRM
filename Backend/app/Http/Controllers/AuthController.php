@@ -305,7 +305,8 @@ class AuthController extends Controller
             'activeSalon.province',
             'activeSalon.city',
             'activeSalon.businessCategory',
-            'activeSalon.businessSubcategories'
+            'activeSalon.businessSubcategories',
+            'activeSalon.smsBalance' // Eager load smsBalance for active salon
         ]);
 
         // Eager load counts for the active salon if it exists
@@ -318,9 +319,16 @@ class AuthController extends Controller
             $salon->loadCount(['customers', 'appointments']);
         });
 
+        $responseData = $user->toArray();
+        if ($user->activeSalon && $user->activeSalon->smsBalance) {
+            $responseData['active_salon']['sms_balance'] = $user->activeSalon->smsBalance->current_sms_count;
+        } else {
+            $responseData['active_salon']['sms_balance'] = 0; // Default to 0 if no active salon or no smsBalance
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $user->toArray()
+            'data' => $responseData
         ]);
     }
 

@@ -11,6 +11,8 @@ use App\Http\Controllers\Admin\ProfessionController;
 use App\Http\Controllers\Admin\CustomerGroupController;
 use App\Http\Controllers\Admin\FileController;
 use App\Http\Controllers\Admin\BannerController;
+use App\Http\Controllers\Admin\AdminSalonController;
+use App\Http\Controllers\Admin\AdminBulkSmsGiftController; // New controller
 use App\Http\Controllers\ManualSmsController;
 use App\Http\Middleware\SuperAdminMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -55,4 +57,17 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
 
     // Banners
     Route::resource('banners', BannerController::class);
+
+    // Salons
+    Route::resource('salons', AdminSalonController::class);
+    Route::post('salons/{salon}/toggle-status', [AdminSalonController::class, 'toggleStatus'])->name('salons.toggle-status');
+    Route::post('salons/{salon}/reset-password', [AdminSalonController::class, 'resetPassword'])->name('salons.reset-password');
+    Route::get('salons/{salon}/purchase-history', [AdminSalonController::class, 'purchaseHistory'])->name('salons.purchase-history');
+    Route::post('salons/{salon}/notes', [AdminSalonController::class, 'storeNote'])->name('salons.store-note');
+    Route::post('salons/{salon}/add-sms-credit', [AdminSalonController::class, 'addSmsCredit'])->name('salons.add-sms-credit');
+
+    // Bulk SMS Gift
+    Route::get('bulk-sms-gift', [AdminBulkSmsGiftController::class, 'index'])->name('bulk-sms-gift.index');
+    Route::post('bulk-sms-gift', [AdminBulkSmsGiftController::class, 'sendGift'])->name('bulk-sms-gift.send');
+    Route::get('bulk-sms-gift/history', [AdminBulkSmsGiftController::class, 'giftHistory'])->name('bulk-sms-gift.history');
 });
