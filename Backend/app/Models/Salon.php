@@ -207,6 +207,16 @@ class Salon extends Model
     }
 
     /**
+     * Get the SMS balance attribute for the salon.
+     *
+     * @return int
+     */
+    public function getSmsBalanceAttribute()
+    {
+        return $this->smsBalance->balance ?? 0;
+    }
+
+    /**
      * Get the SMS transactions for the salon.
      */
     public function smsTransactions()
