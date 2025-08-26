@@ -182,7 +182,7 @@
                                 {{ $salon->smsBalance->balance ?? 0 }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {{ $salon->lastSmsPurchaseDate ? \Morilog\Jalali\Jalali::fromCarbon($salon->lastSmsPurchaseDate)->format('Y/m/d') : 'تاکنون خرید نکرده' }}
+                                        {{ $salon->lastSmsPurchaseDate ? \Morilog\Jalali\Jalalian::fromCarbon($salon->lastSmsPurchaseDate)->format('Y/m/d') : 'تاکنون خرید نکرده' }}
                             </td>
                         </tr>
                     @empty
