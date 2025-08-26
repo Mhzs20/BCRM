@@ -155,14 +155,29 @@ class ZarinpalController extends Controller
                 'transaction_id' => $transaction->id,
             ]);
 
+            // Also update the SalonSmsBalance if an active salon is associated with the user
+            if ($user->active_salon_id) {
+                $salonSmsBalance = \App\Models\SalonSmsBalance::firstOrCreate(
+                    ['salon_id' => $user->active_salon_id],
+                    ['current_sms_count' => 0]
+                );
+                $salonSmsBalance->increment('current_sms_count', $transaction->sms_count);
+
+                Log::info('Salon SMS balance updated successfully after Zarinpal purchase.', [
+                    'salon_id' => $user->active_salon_id,
+                    'new_salon_balance' => $salonSmsBalance->current_sms_count,
+                    'transaction_id' => $transaction->id,
+                ]);
+            }
+
             return response()->json([
                 'status' => 'OK',
                 'message' => 'پرداخت با موفقیت تایید شد.',
                 'purchased_sms' => $transaction->sms_count,
-                'total_balance' => $userBalance->balance,
+                'user_total_balance' => $userBalance->balance, // Renamed for clarity
+                'salon_total_balance' => $user->active_salon_id ? $salonSmsBalance->current_sms_count : 0, // Include salon balance
                 'reference_id' => $receipt->getReferenceId(),
             ]);
-
         } catch (InvalidPaymentException $e) {
             // This exception is specifically for failed verifications (e.g., user cancelled)
             $transaction->update(['status' => 'failed', 'description' => $e->getMessage()]);
