@@ -69,8 +69,8 @@
                     class="w-10 h-10 mx-auto  rounded-full flex items-center justify-center">
                     <img src="{{ asset('assets/img/calender.png') }}" alt="calender" class="w-full h-full"/>
                 </div>
-                <p class="text-neutral-700 text-lg font-bold mt-2 font-iranyekan">{{ str_replace($englishDigits, $persianDigits, verta($appointment->start_time)->format('Y/m/d')) }}</p>
-                <p class="text-neutral-400 text-xs font-bold">{{ verta($appointment->start_time)->format('l') }}</p>
+                <p class="text-neutral-700 text-lg font-bold mt-2 font-iranyekan">{{ str_replace($englishDigits, $persianDigits, $appointment->jalali_appointment_date) }}</p>
+                <p class="text-neutral-400 text-xs font-bold">{{ verta($appointment->appointment_date)->format('l') }}</p>
             </div>
             <div class="bg-white rounded-lg shadow p-4">
                 <div

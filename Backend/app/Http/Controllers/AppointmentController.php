@@ -52,9 +52,14 @@ class AppointmentController extends Controller
     {
         $validatedData = $request->validated();
         if (isset($validatedData['appointment_date'])) {
-            $validatedData['appointment_date'] = Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validatedData['appointment_date']))
-                ->toCarbon()
-                ->format('Y-m-d');
+            try {
+                $jalaliDate = Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validatedData['appointment_date']));
+                $carbonDate = $jalaliDate->toCarbon('Asia/Tehran')->startOfDay(); // Explicitly set timezone and start of day
+                $validatedData['appointment_date'] = $carbonDate->format('Y-m-d');
+            } catch (JalaliException $e) {
+                Log::error('Jalali date conversion error in store method: ' . $e->getMessage());
+                return response()->json(['message' => 'فرمت تاریخ شمسی نامعتبر است.'], 422);
+            }
         }
         $customer = null;
         DB::beginTransaction();
@@ -186,9 +191,14 @@ class AppointmentController extends Controller
 
         // Always convert Jalali date to Gregorian before any processing
         if (isset($validatedData['appointment_date'])) {
-            $validatedData['appointment_date'] = Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validatedData['appointment_date']))
-                ->toCarbon()
-                ->format('Y-m-d');
+            try {
+                $jalaliDate = Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validatedData['appointment_date']));
+                $carbonDate = $jalaliDate->toCarbon('Asia/Tehran')->startOfDay(); // Explicitly set timezone and start of day
+                $validatedData['appointment_date'] = $carbonDate->format('Y-m-d');
+            } catch (JalaliException $e) {
+                Log::error('Jalali date conversion error in update method: ' . $e->getMessage());
+                return response()->json(['message' => 'فرمت تاریخ شمسی نامعتبر است.'], 422);
+            }
         }
 
         $recalculationFields = ['service_ids', 'staff_id', 'appointment_date', 'start_time'];

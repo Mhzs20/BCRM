@@ -13,6 +13,11 @@ class AppointmentObserver
 {
     public function created(Appointment $appointment)
     {
+        // Generate a unique hash after the appointment has been created and has an ID
+        $hashids = new Hashids(env('HASHIDS_SALT', 'your-default-salt'), 8);
+        $appointment->hash = $hashids->encode($appointment->id);
+        $appointment->saveQuietly(); // Use saveQuietly to avoid triggering the updated event
+
         $customerName = optional($appointment->customer)->name ?? 'N/A';
         ActivityLog::create([
             'user_id' => Auth::id(),
@@ -44,11 +49,6 @@ class AppointmentObserver
         if ($appointment->isDirty('status') && $appointment->status === 'done') {
             SendSatisfactionSurveySms::dispatch($appointment);
         } elseif (($appointment->isDirty('status') && $appointment->status !== 'cancelled') || $appointment->isDirty('appointment_date') || $appointment->isDirty('start_time')) {
-            $hashids = new Hashids(env('HASHIDS_SALT', 'your-default-salt'), 8);
-            $appointment->hash = $hashids->encode($appointment->id, now()->timestamp);
-            $appointment->saveQuietly();
-            $appointment->refresh();
-
             SendAppointmentModificationSms::dispatch($appointment->customer, $appointment, $appointment->salon);
         }
     }
