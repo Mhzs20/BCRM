@@ -39,7 +39,7 @@ class AppController extends Controller
 
         if ($salon) {
             Log::info('AppController@getSmsBalance: Active Salon found. Salon ID: ' . $salon->id . ', Is Active: ' . (bool) $salon->is_active);
-            $balance = $salon->smsBalance ? $salon->smsBalance->current_sms_count : 0;
+            $balance = $salon->smsBalance ? $salon->smsBalance->balance : 0;
             Log::info('AppController@getSmsBalance: Salon SMS Balance: ' . $balance);
 
             return response()->json([

@@ -321,7 +321,7 @@ class AuthController extends Controller
 
         $responseData = $user->toArray();
         if ($user->activeSalon && $user->activeSalon->smsBalance) {
-            $responseData['active_salon']['sms_balance'] = $user->activeSalon->smsBalance->current_sms_count;
+            $responseData['active_salon']['sms_balance'] = $user->activeSalon->smsBalance->balance;
         } else {
             $responseData['active_salon']['sms_balance'] = 0; // Default to 0 if no active salon or no smsBalance
         }

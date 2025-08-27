@@ -249,8 +249,8 @@ class AdminSalonController extends Controller
 
         foreach ($salons as $salon) {
             // Ensure salon has an SMS balance record, create if not
-            $smsBalance = $salon->smsBalance()->firstOrCreate(['salon_id' => $salon->id], ['current_sms_count' => 0]);
-            $smsBalance->current_sms_count += $amount;
+            $smsBalance = $salon->smsBalance()->firstOrCreate(['salon_id' => $salon->id], ['balance' => 0]);
+            $smsBalance->balance += $amount;
             $smsBalance->save();
 
             // Record transaction
@@ -303,9 +303,9 @@ class AdminSalonController extends Controller
 
         $smsBalance = $salon->smsBalance()->firstOrCreate(
             ['salon_id' => $salon->id],
-            ['current_sms_count' => 0]
+            ['balance' => 0]
         );
-        $smsBalance->current_sms_count += $request->amount;
+        $smsBalance->balance += $request->amount;
         $smsBalance->save();
 
         // Reload the salon and its smsBalance to ensure fresh data
