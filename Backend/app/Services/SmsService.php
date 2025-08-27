@@ -4,8 +4,8 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Models\SmsTransaction;
-use App\Models\UserSmsBalance;
 use App\Models\Salon;
+use App\Models\SalonSmsBalance; // Ensure SalonSmsBalance is imported
 use App\Models\Appointment;
 use App\Models\Customer;
 use App\Models\Service;
@@ -205,7 +205,6 @@ class SmsService
      * @param Salon $salon سالنی که تنظیمات پیامک از آن خوانده می‌شود
      * @param string $eventType نوع رویداد (مثلا 'appointment_confirmation')
      * @param string $receptor شماره گیرنده
-     * @param User $salonOwner کاربری که هزینه پیامک از او کسر می‌شود
      * @param array $dataForTemplate داده‌هایی برای جایگزینی در قالب (مثلا ['customer_name' => 'علی'])
      * @param int|null $customerId شناسه مشتری مرتبط
      * @param int|null $appointmentId شناسه نوبت مرتبط
@@ -215,7 +214,6 @@ class SmsService
         Salon $salon,
         string $eventType,
         string $receptor,
-        User $salonOwner,
         array $dataForTemplate,
         ?int $customerId = null,
         ?int $appointmentId = null, // This is the actual appointment ID for DB
@@ -240,14 +238,14 @@ class SmsService
             return ['status' => 'success', 'message' => 'پیام خالی است و ارسال نشد.'];
         }
 
-        // Ensure the salon's user relationship is loaded to access sms_balance
-        $salon->loadMissing('user.smsBalance');
+        // Ensure the salon's smsBalance relationship is loaded
+        $salon->loadMissing('smsBalance');
 
         // Re-introducing the balance check as per user request.
         $smsCount = $this->calculateSmsCount($message);
-        $currentBalance = $salon->getSmsBalanceAttribute();
+        $currentBalance = $salon->current_sms_balance; // Use the accessor for current balance
         if ($currentBalance < $smsCount) {
-            Log::warning("User ID {$salonOwner->id} (Salon: {$salon->id}) has insufficient SMS balance to send '{$eventType}' to {$receptor}. Balance: {$currentBalance}, Required: {$smsCount}");
+            Log::warning("Salon ID {$salon->id} has insufficient SMS balance to send '{$eventType}' to {$receptor}. Balance: {$currentBalance}, Required: {$smsCount}");
             return ['status' => 'error', 'message' => 'اعتبار پیامک کافی نیست. اعتبار فعلی: ' . $currentBalance . '، مورد نیاز: ' . $smsCount];
         }
 
@@ -257,9 +255,16 @@ class SmsService
             $smsEntries = $this->sendSms($receptor, $message, null, $kavenegarLocalId);
 
             if ($smsEntries && !empty($smsEntries)) {
-                // Deduct balance only if SMS was actually sent
-                if ($salonOwner->smsBalance) {
-                    $salonOwner->smsBalance->decrement('balance', $smsCount);
+                // Deduct balance only if SMS was actually sent, from SalonSmsBalance
+                if ($salon->smsBalance) {
+                    $salon->smsBalance->decrement('balance', $smsCount);
+                } else {
+                    // This case should ideally not happen if firstOrCreate is used elsewhere,
+                    // but as a fallback, create if missing and deduct.
+                    SalonSmsBalance::firstOrCreate(
+                        ['salon_id' => $salon->id],
+                        ['balance' => 0]
+                    )->decrement('balance', $smsCount);
                 }
                 $firstEntry = $smsEntries[0]; // Kavenegar returns an array of entries
                 $messageId = $firstEntry['messageid'] ?? null;
@@ -291,17 +296,17 @@ class SmsService
                     }
                 }
 
-                $this->logTransaction($salonOwner->id, $receptor, $message, $internalStatus, $eventType, $salon->id, $customerId, $appointmentId, json_encode($smsEntries)); // Pass actual appointmentId
+                $this->logTransaction($salon->user_id, $receptor, $message, $internalStatus, $eventType, $salon->id, $customerId, $appointmentId, json_encode($smsEntries)); // Pass actual appointmentId
                 return ['status' => 'success', 'message' => 'پیامک با موفقیت ارسال شد.'];
             } else {
                 Log::error("Kavenegar sendSms returned no entries or failed for '{$eventType}' to {$receptor}.");
-                $this->logTransaction($salonOwner->id, $receptor, $message, 'failed', $eventType, $salon->id, $customerId, $appointmentId, 'Kavenegar API call failed or returned empty.'); // Pass actual appointmentId
+                $this->logTransaction($salon->user_id, $receptor, $message, 'failed', $eventType, $salon->id, $customerId, $appointmentId, 'Kavenegar API call failed or returned empty.'); // Pass actual appointmentId
                 return ['status' => 'error', 'message' => 'خطا در ارسال پیامک.'];
             }
 
         } catch (\Exception $e) {
             Log::error("SMS ('{$eventType}') sending critical exception to {$receptor} for Salon ID {$salon->id}: " . $e->getMessage());
-            $this->logTransaction($salonOwner->id, $receptor, $message, 'error', $eventType, $salon->id, $customerId, $appointmentId, $e->getMessage()); // Pass actual appointmentId
+            $this->logTransaction($salon->user_id, $receptor, $message, 'error', $eventType, $salon->id, $customerId, $appointmentId, $e->getMessage()); // Pass actual appointmentId
             return ['status' => 'error', 'message' => 'خطای سیستمی در ارسال پیامک.'];
         }
     }
@@ -395,7 +400,6 @@ class SmsService
             $salon,
             'appointment_confirmation',
             $customer->phone_number,
-            $salon->user,
             $dataForTemplate,
             $customer->id,
             $appointment->id
@@ -427,7 +431,6 @@ class SmsService
             $salon,
             'appointment_modification',
             $customer->phone_number,
-            $salon->user,
             $dataForTemplate,
             $customer->id,
             $appointment->id, // Pass the actual appointment ID for DB
@@ -447,7 +450,6 @@ class SmsService
             $salon,
             'appointment_cancellation',
             $customer->phone_number,
-            $salon->user,
             $dataForTemplate,
             $customer->id,
             $appointment->id
@@ -482,7 +484,6 @@ class SmsService
             $salon,
             'appointment_reminder',
             $customer->phone_number,
-            $salon->user,
             $dataForTemplate,
             $customer->id,
             $appointment->id
@@ -505,7 +506,6 @@ class SmsService
             $salon,
             'manual_reminder', // Using a new event type for manual reminders
             $customer->phone_number,
-            $salon->user,
             $dataForTemplate,
             $customer->id,
             $appointment->id
@@ -522,7 +522,6 @@ class SmsService
             $salon,
             'birthday_greeting',
             $customer->phone_number,
-            $salon->user,
             $dataForTemplate,
             $customer->id
         );
@@ -542,7 +541,6 @@ class SmsService
             $salon,
             'satisfaction_survey',
             $customer->phone_number,
-            $salon->user,
             $dataForTemplate,
             $customer->id,
             $appointment->id

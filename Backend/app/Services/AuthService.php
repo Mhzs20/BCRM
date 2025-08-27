@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Models\Salon;
-use App\Models\UserSmsBalance;
+use App\Models\SalonSmsBalance; // Use SalonSmsBalance
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
@@ -211,14 +211,15 @@ class AuthService
         $user->save();
         Log::info("AuthService::completeProfile - Salon ID: {$salon->id} set as active for user ID: {$user->id}");
 
-        UserSmsBalance::firstOrCreate(
-            ['user_id' => $user->id],
+        // Initialize SalonSmsBalance for the newly created salon
+        SalonSmsBalance::firstOrCreate(
+            ['salon_id' => $salon->id],
             ['balance' => (int)env('INITIAL_SMS_BALANCE', 20)]
         );
-        Log::info("AuthService::completeProfile - SMS balance checked/created for user ID: {$user->id}");
+        Log::info("AuthService::completeProfile - Salon SMS balance checked/created for Salon ID: {$salon->id}");
 
         Log::info("AuthService::completeProfile - Profile completion finished for user ID: {$user->id}");
-        return $user->fresh()->load('activeSalon', 'salons', 'smsBalance');
+        return $user->fresh()->load('activeSalon', 'salons');
     }
 
     public function login(string $mobile, string $password): array
@@ -234,7 +235,7 @@ class AuthService
         }
 
         $token = auth('api')->login($user);
-        $user->load(['salons', 'activeSalon.businessCategory', 'activeSalon.city.province', 'smsBalance']);
+        $user->load(['salons', 'activeSalon.businessCategory', 'activeSalon.city.province']);
 
         return [
             'user' => $user,

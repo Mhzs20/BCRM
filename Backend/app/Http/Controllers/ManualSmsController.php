@@ -50,8 +50,8 @@ class ManualSmsController extends Controller
             return response()->json(['message' => 'شما مجاز به ارسال پیامک برای این سالن نیستید.'], 403);
         }
 
-        // Ensure user's SMS balance is loaded for the check
-        $salon->loadMissing('user.smsBalance');
+        // Ensure salon's SMS balance is loaded for the check, or create if it doesn't exist
+        $salonSmsBalance = $salon->smsBalance()->firstOrCreate(['salon_id' => $salon->id], ['balance' => 0]);
 
         $recipients = [];
         if ($request->recipients_type === 'all_customers') {
@@ -74,17 +74,17 @@ class ManualSmsController extends Controller
         $smsPartsPerMessage = $this->smsService->calculateSmsCount($smsContent);
         $totalSmsCountForAllRecipients = $smsPartsPerMessage * count($recipients);
 
-        if ($salon->user->smsBalance->balance < $totalSmsCountForAllRecipients) {
+        if ($salonSmsBalance->balance < $totalSmsCountForAllRecipients) {
             return response()->json([
                 'message' => 'اعتبار پیامک برای این درخواست کافی نیست.',
-                'error' => 'اعتبار پیامک سالن کافی نیست. اعتبار فعلی: ' . $salon->user->smsBalance->balance . '، مورد نیاز: ' . $totalSmsCountForAllRecipients,
+                'error' => 'اعتبار پیامک سالن کافی نیست. اعتبار فعلی: ' . $salonSmsBalance->balance . '، مورد نیاز: ' . $totalSmsCountForAllRecipients,
             ], 400);
         }
 
         DB::beginTransaction();
         try {
             // Deduct balance immediately upon submission
-            $salon->user->smsBalance->decrement('balance', $totalSmsCountForAllRecipients);
+            $salonSmsBalance->decrement('balance', $totalSmsCountForAllRecipients);
 
             $batchId = Str::uuid();
             foreach ($recipients as $recipient) {
@@ -117,7 +117,7 @@ class ManualSmsController extends Controller
             DB::rollBack();
             // If an error occurs after balance deduction but before transaction creation, refund the balance
             if (isset($totalSmsCountForAllRecipients)) {
-                $salon->user->smsBalance->increment('balance', $totalSmsCountForAllRecipients);
+                $salonSmsBalance->increment('balance', $totalSmsCountForAllRecipients);
             }
             return response()->json(['message' => 'ثبت درخواست پیامک با شکست مواجه شد.', 'error' => $e->getMessage()], 500);
         }
@@ -249,9 +249,11 @@ class ManualSmsController extends Controller
 
             if ($balanceDifference > 0) {
                 // Need to deduct more balance
-                if ($salon->user->smsBalance->balance < $balanceDifference) {
+                // Ensure salonSmsBalance is loaded for the check, or create if it doesn't exist
+                $salonSmsBalance = $salon->smsBalance()->firstOrCreate(['salon_id' => $salon->id], ['balance' => 0]);
+                if ($salonSmsBalance->balance < $balanceDifference) {
                     // Refund the initially deducted balance before rejecting
-                    $salon->user->smsBalance->increment('balance', $totalSmsCountAtSubmission);
+                    $salonSmsBalance->increment('balance', $totalSmsCountAtSubmission);
                     SmsTransaction::where('batch_id', $batchId)->update([
                         'approval_status' => 'rejected',
                         'rejection_reason' => 'اعتبار پیامک سالن کافی نیست (پس از ویرایش و نیاز به کسر بیشتر).',
@@ -261,10 +263,12 @@ class ManualSmsController extends Controller
                     DB::rollBack();
                     return redirect()->back()->with('error', 'پیامک به دلیل عدم موجودی کافی (پس از ویرایش و نیاز به کسر بیشتر) رد شد.');
                 }
-                $salon->user->smsBalance->decrement('balance', $balanceDifference);
+                $salonSmsBalance->decrement('balance', $balanceDifference);
             } elseif ($balanceDifference < 0) {
                 // Need to refund some balance
-                $salon->user->smsBalance->increment('balance', abs($balanceDifference));
+                // Ensure salonSmsBalance is loaded for the check, or create if it doesn't exist
+                $salonSmsBalance = $salon->smsBalance()->firstOrCreate(['salon_id' => $salon->id], ['balance' => 0]);
+                $salonSmsBalance->increment('balance', abs($balanceDifference));
             }
 
             // Update sms_parts and balance_deducted_at_submission for all transactions in the batch
@@ -314,7 +318,9 @@ class ManualSmsController extends Controller
             DB::rollBack();
             // If an error occurs during sending, refund the balance that was adjusted/deducted during approval
             if (isset($balanceDifference) && $balanceDifference > 0) {
-                $salon->user->smsBalance->increment('balance', $balanceDifference);
+                // Ensure salonSmsBalance is loaded for the check, or create if it doesn't exist
+                $salonSmsBalance = $salon->smsBalance()->firstOrCreate(['salon_id' => $salon->id], ['balance' => 0]);
+                $salonSmsBalance->increment('balance', $balanceDifference);
             }
             SmsTransaction::where('batch_id', $batchId)->update([
                 'status' => 'error',
@@ -372,8 +378,10 @@ class ManualSmsController extends Controller
 
         // Refund the deducted balance
         $salon = $transactions->first()->salon;
-        if ($salon && $salon->user && $salon->user->smsBalance) {
-            $salon->user->smsBalance->increment('balance', $totalDeductedBalance);
+        // Ensure salonSmsBalance is loaded for the check, or create if it doesn't exist
+        $salonSmsBalance = $salon->smsBalance()->firstOrCreate(['salon_id' => $salon->id], ['balance' => 0]);
+        if ($salonSmsBalance) {
+            $salonSmsBalance->increment('balance', $totalDeductedBalance);
         }
 
         return redirect()->back()->with('success', 'درخواست پیامک با موفقیت رد شد. اعتبار کسر شده به حساب کاربر بازگردانده شد.');
@@ -595,8 +603,10 @@ class ManualSmsController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             // If an error occurs during sending, refund the balance that was deducted at submission
-            if ($salon && $salon->user->smsBalance) {
-                $salon->user->smsBalance->increment('balance', $totalSmsCountAtSubmission);
+            // Ensure salonSmsBalance is loaded for the check, or create if it doesn't exist
+            $salonSmsBalance = $salon->smsBalance()->firstOrCreate(['salon_id' => $salon->id], ['balance' => 0]);
+            if ($salonSmsBalance) {
+                $salonSmsBalance->increment('balance', $totalSmsCountAtSubmission);
             }
             SmsTransaction::where('batch_id', $batchId)->update([
                 'status' => 'error',

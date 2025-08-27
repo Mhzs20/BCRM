@@ -12,7 +12,6 @@ use App\Models\BusinessCategory; // Import BusinessCategory model
 use App\Models\BusinessSubcategory; // Import BusinessSubcategory model
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth; // Import Auth facade
-use App\Models\UserSmsBalance; // Import UserSmsBalance model
 use App\Models\Salon; // Import Salon model
 use Illuminate\Support\Facades\Log; // Import Log facade
 

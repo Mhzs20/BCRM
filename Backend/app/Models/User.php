@@ -127,13 +127,6 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasOne(Salon::class, 'user_id');
     }
 
-    /**
-     * Get the SMS balance for the user.
-     */
-    public function smsBalance()
-    {
-        return $this->hasOne(UserSmsBalance::class, 'user_id');
-    }
 
     /**
      * Helper method to check if the user has a specific role.
