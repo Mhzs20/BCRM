@@ -233,7 +233,7 @@ class CustomerController extends Controller
 
     public function listCustomerAppointments(Salon $salon, Customer $customer)
     {
-        $this->authorize('view', $customer);
+        $this->authorize('view', $customer); // Re-enabled authorization
 
         $appointments = $customer->appointments()
             ->with(['services', 'staff'])
@@ -243,12 +243,7 @@ class CustomerController extends Controller
         // As requested, ensure all relevant fields are returned in the response.
         // The 'notes' field corresponds to 'internal_notes'.
         // There is no 'deposit_amount' field, but 'total_price', 'deposit_required', and 'deposit_paid' are available.
-        // We make all model attributes visible to override any potential default hiding.
-        if ($appointments->isNotEmpty()) {
-            $allAttributes = array_keys($appointments->first()->getAttributes());
-            $appointments->each->makeVisible($allAttributes);
-        }
-
+        // Removed the makeVisible call to respect the model's $appends and $hidden properties.
         return response()->json($appointments);
     }
 }

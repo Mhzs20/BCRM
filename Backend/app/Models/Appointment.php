@@ -15,6 +15,7 @@ class Appointment extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'hash',
         'salon_id',
         'customer_id',
         'staff_id',
@@ -42,9 +43,12 @@ class Appointment extends Model
         'deposit_payment_method',
     ];
 
+    protected $appends = ['jalali_appointment_date']; // Keep jalali_appointment_date appended
+
     protected $casts = [
         'appointment_date' => 'date',
-        'start_time' => 'datetime',
+        'start_time' => 'string',
+        'end_time' => 'string', // Ensure end_time is also cast as string
         'deposit_required' => 'boolean',
         'deposit_paid' => 'boolean',
         'reminder_sms_sent_at' => 'datetime',
@@ -56,6 +60,23 @@ class Appointment extends Model
     ];
 
     protected $dates = ['deleted_at'];
+
+    /**
+     * Prepare a date for array / JSON serialization.
+     */
+    protected function serializeDate(\DateTimeInterface $date): string
+    {
+        // If the attribute being serialized is 'appointment_date',
+        // combine it with 'start_time' and format in Asia/Tehran timezone.
+        if ($this->isDateAttribute('appointment_date') && $this->appointment_date && $this->appointment_date->equalTo($date)) {
+            // Create a Carbon instance from appointment_date and start_time in Tehran timezone
+            $tehranDateTime = \Carbon\Carbon::parse($this->appointment_date->format('Y-m-d') . ' ' . $this->start_time, 'Asia/Tehran');
+            // Format as ISO 8601 in Asia/Tehran timezone with offset
+            return $tehranDateTime->toIso8601String();
+        }
+        // For all other datetime attributes, format them in Asia/Tehran timezone.
+        return \Carbon\Carbon::instance($date)->setTimezone('Asia/Tehran')->toIso8601String();
+    }
 
     // Relationships
     public function salon(): BelongsTo
@@ -83,9 +104,9 @@ class Appointment extends Model
     // Accessors
     public function getJalaliAppointmentDateAttribute(): ?string
     {
-        if ($this->appointment_date) {
-            $dateToConvert = $this->appointment_date;
-            return Jalalian::fromCarbon($dateToConvert)->format('Y/m/d');
+        if ($this->appointment_date && $this->start_time) {
+            $dateTime = \Carbon\Carbon::parse($this->appointment_date->format('Y-m-d') . ' ' . $this->start_time, 'Asia/Tehran');
+            return Jalalian::fromCarbon($dateTime)->format('Y/m/d');
         }
         return null;
     }
