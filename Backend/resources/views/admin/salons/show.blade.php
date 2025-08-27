@@ -43,7 +43,7 @@
                             ثبت نشده
                         @endforelse
                     </p>
-                    <p><strong>اعتبار پیامک:</strong> {{ $salon->smsBalance->current_sms_count ?? 0 }}</p>
+                    <p><strong>اعتبار پیامک:</strong> {{ $salon->smsBalance->balance ?? 0 }}</p>
                 </div>
             </div>
             <div>

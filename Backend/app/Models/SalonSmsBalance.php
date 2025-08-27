@@ -11,7 +11,7 @@ class SalonSmsBalance extends Model
 
     protected $fillable = [
         'salon_id',
-        'current_sms_count',
+        'balance',
     ];
 
     public function salon()
