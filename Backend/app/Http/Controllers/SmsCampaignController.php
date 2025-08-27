@@ -67,12 +67,12 @@ class SmsCampaignController extends Controller
             return response()->json(['message' => 'این کمپین قبلاً ارسال شده یا در حال پردازش است.'], 422);
         }
 
-        $user = $campaign->salon->user;
+        $salon = $campaign->salon; // Get the salon directly
         $totalCost = $campaign->total_cost;
 
         try {
-            DB::transaction(function () use ($user, $totalCost, $campaign) {
-                $balance = $user->smsBalance()->lockForUpdate()->first();
+            DB::transaction(function () use ($salon, $totalCost, $campaign) { // Use $salon in the closure
+                $balance = $salon->smsBalance()->lockForUpdate()->first(); // Access smsBalance directly from salon
 
                 if (!$balance || $balance->balance < $totalCost) {
                     throw new \Exception('اعتبار پیامک کافی نیست.');

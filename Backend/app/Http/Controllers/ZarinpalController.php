@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\SmsPackage;
 use App\Models\SmsTransaction;
-use App\Models\UserSmsBalance;
 use Illuminate\Http\Request;
+use App\Models\SalonSmsBalance; // Ensure SalonSmsBalance is imported
 use Illuminate\Support\Facades\Auth;
 use Shetabit\Multipay\Invoice;
 use Shetabit\Payment\Facade\Payment;
@@ -140,42 +140,30 @@ class ZarinpalController extends Controller
                 'description' => 'پرداخت با موفقیت تایید شد',
             ]);
 
-            Log::info('Attempting to update user SMS balance.', [
-                'user_id' => $transaction->user_id,
+            Log::info('Attempting to update salon SMS balance after Zarinpal purchase.', [
+                'salon_id' => $transaction->salon_id,
                 'sms_count_to_add' => $transaction->sms_count,
                 'transaction_id' => $transaction->id,
             ]);
 
-            $userBalance = UserSmsBalance::firstOrCreate(['user_id' => $transaction->user_id]);
-            $userBalance->increment('balance', $transaction->sms_count);
+            // Update the SalonSmsBalance directly using the transaction's salon_id
+            $salonSmsBalance = SalonSmsBalance::firstOrCreate(
+                ['salon_id' => $transaction->salon_id],
+                ['balance' => 0]
+            );
+            $salonSmsBalance->increment('balance', $transaction->sms_count);
 
-            Log::info('User SMS balance updated successfully.', [
-                'user_id' => $transaction->user_id,
-                'new_balance' => $userBalance->balance,
+            Log::info('Salon SMS balance updated successfully after Zarinpal purchase.', [
+                'salon_id' => $transaction->salon_id,
+                'new_salon_balance' => $salonSmsBalance->balance,
                 'transaction_id' => $transaction->id,
             ]);
-
-            // Also update the SalonSmsBalance if an active salon is associated with the user
-            if ($user->active_salon_id) {
-                $salonSmsBalance = \App\Models\SalonSmsBalance::firstOrCreate(
-                    ['salon_id' => $user->active_salon_id],
-                    ['balance' => 0]
-                );
-                $salonSmsBalance->increment('balance', $transaction->sms_count);
-
-                Log::info('Salon SMS balance updated successfully after Zarinpal purchase.', [
-                    'salon_id' => $user->active_salon_id,
-                    'new_salon_balance' => $salonSmsBalance->balance,
-                    'transaction_id' => $transaction->id,
-                ]);
-            }
 
             return response()->json([
                 'status' => 'OK',
                 'message' => 'پرداخت با موفقیت تایید شد.',
                 'purchased_sms' => $transaction->sms_count,
-                'user_total_balance' => $userBalance->balance, // Renamed for clarity
-                'salon_total_balance' => $user->active_salon_id ? $salonSmsBalance->balance : 0, // Include salon balance
+                'salon_total_balance' => $salonSmsBalance->balance, // Include salon balance
                 'reference_id' => $receipt->getReferenceId(),
             ]);
         } catch (InvalidPaymentException $e) {

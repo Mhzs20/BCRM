@@ -207,11 +207,11 @@ class Salon extends Model
     }
 
     /**
-     * Get the SMS balance attribute for the salon.
+     * Get the current SMS balance attribute for the salon.
      *
      * @return int
      */
-    public function getSmsBalanceAttribute()
+    public function getCurrentSmsBalanceAttribute()
     {
         return $this->smsBalance->balance ?? 0;
     }

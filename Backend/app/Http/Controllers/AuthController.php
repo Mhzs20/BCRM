@@ -15,8 +15,8 @@ use App\Services\AuthService;
 use Illuminate\Support\Facades\Hash;
 use App\Services\SmsService;
 use App\Models\User;
-use App\Models\UserSmsBalance;
 use Illuminate\Http\JsonResponse;
+use App\Models\SalonSmsBalance; // Ensure SalonSmsBalance is imported if needed for other contexts
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -76,11 +76,8 @@ class AuthController extends Controller
             $user = $this->authService->verifyOtp($request->mobile, $request->code);
             $token = auth('api')->login($user);
 
-            UserSmsBalance::firstOrCreate(
-                ['user_id' => $user->id],
-                ['balance' => (int)env('INITIAL_SMS_BALANCE', 20)]
-            );
-            Log::info("AuthController::verifyOtp - SMS balance checked/created for user ID: {$user->id}");
+            // Removed UserSmsBalance initialization as per user's request for salon-primary balance
+            // If a salon is created later, SalonSmsBalance will be initialized in AuthService::completeProfile
 
             DB::commit();
             Log::info("AuthController::verifyOtp - OTP verified successfully for user ID: {$user->id}");
@@ -90,7 +87,7 @@ class AuthController extends Controller
                 'message' => 'کد تایید با موفقیت تایید شد.',
                 'data' => [
                     'token' => $token,
-                    'user' => $user->load('activeSalon', 'salons', 'smsBalance'),
+                    'user' => $user->load('activeSalon', 'salons'), // Removed 'smsBalance'
                     'has_profile_completed' => !empty($user->name) && !empty($user->password) && !empty($user->business_name) // شرط تکمیل پروفایل می‌تواند دقیق‌تر باشد
                 ]
             ]);
@@ -122,7 +119,7 @@ class AuthController extends Controller
                 'status' => 'success',
                 'message' => 'پروفایل با موفقیت تکمیل شد.',
                 'data' => [
-                    'user' => $updatedUser->load('activeSalon', 'salons', 'smsBalance'),
+                    'user' => $updatedUser->load('activeSalon', 'salons'), // Removed 'smsBalance'
                     'salon' => $updatedUser->activeSalon
                 ]
             ]);
@@ -301,7 +298,7 @@ class AuthController extends Controller
         $user = $request->user();
         $user->load([
             'salons',
-            'smsBalance',
+            // Removed 'smsBalance' from user load
             'activeSalon.province',
             'activeSalon.city',
             'activeSalon.businessCategory',
@@ -325,6 +322,9 @@ class AuthController extends Controller
         } else {
             $responseData['active_salon']['sms_balance'] = 0; // Default to 0 if no active salon or no smsBalance
         }
+
+        // Removed the user's overall sms_balance from the response
+        // $responseData['sms_balance'] = $user->smsBalance->balance ?? 0;
 
         return response()->json([
             'success' => true,
@@ -417,7 +417,7 @@ class AuthController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'پروفایل با موفقیت به‌روزرسانی شد.',
-                'data' => $user->load('salons', 'smsBalance', 'activeSalon.province', 'activeSalon.city', 'activeSalon.businessCategory', 'activeSalon.businessSubcategories')
+                'data' => $user->load('salons', 'activeSalon.province', 'activeSalon.city', 'activeSalon.businessCategory', 'activeSalon.businessSubcategories') // Removed 'smsBalance'
             ]);
 
         } catch (\Exception $e) {
