@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\City;
 use App\Models\Province; // Import Province model
 use App\Models\Salon;
-use App\Models\UserSmsBalance; // Corrected model for SMS balance
+use App\Models\SalonSmsBalance;
 use App\Models\SmsTransaction;
 use App\Services\SmsService;
 use Illuminate\Http\Request;
@@ -218,25 +218,25 @@ class AdminBulkSmsGiftController extends Controller
         $count = 0;
 
         foreach ($salons as $salon) {
-            // Ensure salon's user has an SMS balance record, create if not
-            $smsBalance = $salon->user->smsBalance()->firstOrCreate(['user_id' => $salon->user->id], ['balance' => 0]);
+            // Ensure salon has an SMS balance record, create if not
+            $smsBalance = $salon->smsBalance()->firstOrCreate(['salon_id' => $salon->id], ['balance' => 0]);
             $smsBalance->balance += $amount;
             $smsBalance->save();
 
             // Record transaction
             SmsTransaction::create([
                 'salon_id' => $salon->id,
-                'sms_type' => 'gift', // Corrected to sms_type
+                'sms_type' => 'gift',
                 'amount' => $amount,
                 'description' => 'شارژ هدیه گروهی توسط ادمین' . ($message ? ': ' . $message : ''),
-                'receptor' => $salon->user->mobile,
+                'receptor' => $salon->mobile,
                 'content' => $message,
                 'status' => 'delivered',
             ]);
 
             // Optionally send a notification SMS
-            if ($message && $salon->user->mobile) { // Changed to user->mobile
-                $smsService->sendSms($salon->user->mobile, $message); // Changed to user->mobile
+            if ($message && $salon->mobile) {
+                $smsService->sendSms($salon->mobile, $message);
             }
             $count++;
         }

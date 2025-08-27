@@ -192,17 +192,18 @@ class SalonController extends Controller
             $salon->load(['businessCategory', 'businessSubcategories', 'province', 'city'])
                 ->loadCount(['customers', 'appointments']);
 
-            $user = Auth::user();
-            $smsBalance = $user->smsBalance;
+            // Load the salon's SMS balance
+            $salon->loadMissing('smsBalance');
+            $salonSmsBalance = $salon->smsBalance;
 
             $expiresInDays = null;
-            if ($smsBalance && $smsBalance->package_expires_at) {
-                $expiresInDays = max(0, Carbon::now()->diffInDays($smsBalance->package_expires_at, false));
+            if ($salonSmsBalance && $salonSmsBalance->package_expires_at) {
+                $expiresInDays = max(0, Carbon::now()->diffInDays($salonSmsBalance->package_expires_at, false));
             }
 
             $salonData = $salon->toArray();
 
-            $salonData['sms_balance'] = $smsBalance ? $smsBalance->balance : 0;
+            $salonData['sms_balance'] = $salonSmsBalance ? $salonSmsBalance->balance : 0;
             $salonData['sms_package_expires_in_days'] = $expiresInDays;
 
             return response()->json([
