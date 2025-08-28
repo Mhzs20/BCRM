@@ -17,13 +17,20 @@ class CorsMiddleware
     {
         $response = $next($request);
 
-        $allowedOrigins = ['https://ziboxcrm.ir', 'https://api.ziboxcrm.ir'];
+        $allowedOrigins = [
+            'https://ziboxcrm.ir',
+            'https://api.ziboxcrm.ir',
+        ];
+
         $origin = $request->headers->get('Origin');
 
-        $response->headers->set('Access-Control-Allow-Origin', '*');
+        if ($origin && in_array($origin, $allowedOrigins)) {
+            $response->headers->set('Access-Control-Allow-Origin', $origin);
+            $response->headers->set('Access-Control-Allow-Credentials', 'true');
+        }
+
         $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
         $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-        $response->headers->set('Access-Control-Allow-Credentials', 'true');
 
         return $response;
     }
