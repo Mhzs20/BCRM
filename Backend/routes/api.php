@@ -134,6 +134,7 @@ Route::middleware('auth:api')->group(function () {
                 Route::get('analytical', [AppointmentReportController::class, 'getAnalyticalReports'])->name('analytical');
                 Route::get('detailed', [AppointmentReportController::class, 'getDetailedReports'])->name('detailed');
                 Route::get('daily-summary', [AppointmentReportController::class, 'getDailySummaryReport'])->name('daily_summary');
+                Route::get('daily-list', [AppointmentReportController::class, 'getDailyAppointmentsList'])->name('daily_list');
             });
 
             Route::prefix('sms-account')->name('sms_account.')->group(function () {
