@@ -32,17 +32,9 @@ class ZarinpalController extends Controller
         $user = Auth::user();
         $package = SmsPackage::findOrFail($request->package_id);
 
-        // Check for existing pending transactions for this user
-        $existingPendingTransaction = SmsTransaction::where('user_id', $user->id)
-            ->where('status', 'pending')
-            ->exists();
-
-        if ($existingPendingTransaction) {
-            return response()->json([
-                'status' => 'NOK',
-                'message' => 'شما یک تراکنش پرداخت نشده دارید. لطفا ابتدا آن را تکمیل یا لغو کنید.',
-            ], 409); // 409 Conflict
-        }
+        // According to best practices, allow multiple payment attempts (transactions) for a single purchase intent.
+        // The uniqueness will be handled at the verification stage.
+        // No check for pending transactions here, always create a new one.
 
         $amount = $package->discount_price ?? $package->price;
 
@@ -132,10 +124,12 @@ class ZarinpalController extends Controller
             ], 404);
         }
 
+        // If the current transaction is already completed, return early.
         if ($transaction->status === 'completed') {
             return response()->json([
                 'status' => 'NOK',
                 'message' => 'این تراکنش قبلا با موفقیت تایید شده است.',
+                'reference_id' => $transaction->reference_id,
             ], 409); // 409 Conflict
         }
 
@@ -151,15 +145,24 @@ class ZarinpalController extends Controller
 
                 $referenceId = $receipt->getReferenceId();
 
-                // Double-check for duplicate reference_id before updating
-                $isDuplicate = SmsTransaction::where('reference_id', $referenceId)->where('status', 'completed')->exists();
-                if ($isDuplicate) {
-                    // This case should be rare due to the unique constraint, but it's a good safeguard.
-                    $transaction->update(['status' => 'failed', 'description' => 'Duplicate reference_id detected.']);
-                    throw new \Exception('پرداخت تکراری شناسایی شد.');
+                // Check if the "order" (user buying this specific package) has already been completed by another transaction.
+                $existingCompletedPurchase = SmsTransaction::where('user_id', $transaction->user_id)
+                    ->where('sms_package_id', $transaction->sms_package_id)
+                    ->where('status', 'completed')
+                    ->exists();
+
+                if ($existingCompletedPurchase) {
+                    // If the purchase is already completed, mark this transaction as a failed duplicate.
+                    $transaction->update([
+                        'status' => 'failed_duplicate',
+                        'reference_id' => $referenceId,
+                        'description' => 'این خرید قبلا با موفقیت انجام شده است (تراکنش تکراری).',
+                    ]);
+                    // No need to throw an exception here, just return a specific response later.
+                    return; // Exit the transaction closure
                 }
 
-                // Payment is successful, update transaction and user balance
+                // If this is the first successful transaction for this purchase intent, complete it.
                 $transaction->update([
                     'status' => 'completed',
                     'reference_id' => $referenceId,
@@ -185,6 +188,15 @@ class ZarinpalController extends Controller
                     'transaction_id' => $transaction->id,
                 ]);
             });
+
+            // Check if the transaction was marked as failed_duplicate within the transaction block
+            if ($transaction->status === 'failed_duplicate') {
+                return response()->json([
+                    'status' => 'NOK',
+                    'message' => 'این خرید قبلا با موفقیت انجام شده است. (تراکنش تکراری)',
+                    'reference_id' => $transaction->reference_id,
+                ], 409); // 409 Conflict
+            }
 
             return response()->json([
                 'status' => 'OK',
