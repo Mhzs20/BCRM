@@ -7,6 +7,7 @@ use App\Models\SmsTransaction;
 use Illuminate\Http\Request;
 use App\Models\SalonSmsBalance; // Ensure SalonSmsBalance is imported
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Shetabit\Multipay\Invoice;
 use Shetabit\Payment\Facade\Payment;
 use Illuminate\Support\Facades\Log;
@@ -30,6 +31,18 @@ class ZarinpalController extends Controller
 
         $user = Auth::user();
         $package = SmsPackage::findOrFail($request->package_id);
+
+        // Check for existing pending transactions for this user
+        $existingPendingTransaction = SmsTransaction::where('user_id', $user->id)
+            ->where('status', 'pending')
+            ->exists();
+
+        if ($existingPendingTransaction) {
+            return response()->json([
+                'status' => 'NOK',
+                'message' => 'شما یک تراکنش پرداخت نشده دارید. لطفا ابتدا آن را تکمیل یا لغو کنید.',
+            ], 409); // 409 Conflict
+        }
 
         $amount = $package->discount_price ?? $package->price;
 
@@ -127,44 +140,58 @@ class ZarinpalController extends Controller
         }
 
         try {
-            // Verify the payment with Zarinpal
-            $receipt = Payment::via('zarinpal')
-                ->amount($transaction->amount)
-                ->transactionId($authority)
-                ->verify();
+            $salonSmsBalance = null; // Initialize variable
 
-            // Payment is successful, update transaction and user balance
-            $transaction->update([
-                'status' => 'completed',
-                'reference_id' => $receipt->getReferenceId(),
-                'description' => 'پرداخت با موفقیت تایید شد',
-            ]);
+            DB::transaction(function () use ($transaction, $authority, &$salonSmsBalance) {
+                // Verify the payment with Zarinpal
+                $receipt = Payment::via('zarinpal')
+                    ->amount($transaction->amount)
+                    ->transactionId($authority)
+                    ->verify();
 
-            Log::info('Attempting to update salon SMS balance after Zarinpal purchase.', [
-                'salon_id' => $transaction->salon_id,
-                'sms_count_to_add' => $transaction->sms_count,
-                'transaction_id' => $transaction->id,
-            ]);
+                $referenceId = $receipt->getReferenceId();
 
-            // Update the SalonSmsBalance directly using the transaction's salon_id
-            $salonSmsBalance = SalonSmsBalance::firstOrCreate(
-                ['salon_id' => $transaction->salon_id],
-                ['balance' => 0]
-            );
-            $salonSmsBalance->increment('balance', $transaction->sms_count);
+                // Double-check for duplicate reference_id before updating
+                $isDuplicate = SmsTransaction::where('reference_id', $referenceId)->where('status', 'completed')->exists();
+                if ($isDuplicate) {
+                    // This case should be rare due to the unique constraint, but it's a good safeguard.
+                    $transaction->update(['status' => 'failed', 'description' => 'Duplicate reference_id detected.']);
+                    throw new \Exception('پرداخت تکراری شناسایی شد.');
+                }
 
-            Log::info('Salon SMS balance updated successfully after Zarinpal purchase.', [
-                'salon_id' => $transaction->salon_id,
-                'new_salon_balance' => $salonSmsBalance->balance,
-                'transaction_id' => $transaction->id,
-            ]);
+                // Payment is successful, update transaction and user balance
+                $transaction->update([
+                    'status' => 'completed',
+                    'reference_id' => $referenceId,
+                    'description' => 'پرداخت با موفقیت تایید شد',
+                ]);
+
+                Log::info('Attempting to update salon SMS balance after Zarinpal purchase.', [
+                    'salon_id' => $transaction->salon_id,
+                    'sms_count_to_add' => $transaction->sms_count,
+                    'transaction_id' => $transaction->id,
+                ]);
+
+                // Update the SalonSmsBalance directly using the transaction's salon_id
+                $salonSmsBalance = SalonSmsBalance::firstOrCreate(
+                    ['salon_id' => $transaction->salon_id],
+                    ['balance' => 0]
+                );
+                $salonSmsBalance->increment('balance', $transaction->sms_count);
+
+                Log::info('Salon SMS balance updated successfully after Zarinpal purchase.', [
+                    'salon_id' => $transaction->salon_id,
+                    'new_salon_balance' => $salonSmsBalance->balance,
+                    'transaction_id' => $transaction->id,
+                ]);
+            });
 
             return response()->json([
                 'status' => 'OK',
                 'message' => 'پرداخت با موفقیت تایید شد.',
                 'purchased_sms' => $transaction->sms_count,
-                'salon_total_balance' => $salonSmsBalance->balance, // Include salon balance
-                'reference_id' => $receipt->getReferenceId(),
+                'salon_total_balance' => $salonSmsBalance ? $salonSmsBalance->balance : null, // Include salon balance
+                'reference_id' => $transaction->reference_id,
             ]);
         } catch (InvalidPaymentException $e) {
             // This exception is specifically for failed verifications (e.g., user cancelled)
