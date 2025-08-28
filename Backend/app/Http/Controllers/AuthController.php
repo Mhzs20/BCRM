@@ -356,6 +356,11 @@ class AuthController extends Controller
                 // Unset password confirmation fields
                 unset($userData['current_password'], $userData['new_password'], $userData['new_password_confirmation']);
 
+                // Handle email field: if it's an empty string, set it to null for nullable database column
+                if (isset($userData['email']) && $userData['email'] === '') {
+                    $userData['email'] = null;
+                }
+
                 // Convert Jalali date_of_birth to Gregorian if present
                 if (isset($userData['date_of_birth'])) {
                     try {
