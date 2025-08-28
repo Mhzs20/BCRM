@@ -15,7 +15,9 @@ class UpdateProfileRequest extends FormRequest
 
     protected function prepareForValidation()
     {
-        if ($this->has('salon.business_subcategory_ids')) {
+        // Check if any input related to salon.business_subcategory_ids is present
+        // This handles cases where it's sent as salon[business_subcategory_ids][]
+        if ($this->hasAny(['salon.business_subcategory_ids', 'salon.business_subcategory_ids.0'])) {
             $this->merge([
                 'salon' => array_merge($this->input('salon', []), [
                     'business_subcategory_ids' => $this->input('salon.business_subcategory_ids', []),
