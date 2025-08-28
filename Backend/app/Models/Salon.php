@@ -32,7 +32,6 @@ class Salon extends Model
         'user_id',
         'name',
         'business_category_id',
-        'business_subcategory_id',
         'province_id',
         'city_id',
         'address',
