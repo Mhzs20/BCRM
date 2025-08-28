@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
+use App\Models\Staff;
 use Carbon\Carbon;
 use Exception;
 
@@ -39,6 +40,17 @@ class SalonController extends Controller
             }
 
             $salon = Salon::create($validatedData);
+
+            // Create the salon owner as the first staff member
+            $owner = Auth::user();
+            Staff::create([
+                'salon_id' => $salon->id,
+                'full_name' => $owner->name, 
+                'phone_number' => $owner->mobile,
+                'specialty' => 'مدیر سالن', 
+                'is_active' => true,
+                'hire_date' => Carbon::now(),
+            ]);
 
             if (!Auth::user()->active_salon_id) {
                 Auth::user()->update(['active_salon_id' => $salon->id]);
