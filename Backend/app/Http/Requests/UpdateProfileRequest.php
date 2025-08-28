@@ -17,15 +17,17 @@ class UpdateProfileRequest extends FormRequest
     {
         // Ensure business_subcategory_ids are correctly merged into the salon array
         // This handles cases where it's sent as salon[business_subcategory_ids][]
-        if ($this->has('salon') && is_array($this->input('salon'))) {
-            $salonData = $this->input('salon');
-            if (isset($salonData['business_subcategory_ids']) && is_array($salonData['business_subcategory_ids'])) {
-                $this->merge([
-                    'salon' => array_merge($this->input('salon', []), [
-                        'business_subcategory_ids' => $salonData['business_subcategory_ids'],
-                    ]),
-                ]);
-            }
+        // For PUT/PATCH requests with form-data, input() might be empty.
+        // We explicitly check the request's input for the nested array.
+        $salonInput = $this->input('salon', []);
+        $businessSubcategoryIds = $this->input('salon.business_subcategory_ids');
+
+        if (!empty($businessSubcategoryIds) && is_array($businessSubcategoryIds)) {
+            $this->merge([
+                'salon' => array_merge($salonInput, [
+                    'business_subcategory_ids' => $businessSubcategoryIds,
+                ]),
+            ]);
         }
     }
 
