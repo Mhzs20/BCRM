@@ -255,7 +255,31 @@ class AppointmentReportController extends Controller
         ]);
     }
 
-    // 4. Detailed Reports
+    // 4. Daily Appointments List (for debugging/verification)
+    public function getDailyAppointmentsList(Request $request, Salon $salon)
+    {
+        $this->checkAccess($salon);
+
+        $request->validate([
+            'date' => 'required|jdate:Y-m-d',
+        ]);
+
+        $jalaliDate = $request->input('date');
+        $date = Jalalian::fromFormat('Y-m-d', $jalaliDate)->toCarbon();
+
+        $appointments = Appointment::where('salon_id', $salon->id)
+            ->whereDate('appointment_date', $date)
+            ->select('id', 'customer_id', 'staff_id', 'appointment_date', 'start_time', 'end_time', 'status', 'total_price')
+            ->with(['customer:id,first_name,last_name', 'staff:id,first_name,last_name'])
+            ->get();
+
+        return response()->json([
+            'date' => $jalaliDate,
+            'appointments' => $appointments,
+        ]);
+    }
+
+    // 5. Detailed Reports
     public function getDetailedReports(Request $request, Salon $salon)
     {
         $this->checkAccess($salon);
