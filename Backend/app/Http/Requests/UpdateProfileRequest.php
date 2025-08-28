@@ -15,14 +15,17 @@ class UpdateProfileRequest extends FormRequest
 
     protected function prepareForValidation()
     {
-        // Check if any input related to salon.business_subcategory_ids is present
+        // Ensure business_subcategory_ids are correctly merged into the salon array
         // This handles cases where it's sent as salon[business_subcategory_ids][]
-        if ($this->hasAny(['salon.business_subcategory_ids', 'salon.business_subcategory_ids.0'])) {
-            $this->merge([
-                'salon' => array_merge($this->input('salon', []), [
-                    'business_subcategory_ids' => $this->input('salon.business_subcategory_ids', []),
-                ]),
-            ]);
+        if ($this->has('salon') && is_array($this->input('salon'))) {
+            $salonData = $this->input('salon');
+            if (isset($salonData['business_subcategory_ids']) && is_array($salonData['business_subcategory_ids'])) {
+                $this->merge([
+                    'salon' => array_merge($this->input('salon', []), [
+                        'business_subcategory_ids' => $salonData['business_subcategory_ids'],
+                    ]),
+                ]);
+            }
         }
     }
 
