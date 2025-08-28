@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Facades\Auth;
 class CompleteProfileRequest extends FormRequest
 {
     /**
@@ -21,12 +22,12 @@ class CompleteProfileRequest extends FormRequest
      *
      * @return array
      */
-    public function rules()
+    public function rules(): array
     {
         return [
             'name' => 'required|string|max:255',
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'avatar' => 'nullable|image|max:2048', // Changed from 'image'
+            'password' => ['required', 'string', 'confirmed', Password::min(8)->letters()->numbers()],
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'business_name' => 'required|string|max:255',
             'business_category_id' => 'required|exists:business_categories,id',
             'business_subcategory_ids' => 'nullable|array',
@@ -41,7 +42,7 @@ class CompleteProfileRequest extends FormRequest
             'website'                   => 'nullable|string|max:255',
             'latitude'                  => 'nullable|numeric|between:-90,90',
             'longitude'                 => 'nullable|numeric|between:-180,180',
-            'image'                     => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048', // Changed from 'salon_image'
+            'image'                     => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'whatsapp'                  => 'nullable|string|max:255',
         ];
     }
@@ -55,11 +56,17 @@ class CompleteProfileRequest extends FormRequest
     {
         return [
             'name.required' => 'نام الزامی است',
-            'password.required' => 'رمز عبور الزامی است',
-            'password.min' => 'رمز عبور باید حداقل ۸ کاراکتر باشد',
-            'password.confirmed' => 'تکرار رمز عبور مطابقت ندارد',
-            'image.image' => 'فایل آپلود شده باید تصویر باشد',
-            'image.max' => 'حداکثر حجم تصویر ۲ مگابایت است',
+            'password.required' => 'رمز عبور الزامی است.',
+            'password.min' => 'رمز عبور باید حداقل ۸ کاراکتر باشد.',
+            'password.letters' => 'رمز عبور باید حداقل شامل یک حرف انگلیسی باشد.',
+            'password.numbers' => 'رمز عبور باید حداقل شامل یک عدد باشد.',
+            'password.confirmed' => 'تکرار رمز عبور مطابقت ندارد.',
+            'avatar.image' => 'فایل آپلود شده برای آواتار باید از نوع تصویر باشد.',
+            'avatar.mimes' => 'فرمت تصویر آواتار باید jpeg, png, jpg, gif یا webp باشد.',
+            'avatar.max' => 'حداکثر حجم تصویر آواتار می‌تواند ۲ مگابایت باشد.',
+            'image.image' => 'فایل آپلود شده برای تصویر سالن باید از نوع تصویر باشد.',
+            'image.mimes' => 'فرمت تصویر سالن باید jpeg, png, jpg, gif یا webp باشد.',
+            'image.max' => 'حداکثر حجم تصویر سالن می‌تواند ۲ مگابایت باشد.',
             'business_name.required' => 'وارد کردن نام کسب و کار (سالن) الزامی است.',
             'business_category_id.required' => 'انتخاب دسته‌بندی کسب و کار الزامی است.',
             'business_category_id.exists' => 'دسته‌بندی کسب و کار انتخاب شده معتبر نیست.',

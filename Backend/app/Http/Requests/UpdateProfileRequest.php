@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class UpdateProfileRequest extends FormRequest
 {
@@ -34,7 +35,7 @@ class UpdateProfileRequest extends FormRequest
             'user.name' => 'sometimes|string|max:255',
             'user.email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'user.current_password' => 'nullable|required_with:user.new_password|string',
-            'user.new_password' => 'nullable|string|min:8|confirmed',
+            'user.new_password' => ['nullable', 'string', 'confirmed', Password::min(8)->letters()->numbers()],
             'user.gender' => 'sometimes|nullable|in:male,female,other',
             'user.date_of_birth' => 'sometimes|nullable|string', // Will be parsed as Jalali date in controller
 
