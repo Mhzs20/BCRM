@@ -40,7 +40,7 @@ class SmsPackageController extends Controller
         ]);
 
         $data = $request->only(['name', 'sms_count', 'price', 'discount_price']);
-        $data['is_active'] = $request->has('is_active');
+        $data['is_active'] = $request->boolean('is_active');
 
         SmsPackage::create($data);
 
@@ -73,7 +73,7 @@ class SmsPackageController extends Controller
         Log::info('SmsPackage validation passed.');
 
         $data = $request->only(['name', 'sms_count', 'price', 'discount_price']);
-        $data['is_active'] = $request->has('is_active');
+        $data['is_active'] = $request->boolean('is_active');
 
         Log::info('SmsPackage data prepared for update.', ['prepared_data' => $data]);
         Log::info('SmsPackage before update.', ['smsPackage_before' => $smsPackage->toArray()]);
