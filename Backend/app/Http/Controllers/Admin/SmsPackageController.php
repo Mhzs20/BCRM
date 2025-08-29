@@ -93,7 +93,15 @@ class SmsPackageController extends Controller
      */
     public function destroy(SmsPackage $smsPackage)
     {
-        $smsPackage->delete();
-        return redirect()->route('admin.sms-packages.index')->with('success', 'پکیج با موفقیت حذف شد.');
+        try {
+            // Disassociate related SmsTransactions by setting sms_package_id to NULL
+            $smsPackage->smsTransactions()->update(['sms_package_id' => null]);
+
+            $smsPackage->delete();
+            return redirect()->route('admin.sms-packages.index')->with('success', 'پکیج با موفقیت حذف شد.');
+        } catch (\Exception $e) {
+            Log::error('Error deleting SmsPackage: ' . $e->getMessage(), ['smsPackage_id' => $smsPackage->id, 'exception' => $e]);
+            return redirect()->back()->with('error', 'خطا در حذف پکیج پیامک: ' . $e->getMessage());
+        }
     }
 }
