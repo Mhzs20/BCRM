@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SmsPackage extends Model
 {
@@ -13,6 +14,14 @@ class SmsPackage extends Model
         'discount_price',
         'is_active',
     ];
+
+    /**
+     * Get the SMS transactions for the SMS package.
+     */
+    public function smsTransactions(): HasMany
+    {
+        return $this->hasMany(SmsTransaction::class);
+    }
 
     protected $casts = [
         'price' => 'integer',
