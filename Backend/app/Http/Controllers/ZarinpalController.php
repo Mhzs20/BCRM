@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\SmsPackage;
-use App\Models\SmsTransaction;
+use App\Models\Order; // New import
+use App\Models\Transaction; // New import
+use App\Events\PaymentSuccessful; // New import
 use Illuminate\Http\Request;
-use App\Models\SalonSmsBalance; // Ensure SalonSmsBalance is imported
+use App\Models\SalonSmsBalance;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Shetabit\Multipay\Invoice;
@@ -32,10 +34,6 @@ class ZarinpalController extends Controller
         $user = Auth::user();
         $package = SmsPackage::findOrFail($request->package_id);
 
-        // According to best practices, allow multiple payment attempts (transactions) for a single purchase intent.
-        // The uniqueness will be handled at the verification stage.
-        // No check for pending transactions here, always create a new one.
-
         $amount = $package->discount_price ?? $package->price;
 
         if (!$user->active_salon_id) {
@@ -45,21 +43,29 @@ class ZarinpalController extends Controller
             ], 400);
         }
 
-        // Create a new transaction record
-        $transaction = SmsTransaction::create([
+        // Create a new Order record
+        $order = Order::create([
             'user_id' => $user->id,
-            'salon_id' => $user->active_salon_id, // Add the active salon ID
+            'salon_id' => $user->active_salon_id,
             'sms_package_id' => $package->id,
             'amount' => $amount,
-            'status' => 'pending',
             'sms_count' => $package->sms_count,
-            'sms_type' => 'purchase', // Set sms_type to 'purchase'
+            'status' => 'pending',
+        ]);
+
+        // Create a new Transaction record associated with the Order
+        $transaction = Transaction::create([
+            'order_id' => $order->id,
+            'gateway' => 'zarinpal', // Assuming Zarinpal for this controller
+            'amount' => $amount,
+            'status' => 'pending',
+            'description' => 'در انتظار پرداخت',
         ]);
 
         try {
             $invoice = new Invoice();
             $invoice->amount($amount);
-            $invoice->detail('description', "خرید بسته پیامک برای کاربر {$user->id}");
+            $invoice->detail('description', "خرید بسته پیامک: {$package->name} - سفارش {$order->id}");
             $invoice->detail('mobile', $user->mobile);
 
             // 1. Create the payment object and set the callback URL.
@@ -84,11 +90,13 @@ class ZarinpalController extends Controller
                 'status' => 'OK',
                 'payment_url' => $paymentUrl,
                 'authority' => $transaction->transaction_id, // Return for client-side reference
+                'order_id' => $order->id, // Return order ID for client-side reference
             ]);
 
         } catch (\Exception $e) {
-            $transaction->update(['status' => 'failed', 'description' => 'Error during purchase setup']);
-            Log::error('Zarinpal Purchase Error: ' . $e->getMessage());
+            $transaction->update(['status' => 'failed', 'description' => 'Error during purchase setup: ' . $e->getMessage()]);
+            $order->update(['status' => 'failed']);
+            Log::error('Zarinpal Purchase Error: ' . $e->getMessage(), ['order_id' => $order->id, 'transaction_id' => $transaction->id]);
 
             return response()->json([
                 'status' => 'NOK',
@@ -113,9 +121,12 @@ class ZarinpalController extends Controller
         $authority = $request->authority;
         $user = Auth::user();
 
-        $transaction = SmsTransaction::where('transaction_id', $authority)
-                                     ->where('user_id', $user->id)
-                                     ->first();
+        // Find the transaction by authority and ensure it belongs to the current user
+        $transaction = Transaction::where('transaction_id', $authority)
+                                  ->whereHas('order', function ($query) use ($user) {
+                                      $query->where('user_id', $user->id);
+                                  })
+                                  ->first();
 
         if (!$transaction) {
             return response()->json([
@@ -124,7 +135,22 @@ class ZarinpalController extends Controller
             ], 404);
         }
 
-        // If the current transaction is already completed, return early.
+        $order = $transaction->order;
+
+        // If the order is already paid, this transaction is a duplicate attempt for an already completed order.
+        if ($order->status === 'paid') {
+            $transaction->update([
+                'status' => 'expired',
+                'description' => 'این سفارش قبلا با موفقیت پرداخت شده است.',
+            ]);
+            return response()->json([
+                'status' => 'NOK',
+                'message' => 'این خرید قبلا با موفقیت انجام شده است. (سفارش تکراری)',
+                'reference_id' => $transaction->reference_id,
+            ], 409); // 409 Conflict
+        }
+
+        // If this specific transaction is already completed, return early.
         if ($transaction->status === 'completed') {
             return response()->json([
                 'status' => 'NOK',
@@ -134,9 +160,7 @@ class ZarinpalController extends Controller
         }
 
         try {
-            $salonSmsBalance = null; // Initialize variable
-
-            DB::transaction(function () use ($transaction, $authority, &$salonSmsBalance) {
+            DB::transaction(function () use ($transaction, $order, $authority) {
                 // Verify the payment with Zarinpal
                 $receipt = Payment::via('zarinpal')
                     ->amount($transaction->amount)
@@ -145,70 +169,39 @@ class ZarinpalController extends Controller
 
                 $referenceId = $receipt->getReferenceId();
 
-                // Check if the "order" (user buying this specific package) has already been completed by another transaction.
-                $existingCompletedPurchase = SmsTransaction::where('user_id', $transaction->user_id)
-                    ->where('sms_package_id', $transaction->sms_package_id)
-                    ->where('status', 'completed')
-                    ->exists();
-
-                if ($existingCompletedPurchase) {
-                    // If the purchase is already completed, mark this transaction as a failed duplicate.
-                    $transaction->update([
-                        'status' => 'failed_duplicate',
-                        'reference_id' => $referenceId,
-                        'description' => 'این خرید قبلا با موفقیت انجام شده است (تراکنش تکراری).',
-                    ]);
-                    // No need to throw an exception here, just return a specific response later.
-                    return; // Exit the transaction closure
-                }
-
-                // If this is the first successful transaction for this purchase intent, complete it.
+                // Update the successful transaction
                 $transaction->update([
                     'status' => 'completed',
                     'reference_id' => $referenceId,
                     'description' => 'پرداخت با موفقیت تایید شد',
                 ]);
 
-                Log::info('Attempting to update salon SMS balance after Zarinpal purchase.', [
-                    'salon_id' => $transaction->salon_id,
-                    'sms_count_to_add' => $transaction->sms_count,
-                    'transaction_id' => $transaction->id,
-                ]);
+                // Dispatch the event to update order status, salon balance, and expire other transactions
+                event(new PaymentSuccessful($order, $transaction));
 
-                // Update the SalonSmsBalance directly using the transaction's salon_id
-                $salonSmsBalance = SalonSmsBalance::firstOrCreate(
-                    ['salon_id' => $transaction->salon_id],
-                    ['balance' => 0]
-                );
-                $salonSmsBalance->increment('balance', $transaction->sms_count);
-
-                Log::info('Salon SMS balance updated successfully after Zarinpal purchase.', [
-                    'salon_id' => $transaction->salon_id,
-                    'new_salon_balance' => $salonSmsBalance->balance,
+                Log::info('PaymentSuccessful event dispatched.', [
+                    'order_id' => $order->id,
                     'transaction_id' => $transaction->id,
                 ]);
             });
 
-            // Check if the transaction was marked as failed_duplicate within the transaction block
-            if ($transaction->status === 'failed_duplicate') {
-                return response()->json([
-                    'status' => 'NOK',
-                    'message' => 'این خرید قبلا با موفقیت انجام شده است. (تراکنش تکراری)',
-                    'reference_id' => $transaction->reference_id,
-                ], 409); // 409 Conflict
-            }
+            // Reload the order and transaction to get the latest status after the listener
+            $order->refresh();
+            $transaction->refresh();
 
             return response()->json([
                 'status' => 'OK',
                 'message' => 'پرداخت با موفقیت تایید شد.',
-                'purchased_sms' => $transaction->sms_count,
-                'salon_total_balance' => $salonSmsBalance ? $salonSmsBalance->balance : null, // Include salon balance
+                'purchased_sms' => $order->sms_count,
+                'salon_total_balance' => $order->salon->smsBalance->balance ?? 0, // Access balance via order's salon
                 'reference_id' => $transaction->reference_id,
+                'order_status' => $order->status,
             ]);
         } catch (InvalidPaymentException $e) {
             // This exception is specifically for failed verifications (e.g., user cancelled)
             $transaction->update(['status' => 'failed', 'description' => $e->getMessage()]);
-            Log::warning('Zarinpal Verification Failed: ' . $e->getMessage(), ['authority' => $authority]);
+            $order->update(['status' => 'failed']); // Mark order as failed if transaction fails
+            Log::warning('Zarinpal Verification Failed: ' . $e->getMessage(), ['authority' => $authority, 'order_id' => $order->id]);
 
             return response()->json([
                 'status' => 'NOK',
@@ -219,7 +212,8 @@ class ZarinpalController extends Controller
             // Other exceptions (e.g., network issues, config problems)
             // Update transaction status to failed for any unexpected errors
             $transaction->update(['status' => 'failed', 'description' => 'خطای ناشناخته در تایید پرداخت: ' . $e->getMessage()]);
-            Log::error('Zarinpal Verification Error: ' . $e->getMessage(), ['authority' => $authority]);
+            $order->update(['status' => 'failed']); // Mark order as failed for any unexpected errors
+            Log::error('Zarinpal Verification Error: ' . $e->getMessage(), ['authority' => $authority, 'order_id' => $order->id]);
 
             return response()->json([
                 'status' => 'NOK',
