@@ -156,11 +156,11 @@ class CustomerController extends Controller
         $this->authorize('delete', $customer);
 
         try {
-            // Find active appointments and cancel them
-            $customer->appointments()->whereIn('status', ['confirmed', 'pending_confirmation'])->update(['status' => 'canceled']);
+            // Cancel future appointments for the customer
+            $customer->appointments()->where('appointment_date', '>=', now())->update(['status' => 'canceled']);
 
             $customer->delete();
-            return response()->json(['message' => 'مشتری و نوبت‌های فعال او با موفقیت لغو شدند.'], 200);
+            return response()->json(['message' => 'مشتری و نوبت‌های آینده او با موفقیت لغو شدند.'], 200);
         } catch (\Exception $e) {
             Log::error('خطا در حذف مشتری: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در حذف مشتری.'], 500);
@@ -183,11 +183,12 @@ class CustomerController extends Controller
             ->get();
 
         foreach ($customers as $customer) {
-            $customer->appointments()->whereIn('status', ['confirmed', 'pending_confirmation'])->update(['status' => 'canceled']);
+            // Cancel future appointments for the customer
+            $customer->appointments()->where('appointment_date', '>=', now())->update(['status' => 'canceled']);
             $customer->delete();
         }
 
-        return response()->json(['message' => count($customers) . ' مشتری و نوبت‌های فعال آن‌ها با موفقیت لغو شدند.']);
+        return response()->json(['message' => count($customers) . ' مشتری و نوبت‌های آینده آن‌ها با موفقیت لغو شدند.']);
     }
 
     public function importExcel(ImportCustomersExcelRequest $request, Salon $salon)
