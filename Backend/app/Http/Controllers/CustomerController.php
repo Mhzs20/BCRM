@@ -64,10 +64,24 @@ class CustomerController extends Controller
                 $validatedData['profile_image'] = $path;
             }
 
-            $customer = $salon->customers()->create($validatedData);
+            // Check for existing customer including soft-deleted ones
+            $customer = $salon->customers()->withTrashed()->where('phone_number', $validatedData['phone_number'])->first();
+
+            if ($customer) {
+                if ($customer->trashed()) {
+                    $customer->restore();
+                    $customer->update($validatedData); // Update with new data if restored
+                    $message = 'مشتری با موفقیت بازیابی و به‌روزرسانی شد.';
+                } else {
+                    return response()->json(['message' => 'مشتری با این شماره تلفن از قبل موجود است.'], 409);
+                }
+            } else {
+                $customer = $salon->customers()->create($validatedData);
+                $message = 'مشتری با موفقیت ایجاد شد.';
+            }
 
             $customer->load(['howIntroduced', 'customerGroup', 'profession', 'ageRange']);
-            return response()->json(['message' => 'مشتری با موفقیت ایجاد شد.', 'data' => $customer], 201);
+            return response()->json(['message' => $message, 'data' => $customer], 201);
         } catch (\Exception $e) {
             Log::error('خطا در ایجاد مشتری: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در ایجاد مشتری.'], 500);
@@ -198,14 +212,20 @@ class CustomerController extends Controller
         DB::beginTransaction();
         try {
             foreach ($contacts as $contact) {
-                $existingCustomer = $salon->customers()->where('phone_number', $contact['phone_number'])->exists();
+                $customer = $salon->customers()->withTrashed()->where('phone_number', $contact['phone_number'])->first();
 
-                if ($existingCustomer) {
-                    $skippedContacts[] = ['contact_data' => $contact, 'reason' => 'مشتری با شماره تلفن ' . $contact['phone_number'] . ' از قبل موجود است.'];
-                    continue;
+                if ($customer) {
+                    if ($customer->trashed()) {
+                        $customer->restore();
+                        $customer->update($contact); // Update with new data if restored
+                        $importedCount++;
+                    } else {
+                        $skippedContacts[] = ['contact_data' => $contact, 'reason' => 'مشتری با شماره تلفن ' . $contact['phone_number'] . ' از قبل موجود است.'];
+                    }
+                } else {
+                    $salon->customers()->create($contact);
+                    $importedCount++;
                 }
-                $salon->customers()->create($contact);
-                $importedCount++;
             }
             DB::commit();
 

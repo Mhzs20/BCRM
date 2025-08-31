@@ -184,7 +184,7 @@ class SmsService
     public function sendOtp(string $receptor, string $otpCode): bool
     {
         // As per the request for Android automatic OTP verification.
-        $appName = 'بیوتی سی آر ام';
+        $appName = 'زیباکس';
         $appSignature = '0iHp5lSm3eN'; // This should be stored securely, e.g., in config/app.php
 
         $message = "<#>\n" .

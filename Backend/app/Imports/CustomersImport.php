@@ -36,22 +36,32 @@ class CustomersImport implements ToModel, WithHeadingRow, WithValidation, SkipsO
             return null;
         }
 
-        $existingCustomer = Customer::where('salon_id', $this->salon_id)
-            ->where('phone_number', normalizePhoneNumber($phoneNumber))
-            ->first();
-
-        if ($existingCustomer) {
-            $this->skippedRows[] = ['row_data' => $row, 'reason' => 'مشتری با این شماره تلفن (' . $phoneNumber . ') از قبل در این سالن موجود است.'];
-            return null;
-        }
-
-        $customer = Customer::create([
+        $customerData = [
             'salon_id'     => $this->salon_id,
             'name'         => $name,
             'phone_number' => normalizePhoneNumber($phoneNumber),
-        ]);
-        $this->importedCount++;
-        return $customer;
+        ];
+
+        $customer = Customer::where('salon_id', $this->salon_id)
+            ->withTrashed() // Include soft-deleted customers
+            ->where('phone_number', $customerData['phone_number'])
+            ->first();
+
+        if ($customer) {
+            if ($customer->trashed()) {
+                $customer->restore();
+                $customer->update($customerData);
+                $this->importedCount++;
+                return $customer;
+            } else {
+                $this->skippedRows[] = ['row_data' => $row, 'reason' => 'مشتری با این شماره تلفن (' . $phoneNumber . ') از قبل در این سالن موجود است.'];
+                return null;
+            }
+        } else {
+            $customer = Customer::create($customerData);
+            $this->importedCount++;
+            return $customer;
+        }
     }
 
     public function rules(): array
