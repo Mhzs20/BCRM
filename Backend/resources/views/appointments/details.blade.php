@@ -197,12 +197,10 @@
         <div class="text-zinc-400 text-sm font-medium border  rounded-lg py-2 px-4">
             نســخــه {{ str_replace($englishDigits, $persianDigits, '1.0.1') }}</div>
       <div class="flex flex-col justify-end">
-          <div>
-              <span class="text-teal-900 text-2xl font-black">بیوتی </span>
-              <span class="text-orange-400 text-2xl font-black">سی</span>
-              <span class="text-teal-900 text-2xl font-black"> آر ام</span>
-          </div>
-          <div class="text-zinc-400 text-[10px] font-normal ">اپلیکیشن مدیریت مشتریان</div>
+<div class="w-28 h-12 relative">
+    <div class="left-0 top-0 absolute justify-start"><span class="text-zinc-900 text-2xl font-black font-['Peyda']">زیـ </span><span class="text-orange-400 text-2xl font-black font-['Peyda']">بـــاکــس</span></div>
+    <div class="left-[5px] top-[34px] absolute justify-start text-zinc-400 text-[10px] font-normal font-['Peyda']">اپلیکیشن مدیریت مشتریان</div>
+</div>
       </div>
     </footer>
 </main>

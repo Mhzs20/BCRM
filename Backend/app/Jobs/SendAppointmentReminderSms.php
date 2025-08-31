@@ -54,13 +54,8 @@ class SendAppointmentReminderSms implements ShouldQueue
             return;
         }
 
-        $smsResult = $smsService->sendAppointmentReminder($customer, $appointment, $this->salon);
-
-        if ($smsResult['status'] === 'success') {
-            Log::info("Successfully sent reminder SMS for appointment {$appointment->id}.");
-        } else {
-            Log::error("Failed to send reminder SMS for appointment {$appointment->id}: " . $smsResult['message']);
-            $appointment->update(['reminder_sms_status' => 'failed']);
-        }
+        $smsService->sendAppointmentReminder($customer, $appointment, $this->salon);
+        // The SmsService now handles updating the appointment's SMS status.
+        Log::info("Reminder SMS sending process initiated for appointment {$appointment->id}. Status updates handled by SmsService.");
     }
 }
