@@ -308,12 +308,30 @@ class AuthController extends Controller
 
         // Eager load counts for the active salon if it exists
         if ($user->activeSalon) {
-            $user->activeSalon->loadCount(['customers', 'appointments']);
+            $user->activeSalon->loadCount([
+                'customers',
+                'appointments as total_appointments_count',
+                'appointments as active_appointments_count' => function ($query) {
+                    $query->whereIn('status', ['confirmed', 'pending_confirmation']);
+                },
+                'appointments as canceled_appointments_count' => function ($query) {
+                    $query->where('status', 'canceled');
+                }
+            ]);
         }
 
         // Also load counts for all salons
         $user->salons->each(function ($salon) {
-            $salon->loadCount(['customers', 'appointments']);
+            $salon->loadCount([
+                'customers',
+                'appointments as total_appointments_count',
+                'appointments as active_appointments_count' => function ($query) {
+                    $query->whereIn('status', ['confirmed', 'pending_confirmation']);
+                },
+                'appointments as canceled_appointments_count' => function ($query) {
+                    $query->where('status', 'canceled');
+                }
+            ]);
         });
 
         $responseData = $user->toArray();
