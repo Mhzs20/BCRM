@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use App\Models\Salon;
 use Illuminate\Support\Facades\Log;
 
 class SendSatisfactionSurveySms implements ShouldQueue
@@ -16,13 +17,15 @@ class SendSatisfactionSurveySms implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected $appointment;
+    protected $salon;
 
     /**
      * Create a new job instance.
      */
-    public function __construct(Appointment $appointment)
+    public function __construct(Appointment $appointment, Salon $salon)
     {
         $this->appointment = $appointment;
+        $this->salon = $salon;
     }
 
     /**
@@ -30,9 +33,16 @@ class SendSatisfactionSurveySms implements ShouldQueue
      */
     public function handle(SmsService $smsService): void
     {
-        $appointment = $this->appointment->fresh();
-        if (!$appointment || !$appointment->customer) {
-            Log::info("Skipping satisfaction survey SMS for appointment {$this->appointment->id}: not found or no customer.");
+        // Ensure the appointment and customer exist and survey is enabled
+        $appointment = $this->appointment->fresh(); // Get fresh instance
+        if (!$appointment || !$appointment->customer || !$appointment->send_satisfaction_sms) {
+            Log::info("Skipping satisfaction survey SMS for appointment {$this->appointment->id}: not found, no customer, or survey disabled.");
+            return;
+        }
+
+        // Check if SMS has a final status already
+        if (!in_array($appointment->satisfaction_sms_status, ['not_sent', 'processing', null])) {
+            Log::info("Satisfaction survey SMS for appointment {$appointment->id} already has a final status '{$appointment->satisfaction_sms_status}'. Skipping.");
             return;
         }
 
@@ -44,14 +54,8 @@ class SendSatisfactionSurveySms implements ShouldQueue
             return;
         }
 
-        $smsResult = $smsService->sendSatisfactionSurvey($customer, $appointment, $this->salon);
-
-        if ($smsResult['status'] === 'success') {
-            Log::info("Successfully sent satisfaction survey SMS for appointment {$appointment->id}.");
-        } else {
-            Log::error("Failed to send satisfaction survey SMS for appointment {$appointment->id}: " . $smsResult['message']);
-            $appointment->update(['satisfaction_sms_status' => 'failed']);
-        }
-
+        $smsService->sendSatisfactionSurvey($customer, $appointment, $this->salon);
+        // The SmsService now handles updating the appointment's SMS status.
+        Log::info("Satisfaction survey SMS sending process initiated for appointment {$appointment->id}. Status updates handled by SmsService.");
     }
 }
