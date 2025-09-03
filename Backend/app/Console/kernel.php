@@ -30,6 +30,9 @@ class Kernel extends ConsoleKernel
 
         // بررسی وضعیت پیامک ها
         $schedule->job(\App\Jobs\CheckSmsStatus::class)->everyFiveMinutes();
+
+        // Cancel past appointments
+        $schedule->command('appointments:cancel-past')->daily();
     }
 
     /**

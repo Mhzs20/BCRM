@@ -52,13 +52,13 @@ class AppointmentResource extends JsonResource
             'satisfaction_sms_message_id' => $this->satisfaction_sms_message_id,
             'jalalidate' => Jalalian::fromCarbon($this->appointment_date)->format('Y/m/d'),
             'customer' => [
-                'id' => $this->customer->id,
-                'name' => $this->customer->name,
-                'phone_number' => $this->customer->phone_number,
+                'id' => optional($this->customer)->id,
+                'name' => optional($this->customer)->name,
+                'phone_number' => optional($this->customer)->phone_number,
             ],
             'staff' => [
-                'id' => $this->staff->id,
-                'full_name' => $this->staff->full_name,
+                'id' => optional($this->staff)->id,
+                'full_name' => optional($this->staff)->full_name,
             ],
             'services' => ServiceResource::collection($this->whenLoaded('services')),
         ];
