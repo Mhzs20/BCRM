@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\SmsPackageController;
 use App\Http\Controllers\Admin\SmsTemplateController;
+use App\Http\Controllers\Admin\SmsTemplateCategoryController;
 use App\Http\Controllers\Admin\AdminSmsSettingController;
 use App\Http\Controllers\Admin\AppUpdateController;
 use App\Http\Controllers\Admin\NotificationController;
@@ -13,6 +14,8 @@ use App\Http\Controllers\Admin\FileController;
 use App\Http\Controllers\Admin\BannerController;
 use App\Http\Controllers\Admin\AdminSalonController;
 use App\Http\Controllers\Admin\AdminBulkSmsGiftController; // New controller
+use App\Http\Controllers\Admin\AdminBulkSmsController; // Bulk SMS controller
+use App\Http\Controllers\Admin\AdminTransactionController; // Transactions controller
 use App\Http\Controllers\ManualSmsController;
 use App\Http\Middleware\SuperAdminMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -31,7 +34,10 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
     Route::post('manual-sms-approval/{batchId}/update-content', [ManualSmsController::class, 'updateManualSmsContent'])->name('manual_sms.update_content');
     Route::post('manual-sms-approval/{batchId}/approve', [ManualSmsController::class, 'approveManualSms'])->name('manual_sms.approve');
     Route::post('manual-sms-approval/{batchId}/reject', [ManualSmsController::class, 'rejectManualSms'])->name('manual_sms.reject');
-    Route::resource('sms-templates', SmsTemplateController::class);
+    Route::post('sms-templates/system-update', [SmsTemplateController::class, 'systemUpdate'])->name('sms-templates.system-update');
+    Route::resource('sms-templates', SmsTemplateController::class)->except(['show']);
+    Route::post('sms-template-categories', [SmsTemplateCategoryController::class, 'store'])->name('sms-template-categories.store');
+    Route::delete('sms-template-categories/{smsTemplateCategory}', [SmsTemplateCategoryController::class, 'destroy'])->name('sms-template-categories.destroy');
 
     // SMS Settings Routes
     Route::get('sms-settings', [AdminSmsSettingController::class, 'index'])->name('sms_settings.index');
@@ -65,9 +71,24 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
     Route::get('salons/{salon}/purchase-history', [AdminSalonController::class, 'purchaseHistory'])->name('salons.purchase-history');
     Route::post('salons/{salon}/notes', [AdminSalonController::class, 'storeNote'])->name('salons.store-note');
     Route::post('salons/{salon}/add-sms-credit', [AdminSalonController::class, 'addSmsCredit'])->name('salons.add-sms-credit');
+    Route::post('salons/{salon}/reduce-sms-credit', [AdminSalonController::class, 'reduceSmsCredit'])->name('salons.reduce-sms-credit');
+    Route::get('salons/{salon}/active-discount-codes', [AdminSalonController::class, 'getActiveDiscountCodes'])->name('salons.active-discount-codes');
 
     // Bulk SMS Gift
     Route::get('bulk-sms-gift', [AdminBulkSmsGiftController::class, 'index'])->name('bulk-sms-gift.index');
     Route::post('bulk-sms-gift', [AdminBulkSmsGiftController::class, 'sendGift'])->name('bulk-sms-gift.send');
     Route::get('bulk-sms-gift/history', [AdminBulkSmsGiftController::class, 'giftHistory'])->name('bulk-sms-gift.history');
+
+    // Bulk SMS
+    Route::get('bulk-sms', [AdminBulkSmsController::class, 'index'])->name('bulk-sms.index');
+    Route::post('bulk-sms', [AdminBulkSmsController::class, 'sendSms'])->name('bulk-sms.send');
+    Route::get('bulk-sms/history', [AdminBulkSmsController::class, 'history'])->name('bulk-sms.history');
+
+    // Discount Codes
+    Route::resource('discount-codes', \App\Http\Controllers\Admin\DiscountCodeController::class);
+    Route::post('discount-codes/preview-target-users', [\App\Http\Controllers\Admin\DiscountCodeController::class, 'previewTargetUsers'])->name('discount-codes.preview-target-users');
+    Route::get('discount-codes/{discountCode}/target-users', [\App\Http\Controllers\Admin\DiscountCodeController::class, 'showTargetUsers'])->name('discount-codes.target-users');
+
+    // Transactions (Payment) List
+    Route::get('transactions', [AdminTransactionController::class, 'index'])->name('transactions.index');
 });

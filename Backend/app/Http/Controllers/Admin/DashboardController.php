@@ -9,6 +9,8 @@ use App\Models\Salon;
 use App\Models\SmsTransaction;
 use App\Models\User;
 use App\Models\SmsPackage;
+use App\Models\DiscountCode;
+use App\Models\Order;
 use Carbon\Carbon;
 use App\Models\Setting;
 use Illuminate\Http\Request;
@@ -69,6 +71,20 @@ class DashboardController extends Controller
         $netSmsProfit = $totalSmsIncome - $totalSmsCost;
         $smsProfitPercentage = $totalSmsIncome > 0 ? ($netSmsProfit / $totalSmsIncome) * 100 : 0;
         $averageSmsSellingPrice = $totalSmsPartsSold > 0 ? $totalSmsIncome / $totalSmsPartsSold : 0;
+
+        // Discount codes stats
+        $totalDiscountCodes = DiscountCode::count();
+        $activeDiscountCodes = DiscountCode::where('is_active', true)->count();
+        $expiredDiscountCodes = DiscountCode::where('expires_at', '<', now())->where('is_active', true)->count();
+        $usedDiscountCodes = DiscountCode::whereHas('orders')->count();
+        $totalDiscountUsage = Order::whereNotNull('discount_code')->count();
+        $totalDiscountAmount = Order::whereNotNull('discount_code')->sum(DB::raw('original_amount - amount'));
+
+        // Top discount codes by usage
+        $topDiscountCodes = DiscountCode::withCount('orders')
+            ->orderBy('orders_count', 'desc')
+            ->take(5)
+            ->get();
 
         // Top 10 salons by SMS sales or activity
         $topSalons = Salon::with('user')->withCount('smsTransactions')
@@ -157,7 +173,14 @@ class DashboardController extends Controller
             'smsProfitPercentage',
             'averageSmsSellingPrice',
             'smsProfitData',
-            'totalSmsIncome'
+            'totalSmsIncome',
+            'totalDiscountCodes',
+            'activeDiscountCodes',
+            'expiredDiscountCodes',
+            'usedDiscountCodes',
+            'totalDiscountUsage',
+            'totalDiscountAmount',
+            'topDiscountCodes'
         ));
     }
 }

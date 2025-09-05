@@ -40,24 +40,24 @@
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-                @forelse ($purchaseTransactions as $transaction)
+                @forelse ($purchaseTransactions as $order)
                     <tr>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {{ $transaction->transaction_id ?? 'N/A' }}
+                            {{ $order->transactions->first()->reference_id ?? $order->transactions->first()->transaction_id ?? $order->id }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ $transaction->smsPackage->name ?? 'بسته نامشخص' }}
+                            {{ $order->smsPackage->name ?? 'بسته نامشخص' }} ({{ number_format($order->sms_count) }} پیامک)
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ number_format($transaction->amount) }} ریال
+                            {{ number_format($order->amount) }} تومان
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $transaction->status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                                {{ $transaction->status === 'completed' ? 'موفق' : 'ناموفق' }}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $order->status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                {{ $order->status === 'paid' ? 'موفق' : 'ناموفق' }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ verta($transaction->created_at)->format('Y/m/d H:i') }}
+                            {{ verta($order->created_at)->format('Y/m/d H:i') }}
                         </td>
                     </tr>
                 @empty

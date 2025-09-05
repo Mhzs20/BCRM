@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\SmsPackage;
 use App\Models\Order; // New import
 use App\Models\Transaction; // New import
+use App\Models\DiscountCode; // Add DiscountCode import
 use App\Events\PaymentSuccessful; // New import
 use Illuminate\Http\Request;
 use App\Models\SalonSmsBalance;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 use Shetabit\Multipay\Invoice;
 use Shetabit\Payment\Facade\Payment;
 use Illuminate\Support\Facades\Log;
@@ -29,12 +31,76 @@ class ZarinpalController extends Controller
         $request->validate([
             'package_id' => 'required|exists:sms_packages,id',
             'callback_url' => ['required', 'regex:/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//'], // Allow custom schemes
+            'discount_code' => 'nullable|string|exists:discount_codes,code',
         ]);
 
         $user = Auth::user();
         $package = SmsPackage::findOrFail($request->package_id);
 
+        // SECURITY: Always calculate amount from database, never trust client input
         $amount = $package->discount_price ?? $package->price;
+        $originalAmount = $amount;
+        $discountPercentage = null;
+        $discountCode = null;
+
+        // Check and apply discount code if provided
+        if ($request->discount_code) {
+            $discountCodeModel = DiscountCode::where('code', $request->discount_code)
+                ->where('is_active', true)
+                ->first();
+
+            if (!$discountCodeModel) {
+                return response()->json([
+                    'status' => 'NOK',
+                    'message' => 'کد تخفیف نامعتبر است.',
+                ], 400);
+            }
+
+            // Check if discount code is valid (including time and usage limits)
+            if (!$discountCodeModel->isValid()) {
+                return response()->json([
+                    'status' => 'NOK',
+                    'message' => 'کد تخفیف منقضی شده یا غیرفعال است.',
+                ], 400);
+            }
+
+            // SECURITY: Check if user can use this discount code based on filter criteria
+            if (!$discountCodeModel->canUserUse($user)) {
+                Log::warning('Unauthorized discount code usage attempt', [
+                    'user_id' => $user->id,
+                    'salon_id' => $user->active_salon_id,
+                    'discount_code' => $request->discount_code,
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ]);
+                
+                return response()->json([
+                    'status' => 'NOK',
+                    'message' => 'شما مجاز به استفاده از این کد تخفیف نیستید.',
+                ], 403);
+            }
+
+            // Check minimum order amount
+            if ($discountCodeModel->min_order_amount && $amount < $discountCodeModel->min_order_amount) {
+                return response()->json([
+                    'status' => 'NOK',
+                    'message' => "حداقل مبلغ سفارش برای استفاده از این کد تخفیف " . number_format($discountCodeModel->min_order_amount) . " تومان است.",
+                ], 400);
+            }
+
+            // Apply discount using the model's calculation method
+            $originalAmount = $amount;
+            $discountAmount = $discountCodeModel->calculateDiscount($amount);
+            $amount = $amount - $discountAmount;
+            $discountCode = $request->discount_code;
+            
+            // Store discount info based on new structure
+            if ($discountCodeModel->type === 'percentage') {
+                $discountPercentage = $discountCodeModel->value;
+            } else {
+                $discountPercentage = ($discountAmount / $originalAmount) * 100;
+            }
+        }
 
         if (!$user->active_salon_id) {
             return response()->json([
@@ -51,6 +117,9 @@ class ZarinpalController extends Controller
             'amount' => $amount,
             'sms_count' => $package->sms_count,
             'status' => 'pending',
+            'discount_code' => $discountCode,
+            'discount_percentage' => $discountPercentage,
+            'original_amount' => $originalAmount,
         ]);
 
         // Create a new Transaction record associated with the Order
@@ -161,9 +230,12 @@ class ZarinpalController extends Controller
 
         try {
             DB::transaction(function () use ($transaction, $order, $authority) {
+                // SECURITY: Verify amount matches original transaction before processing
+                $expectedAmount = $transaction->amount;
+                
                 // Verify the payment with Zarinpal
                 $receipt = Payment::via('zarinpal')
-                    ->amount($transaction->amount)
+                    ->amount($expectedAmount) // Use stored amount, not user input
                     ->transactionId($authority)
                     ->verify();
 
@@ -182,6 +254,8 @@ class ZarinpalController extends Controller
                 Log::info('PaymentSuccessful event dispatched.', [
                     'order_id' => $order->id,
                     'transaction_id' => $transaction->id,
+                    'amount' => $expectedAmount,
+                    'reference_id' => $referenceId,
                 ]);
             });
 

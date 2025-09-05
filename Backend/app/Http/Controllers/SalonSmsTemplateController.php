@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\SalonSmsTemplate;
 use App\Models\Salon;
+use App\Models\SmsTemplateCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -24,39 +25,63 @@ class SalonSmsTemplateController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $user = Auth::user();
-        /** @var Salon $salon */
-        $salon = $user->activeSalon;
+        // Global system event templates (salon_id is NULL)
+        $existingTemplatesCollection = SalonSmsTemplate::whereNull('salon_id')
+            ->where('template_type', 'system_event')
+            ->get()
+            ->keyBy('event_type');
 
-        if (!$salon) {
-            return response()->json(['message' => 'سالن فعالی برای شما انتخاب نشده است.'], 400);
-        }
-        $this->authorize('manageResources', $salon);
-
-        $existingTemplatesCollection = $salon->smsTemplates()->get()->keyBy('event_type');
-        $templates = [];
-
+        $systemTemplates = [];
         foreach (self::ALLOWED_EVENT_TYPES as $eventType) {
             $templateModel = $existingTemplatesCollection->get($eventType);
-            $templates[$eventType] = [
+            $systemTemplates[$eventType] = [
                 'template' => $templateModel ? $templateModel->template : $this->getDefaultTemplateTextForEventType($eventType),
                 'is_active' => $templateModel ? $templateModel->is_active : true,
-                'description' => $this->getEventTypeDescription($eventType)
+                'description' => $this->getEventTypeDescription($eventType),
+                'id' => $templateModel?->id,
+                'template_type' => 'system_event'
             ];
         }
-        return response()->json(['data' => $templates]);
+
+        // Global custom categories & templates (categories with salon_id NULL)
+        $categories = SmsTemplateCategory::whereNull('salon_id')
+            ->with(['templates' => function($q){
+                $q->where('template_type', 'custom')->whereNull('salon_id')->orderByDesc('id');
+            }])->get();
+
+        $customCategories = $categories->map(function($cat){
+            return [
+                'id' => $cat->id,
+                'name' => $cat->name,
+                'templates' => $cat->templates->map(function($t){
+                    return [
+                        'id' => $t->id,
+                        'title' => $t->title,
+                        'template' => $t->template,
+                        'is_active' => $t->is_active,
+                        'template_type' => $t->template_type,
+                        'category_id' => $t->category_id,
+                        'created_at' => $t->created_at,
+                        'updated_at' => $t->updated_at,
+                    ];
+                })->values(),
+            ];
+        })->values();
+
+        return response()->json([
+            'data' => [
+                'system_templates' => $systemTemplates,
+                'custom_categories' => $customCategories,
+            ]
+        ]);
     }
 
     public function storeOrUpdate(Request $request): JsonResponse
     {
         $user = Auth::user();
-        /** @var Salon $salon */
-        $salon = $user->activeSalon;
-
-        if (!$salon) {
-            return response()->json(['message' => 'سالن فعالی برای شما انتخاب نشده است.'], 400);
+        if (!$user->is_superadmin) {
+            return response()->json(['message' => 'فقط ادمین سیستم می‌تواند قالب‌های سراسری را ویرایش کند.'], 403);
         }
-        $this->authorize('manageResources', $salon);
 
         $validated = $request->validate([
             'templates' => 'required|array',
@@ -73,8 +98,9 @@ class SalonSmsTemplateController extends Controller
 
                 SalonSmsTemplate::updateOrCreate(
                     [
-                        'salon_id' => $salon->id,
+                        'salon_id' => null,
                         'event_type' => $eventType,
+                        'template_type' => 'system_event'
                     ],
                     [
                         'template' => $templateData['template'],
@@ -86,9 +112,122 @@ class SalonSmsTemplateController extends Controller
             return response()->json(['message' => 'قالب‌های پیامک با موفقیت ذخیره شدند.']);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error("Error storing/updating SMS templates for salon ID {$salon->id}: " . $e->getMessage());
+            Log::error("Error storing/updating GLOBAL SMS templates: " . $e->getMessage());
             return response()->json(['message' => 'خطا در ذخیره‌سازی قالب‌های پیامک.'], 500);
         }
+    }
+
+    // =============== Custom Categories ==================
+    public function createCategory(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        if (!$user->is_superadmin) {
+            return response()->json(['message' => 'فقط ادمین سیستم می‌تواند دسته‌بندی سراسری ایجاد کند.'], 403);
+        }
+
+        $data = $request->validate([
+            'name' => 'required|string|max:100'
+        ]);
+
+        $category = SmsTemplateCategory::create([
+            'salon_id' => null,
+            'name' => $data['name']
+        ]);
+
+        return response()->json(['message' => 'دسته‌بندی ایجاد شد.', 'data' => $category]);
+    }
+
+    public function updateCategory(Request $request, SmsTemplateCategory $category): JsonResponse
+    {
+        if (!Auth::user()->is_superadmin) {
+            return response()->json(['message' => 'مجاز نیستید.'], 403);
+        }
+        $data = $request->validate([
+            'name' => 'required|string|max:100'
+        ]);
+        $category->update($data);
+        return response()->json(['message' => 'دسته‌بندی بروزرسانی شد.', 'data' => $category]);
+    }
+
+    public function deleteCategory(Request $request, SmsTemplateCategory $category): JsonResponse
+    {
+        if (!Auth::user()->is_superadmin) {
+            return response()->json(['message' => 'مجاز نیستید.'], 403);
+        }
+        // Optionally move templates to null category
+        $category->templates()->update(['category_id' => null]);
+        $category->delete();
+        return response()->json(['message' => 'دسته‌بندی حذف شد.']);
+    }
+
+    // =============== Custom Templates ==================
+    public function createCustomTemplate(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        if (!$user->is_superadmin) {
+            return response()->json(['message' => 'فقط ادمین سیستم می‌تواند قالب سراسری ایجاد کند.'], 403);
+        }
+
+        $data = $request->validate([
+            'category_id' => 'nullable|integer|exists:sms_template_categories,id',
+            'title' => 'required|string|max:150',
+            'template' => 'required|string|max:1000',
+            'is_active' => 'sometimes|boolean'
+        ]);
+
+        if (isset($data['category_id'])) {
+            $category = SmsTemplateCategory::find($data['category_id']);
+            if (!$category || !is_null($category->salon_id)) {
+                return response()->json(['message' => 'دسته‌بندی معتبر نیست.'], 422);
+            }
+        }
+
+        $custom = SalonSmsTemplate::create([
+            'salon_id' => null,
+            'category_id' => $data['category_id'] ?? null,
+            'title' => $data['title'],
+            'template' => $data['template'],
+            'is_active' => $data['is_active'] ?? true,
+            'template_type' => 'custom'
+        ]);
+
+        return response()->json(['message' => 'قالب ایجاد شد.', 'data' => $custom]);
+    }
+
+    public function updateCustomTemplate(Request $request, SalonSmsTemplate $template): JsonResponse
+    {
+        if (!Auth::user()->is_superadmin) {
+            return response()->json(['message' => 'مجاز نیستید.'], 403);
+        }
+        if ($template->template_type !== 'custom') {
+            return response()->json(['message' => 'امکان ویرایش این نوع قالب وجود ندارد.'], 422);
+        }
+        $data = $request->validate([
+            'category_id' => 'nullable|integer|exists:sms_template_categories,id',
+            'title' => 'required|string|max:150',
+            'template' => 'required|string|max:1000',
+            'is_active' => 'sometimes|boolean'
+        ]);
+        if (isset($data['category_id'])) {
+            $category = SmsTemplateCategory::find($data['category_id']);
+            if (!$category || !is_null($category->salon_id)) {
+                return response()->json(['message' => 'دسته‌بندی معتبر نیست.'], 422);
+            }
+        }
+        $template->update($data);
+        return response()->json(['message' => 'قالب بروزرسانی شد.', 'data' => $template]);
+    }
+
+    public function deleteCustomTemplate(Request $request, SalonSmsTemplate $template): JsonResponse
+    {
+        if (!Auth::user()->is_superadmin) {
+            return response()->json(['message' => 'مجاز نیستید.'], 403);
+        }
+        if ($template->template_type !== 'custom') {
+            return response()->json(['message' => 'امکان حذف این نوع قالب وجود ندارد.'], 422);
+        }
+        $template->delete();
+        return response()->json(['message' => 'قالب حذف شد.']);
     }
 
     private function getDefaultTemplateTextForEventType(string $eventType): string

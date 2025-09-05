@@ -13,6 +13,9 @@ class Order extends Model
         'amount',
         'sms_count',
         'status',
+        'discount_code',
+        'discount_percentage',
+        'original_amount',
     ];
 
     /**
@@ -45,5 +48,13 @@ class Order extends Model
     public function transactions()
     {
         return $this->hasMany(Transaction::class);
+    }
+
+    /**
+     * Get the discount code associated with the order.
+     */
+    public function discountCodeModel()
+    {
+        return $this->belongsTo(DiscountCode::class, 'discount_code', 'code');
     }
 }

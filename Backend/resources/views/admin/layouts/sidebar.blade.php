@@ -36,7 +36,7 @@
         </div>
 
         <!-- SMS Management Dropdown -->
-        <div x-data="{ open: {{ request()->routeIs('admin.sms-packages.*', 'admin.manual_sms.*', 'admin.sms-templates.*', 'admin.sms_settings.*', 'admin.bulk-sms-gift.*') ? 'true' : 'false' }} }">
+        <div x-data="{ open: {{ request()->routeIs('admin.sms-packages.*', 'admin.manual_sms.*', 'admin.sms-templates.*', 'admin.sms_settings.*', 'admin.bulk-sms-gift.*', 'admin.bulk-sms.*') ? 'true' : 'false' }} }">
             <button @click="open = !open"
                     class="w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all duration-200 ease-in-out hover:bg-gray-800 hover:text-white">
                 <span class="flex items-center">
@@ -52,6 +52,7 @@
                 <a href="{{ route('admin.sms-templates.index') }}" class="block px-4 py-2 rounded-lg text-sm {{ request()->routeIs('admin.sms-templates.*') ? 'bg-gray-700 text-white' : 'hover:bg-gray-700' }}">مدیریت قالب‌ها</a>
                 <a href="{{ route('admin.sms_settings.index') }}" class="block px-4 py-2 rounded-lg text-sm {{ request()->routeIs('admin.sms_settings.*') ? 'bg-gray-700 text-white' : 'hover:bg-gray-700' }}">تنظیمات پیامک</a>
                 <a href="{{ route('admin.bulk-sms-gift.index') }}" class="block px-4 py-2 rounded-lg text-sm {{ request()->routeIs('admin.bulk-sms-gift.*') ? 'bg-gray-700 text-white' : 'hover:bg-gray-700' }}">شارژ گروهی هدیه</a>
+                <a href="{{ route('admin.bulk-sms.index') }}" class="block px-4 py-2 rounded-lg text-sm {{ request()->routeIs('admin.bulk-sms.*') ? 'bg-gray-700 text-white' : 'hover:bg-gray-700' }}">پیامک گروهی</a>
             </div>
         </div>
 
@@ -85,6 +86,22 @@
                   {{ request()->routeIs('admin.banners.*') ? 'bg-indigo-600 text-white' : 'hover:bg-gray-800 hover:text-white' }}">
             <i class="ri-image-line text-xl"></i>
             <span class="mr-4 font-medium">مدیریت بنرها</span>
+        </a>
+
+        <!-- Discount Codes Link -->
+        <a href="{{ route('admin.discount-codes.index') }}"
+           class="flex items-center px-4 py-3 rounded-lg transition-all duration-200 ease-in-out
+                  {{ request()->routeIs('admin.discount-codes.*') ? 'bg-indigo-600 text-white' : 'hover:bg-gray-800 hover:text-white' }}">
+            <i class="ri-coupon-line text-xl"></i>
+            <span class="mr-4 font-medium">کدهای تخفیف</span>
+        </a>
+
+        <!-- Transactions Link -->
+        <a href="{{ route('admin.transactions.index') }}"
+           class="flex items-center px-4 py-3 rounded-lg transition-all duration-200 ease-in-out
+                  {{ request()->routeIs('admin.transactions.*') ? 'bg-indigo-600 text-white' : 'hover:bg-gray-800 hover:text-white' }}">
+            <i class="ri-exchange-dollar-line text-xl"></i>
+            <span class="mr-4 font-medium">تراکنش‌ها</span>
         </a>
 
         <!-- General Settings Dropdown -->
