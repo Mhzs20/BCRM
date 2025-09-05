@@ -207,9 +207,12 @@ class AdminSalonController extends Controller
      */
     public function purchaseHistory(Salon $salon)
     {
-        $purchaseTransactions = $salon->smsTransactions()
-                                      ->whereNotNull('sms_package_id')
-                                      ->where('status', 'completed')
+        // Get completed orders for this salon (new payment system)
+        $purchaseTransactions = $salon->orders()
+                                      ->with(['smsPackage', 'transactions' => function($query) {
+                                          $query->where('status', 'completed');
+                                      }])
+                                      ->where('status', 'paid')
                                       ->latest()
                                       ->paginate(10);
 
@@ -321,5 +324,140 @@ class AdminSalonController extends Controller
         ]);
 
         return back()->with('success', 'اعتبار پیامک با موفقیت به سالن اضافه شد.');
+    }
+
+    /**
+     * Reduce SMS credit from the specified salon.
+     */
+    public function reduceSmsCredit(Request $request, Salon $salon)
+    {
+        $request->validate([
+            'amount' => 'required|integer|min:1',
+            'description' => 'nullable|string|max:500',
+        ]);
+
+        $smsBalance = $salon->smsBalance()->firstOrCreate(
+            ['salon_id' => $salon->id],
+            ['balance' => 0]
+        );
+
+        // Check if salon has enough balance
+        if ($smsBalance->balance < $request->amount) {
+            return back()->with('error', 'موجودی سالن برای کاهش این مقدار کافی نیست. موجودی فعلی: ' . $smsBalance->balance);
+        }
+
+        $smsBalance->balance -= $request->amount;
+        $smsBalance->save();
+
+        // Reload the salon and its smsBalance to ensure fresh data
+        $salon->refresh();
+        $salon->load('smsBalance');
+
+        SmsTransaction::create([
+            'salon_id' => $salon->id,
+            'type' => 'deduction',
+            'amount' => -$request->amount, // Store as negative value to indicate deduction
+            'description' => $request->description ?? 'کسر اعتبار توسط ادمین',
+            'status' => 'completed',
+        ]);
+
+        return back()->with('success', 'اعتبار پیامک با موفقیت از سالن کاهش یافت.');
+    }
+
+    /**
+     * Get active discount codes for a specific salon
+     */
+    public function getActiveDiscountCodes(Request $request, Salon $salon)
+    {
+        try {
+            // Load the salon with its related models
+            $salon->load(['user', 'city.province', 'province', 'businessCategory', 'businessSubcategories', 'smsBalance']);
+            
+            // Get all valid discount codes (using the isValid method)
+            $allDiscountCodes = \App\Models\DiscountCode::where('is_active', true)
+                ->withCount('salonUsages')
+                ->get();
+                
+            // Filter to only valid codes (proper date checking)
+            $activeDiscountCodes = $allDiscountCodes->filter(function($code) {
+                return $code->isValid();
+            });
+
+        // Filter codes that can be used by this salon
+        $availableDiscountCodes = $activeDiscountCodes->filter(function($discountCode) use ($salon) {
+            // Check if this discount code can be used by the salon
+            if (!$salon->user) {
+                return false;
+            }
+            
+            // Check directly with salon filters
+            return $discountCode->canSalonUse($salon);
+        });
+
+        // Transform the data to include additional information
+        $transformedCodes = $availableDiscountCodes->map(function($code) use ($salon) {
+            return [
+                'id' => $code->id,
+                'code' => $code->code,
+                'type' => $code->type,
+                'value' => $code->value,
+                'is_active' => $code->is_active,
+                'description' => $code->description,
+                'starts_at' => $code->starts_at ? $code->starts_at->toISOString() : null,
+                'expires_at' => $code->expires_at ? $code->expires_at->toISOString() : null,
+                'usage_limit' => $code->usage_limit,
+                'usage_count' => $code->salon_usages_count ?? 0,
+                'min_order_amount' => $code->min_order_amount,
+                'max_discount_amount' => $code->max_discount_amount,
+                'user_filter_type' => $code->user_filter_type,
+                'target_users' => $code->target_users,
+                'has_been_used_by_salon' => $code->hasBeenUsedBySalon($salon->id),
+                'remaining_uses' => $code->usage_limit ? max(0, $code->usage_limit - ($code->salon_usages_count ?? 0)) : null,
+            ];
+        });
+
+        if ($request->ajax()) {
+            return response()->json([
+                'salon' => [
+                    'id' => $salon->id,
+                    'name' => $salon->name,
+                    'city' => $salon->city->name ?? null,
+                    'province' => $salon->province->name ?? ($salon->city->province->name ?? null),
+                    'business_category' => $salon->businessCategory->name ?? null,
+                ],
+                'discountCodes' => $transformedCodes->values(),
+                'totalCodes' => $transformedCodes->count(),
+                'summary' => [
+                    'total_available' => $transformedCodes->count(),
+                    'already_used' => $transformedCodes->where('has_been_used_by_salon', true)->count(),
+                    'can_still_use' => $transformedCodes->where('has_been_used_by_salon', false)->count(),
+                ]
+            ]);
+        }
+
+            return response()->json([
+                'salon' => [
+                    'id' => $salon->id,
+                    'name' => $salon->name,
+                    'city' => $salon->city->name ?? null,
+                    'province' => $salon->province->name ?? ($salon->city->province->name ?? null),
+                    'business_category' => $salon->businessCategory->name ?? null,
+                ],
+                'discountCodes' => $transformedCodes->values(),
+                'totalCodes' => $transformedCodes->count(),
+                'summary' => [
+                    'total_available' => $transformedCodes->count(),
+                    'already_used' => $transformedCodes->where('has_been_used_by_salon', true)->count(),
+                    'can_still_use' => $transformedCodes->where('has_been_used_by_salon', false)->count(),
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => true,
+                'message' => 'خطا در بارگذاری کدهای تخفیف',
+                'details' => $e->getMessage()
+            ], 500);
+        }
     }
 }

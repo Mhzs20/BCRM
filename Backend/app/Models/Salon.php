@@ -21,6 +21,7 @@ use App\Models\Profession;
 use App\Models\SalonSmsBalance;
 use App\Models\SmsTransaction;
 use App\Models\SalonNote; // New model for notes
+use App\Models\Order;
 
 class Salon extends Model
 {
@@ -162,6 +163,11 @@ class Salon extends Model
         return $this->hasMany(SalonSmsTemplate::class);
     }
 
+    public function smsTemplateCategories()
+    {
+        return $this->hasMany(\App\Models\SmsTemplateCategory::class);
+    }
+
     /**
      * Retrieves a specific SMS template for the salon based on the event type.
      *
@@ -239,6 +245,26 @@ class Salon extends Model
         return $this->smsTransactions()->where('sms_type', 'purchase')->latest()->first()?->created_at;
     }
 
+    /**
+     * Get discount code usages for this salon.
+     */
+    public function discountCodeUsages()
+    {
+        return $this->hasMany(DiscountCodeSalonUsage::class);
+    }
+
+    /**
+     * Check if salon has used a specific discount code.
+     */
+    public function hasUsedDiscountCode(string $discountCode): bool
+    {
+        return $this->discountCodeUsages()
+            ->whereHas('discountCode', function ($query) use ($discountCode) {
+                $query->where('code', $discountCode);
+            })
+            ->exists();
+    }
+
     public function scopeWhereSearch($query, $search)
     {
         $query->where(function ($q) use ($search) {
@@ -254,5 +280,21 @@ class Salon extends Model
                     $q->where('name', 'like', '%' . $search . '%');
                 });
         });
+    }
+
+    /**
+     * Get the SMS campaigns for the salon.
+     */
+    public function campaigns()
+    {
+        return $this->hasMany(SmsCampaign::class);
+    }
+
+    /**
+     * Get the orders for the salon.
+     */
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
     }
 }

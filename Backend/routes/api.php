@@ -145,9 +145,9 @@ Route::middleware('auth:api')->group(function () {
 
             Route::prefix('sms-campaign')->name('sms_campaign.')->group(function () {
                 Route::post('prepare', [SmsCampaignController::class, 'prepareCampaign'])->name('prepare');
+                Route::post('{campaign}/send', [SmsCampaignController::class, 'sendCampaign'])->name('send');
             });
         });
-        Route::post('sms-campaign/{campaign}/send', [SmsCampaignController::class, 'sendCampaign'])->name('sms_campaign.send');
     });
 
     Route::prefix('dashboard')->name('dashboard.')->group(function () {
@@ -161,11 +161,25 @@ Route::middleware('auth:api')->group(function () {
     Route::prefix('salon-settings')->name('salon_settings.')->group(function () {
         Route::get('sms-templates', [SalonSmsTemplateController::class, 'index'])->name('sms_templates.index');
         Route::post('sms-templates', [SalonSmsTemplateController::class, 'storeOrUpdate'])->name('sms_templates.store_or_update');
+    // Custom categories
+    Route::post('sms-template-categories', [SalonSmsTemplateController::class, 'createCategory'])->name('sms_template_categories.create');
+    Route::put('sms-template-categories/{category}', [SalonSmsTemplateController::class, 'updateCategory'])->name('sms_template_categories.update');
+    Route::delete('sms-template-categories/{category}', [SalonSmsTemplateController::class, 'deleteCategory'])->name('sms_template_categories.delete');
+    // Custom templates
+    Route::post('custom-sms-templates', [SalonSmsTemplateController::class, 'createCustomTemplate'])->name('custom_sms_templates.create');
+    Route::put('custom-sms-templates/{template}', [SalonSmsTemplateController::class, 'updateCustomTemplate'])->name('custom_sms_templates.update');
+    Route::delete('custom-sms-templates/{template}', [SalonSmsTemplateController::class, 'deleteCustomTemplate'])->name('custom_sms_templates.delete');
     });
 
-    Route::prefix('payment')->name('payment.')->group(function () {
+    Route::prefix('payment')->name('payment.')->middleware('throttle:10,1')->group(function () {
         Route::post('purchase', [ZarinpalController::class, 'purchase'])->name('purchase');
         Route::post('verify', [ZarinpalController::class, 'verify'])->name('verify');
+    });
+
+    Route::prefix('discount')->name('discount.')->group(function () {
+        Route::post('validate', [\App\Http\Controllers\DiscountCodeController::class, 'validateCode'])->name('validate');
+        Route::post('apply', [\App\Http\Controllers\DiscountCodeController::class, 'applyCode'])->name('apply');
+        Route::get('statistics', [\App\Http\Controllers\DiscountCodeController::class, 'getStatistics'])->name('statistics');
     });
 });
 

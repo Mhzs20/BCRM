@@ -233,6 +233,19 @@ class SmsService
         
         $message = $this->compileTemplate($templateText, $dataForTemplate);
 
+        // اگر لینک نوبت وجود دارد ولی placeholder در متن نیست می‌توانیم به انتهای پیام اضافه کنیم (سفارشی)
+        if (!empty($dataForTemplate['details_url']) && !str_contains($message, $dataForTemplate['details_url'])) {
+            // چک کنیم که هیچ یک از فرم‌های placeholder داخل متن نیست
+            if (!preg_match('/\{\{?\s*details_url\s*\}?\}/u', $templateText)) {
+                $message .= "\n" . $dataForTemplate['details_url'];
+            }
+        }
+        if (!empty($dataForTemplate['survey_url']) && !str_contains($message, $dataForTemplate['survey_url'])) {
+            if (!preg_match('/\{\{?\s*survey_url\s*\}?\}/u', $templateText)) {
+                $message .= "\n" . $dataForTemplate['survey_url'];
+            }
+        }
+
         if (empty(trim($message))) {
             Log::warning("Compiled message for event '{$eventType}' for Salon ID {$salon->id} is empty. SMS to {$receptor} not sent.");
             return ['status' => 'success', 'message' => 'پیام خالی است و ارسال نشد.'];
@@ -317,10 +330,20 @@ class SmsService
      */
     private function compileTemplate(?string $template, array $data): string
     {
-        if (is_null($template)) return '';
+        if ($template === null) return '';
         foreach ($data as $key => $value) {
-            $template = str_replace("{{$key}}", $value, $template);
-            $template = str_replace("{" . $key . "}", $value, $template);
+            $escapedKey = preg_quote($key, '/');
+            // پشتیبانی از الگوهای {key} ، {{key}} ، {{ key }}
+            $template = preg_replace_callback(
+                [
+                    "/{{\s*{$escapedKey}\s*}}/u",
+                    "/{\s*{$escapedKey}\s*}/u",
+                ],
+                static function () use ($value) {
+                    return $value;
+                },
+                $template
+            );
         }
         return $template;
     }

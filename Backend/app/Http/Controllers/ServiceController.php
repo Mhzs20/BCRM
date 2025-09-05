@@ -31,7 +31,7 @@ class ServiceController extends Controller
             $services->orderBy($sortBy, $sortDirection);
         }
 
-        $paginatedServices = $services->paginate($request->input('per_page', 15));
+        $paginatedServices = $services->paginate($request->input('per_page', 100));
 
         return response()->json($paginatedServices);
     }
@@ -150,7 +150,7 @@ class ServiceController extends Controller
         $sortDirection = $request->input('sort_direction', 'asc');
 
         $services = $query->orderBy($sortBy, $sortDirection)
-            ->paginate($request->input('per_page', 15));
+            ->paginate($request->input('per_page', 100));
 
         return response()->json($services);
     }

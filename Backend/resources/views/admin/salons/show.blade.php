@@ -114,11 +114,17 @@
             <a href="{{ route('admin.salons.purchase-history', $salon->id) }}" class="btn-action bg-purple-600 text-white hover:bg-purple-700 focus:ring-purple-500">
                 <i class="ri-shopping-cart-line ml-2"></i> سوابق خرید
             </a>
+            <button type="button" onclick="openDiscountCodesModal({{ $salon->id }})" class="btn-action bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500">
+                <i class="ri-coupon-line ml-2"></i> کدهای تخفیف فعال
+            </button>
             <button type="button" onclick="openNoteModal({{ $salon->id }})" class="btn-action bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500">
                 <i class="ri-sticky-note-line ml-2"></i> افزودن یادداشت
             </button>
             <button type="button" onclick="openSmsCreditModal({{ $salon->id }})" class="btn-action bg-green-600 text-white hover:bg-green-700 focus:ring-green-500">
                 <i class="ri-message-2-line ml-2"></i> افزودن اعتبار پیامک
+            </button>
+            <button type="button" onclick="openReduceSmsCreditModal({{ $salon->id }})" class="btn-action bg-red-600 text-white hover:bg-red-700 focus:ring-red-500">
+                <i class="ri-subtract-line ml-2"></i> کاهش اعتبار پیامک
             </button>
         </div>
     </div>
@@ -129,6 +135,8 @@
     @include('admin.salons.modals.reset_password_modal', ['salon' => $salon])
     @include('admin.salons.modals.add_note_modal', ['salon' => $salon])
     @include('admin.salons.modals.add_sms_credit_modal', ['salon' => $salon])
+    @include('admin.salons.modals.reduce_sms_credit_modal', ['salon' => $salon])
+    @include('admin.salons.modals.discount_codes_modal', ['salon' => $salon])
 </div>
 
 <script>
@@ -173,6 +181,152 @@
         openModal('addSmsCreditModal');
     }
 
+    function openReduceSmsCreditModal(salonId) {
+        document.getElementById('modalSalonIdReduceSms').value = salonId;
+        document.getElementById('reduceSmsCreditForm').action = `/admin/salons/${salonId}/reduce-sms-credit`;
+        openModal('reduceSmsCreditModal');
+    }
+
+    function openDiscountCodesModal(salonId) {
+        openModal('discountCodesModal');
+        loadDiscountCodes(salonId);
+    }
+
+    function loadDiscountCodes(salonId) {
+        const loadingElement = document.getElementById('discountCodesLoading');
+        const contentElement = document.getElementById('discountCodesContent');
+        
+        loadingElement.classList.remove('hidden');
+        contentElement.classList.add('hidden');
+        
+        fetch(`/admin/salons/${salonId}/active-discount-codes`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Received data:', data);
+                loadingElement.classList.add('hidden');
+                contentElement.classList.remove('hidden');
+                
+                const discountCodesList = document.getElementById('discountCodesList');
+                const totalCodesElement = document.getElementById('totalDiscountCodes');
+                
+                totalCodesElement.textContent = data.totalCodes || 0;
+                
+                // Update summary information
+                if (data.summary) {
+                    const summaryElement = document.getElementById('discountCodesSummary');
+                    if (summaryElement) {
+                        summaryElement.innerHTML = `
+                            <div class="grid grid-cols-3 gap-4 text-center">
+                                <div class="bg-blue-50 p-3 rounded">
+                                    <div class="text-2xl font-bold text-blue-600">${data.summary.total_available}</div>
+                                    <div class="text-xs text-blue-800">کل کدهای موجود</div>
+                                </div>
+                                <div class="bg-green-50 p-3 rounded">
+                                    <div class="text-2xl font-bold text-green-600">${data.summary.can_still_use}</div>
+                                    <div class="text-xs text-green-800">قابل استفاده</div>
+                                </div>
+                                <div class="bg-gray-50 p-3 rounded">
+                                    <div class="text-2xl font-bold text-gray-600">${data.summary.already_used}</div>
+                                    <div class="text-xs text-gray-800">استفاده شده</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+                
+                if (data.discountCodes.length > 0) {
+                    discountCodesList.innerHTML = data.discountCodes.map(code => `
+                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 ${code.has_been_used_by_salon ? 'opacity-75 bg-gray-100' : ''}">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="font-bold text-lg text-gray-800">${code.code}</h4>
+                                        ${code.has_been_used_by_salon ? '<span class="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">استفاده شده</span>' : '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">قابل استفاده</span>'}
+                                    </div>
+                                    <p class="text-sm text-gray-600 mt-1">
+                                        ${code.type === 'percentage' ? code.value + '% تخفیف' : 'تخفیف ثابت ' + new Intl.NumberFormat('fa-IR').format(code.value) + ' تومان'}
+                                    </p>
+                                    ${code.description ? `<p class="text-xs text-gray-500 mt-1">${code.description}</p>` : ''}
+                                </div>
+                                <div class="text-left">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${code.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                        ${code.is_active ? 'فعال' : 'غیرفعال'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="mt-3 text-xs text-gray-500 space-y-1">
+                                ${code.starts_at ? `<p><i class="ri-calendar-line ml-1"></i>شروع: ${formatPersianDate(code.starts_at)}</p>` : ''}
+                                ${code.expires_at ? `<p><i class="ri-calendar-line ml-1"></i>انقضا: ${formatPersianDate(code.expires_at)}</p>` : '<p><i class="ri-time-line ml-1"></i>بدون تاریخ انقضا</p>'}
+                                ${code.usage_limit ? `<p><i class="ri-user-line ml-1"></i>استفاده کل: ${code.usage_count || 0}/${code.usage_limit} ${code.remaining_uses !== null ? `(باقی‌مانده: ${code.remaining_uses})` : ''}</p>` : '<p><i class="ri-infinite-line ml-1"></i>بدون محدودیت استفاده</p>'}
+                                ${code.min_order_amount ? `<p><i class="ri-money-dollar-circle-line ml-1"></i>حداقل سفارش: ${new Intl.NumberFormat('fa-IR').format(code.min_order_amount)} تومان</p>` : ''}
+                                ${code.max_discount_amount ? `<p><i class="ri-subtract-line ml-1"></i>حداکثر تخفیف: ${new Intl.NumberFormat('fa-IR').format(code.max_discount_amount)} تومان</p>` : ''}
+                                ${code.user_filter_type === 'filtered' ? '<p class="text-blue-600"><i class="ri-filter-line ml-1"></i>فقط برای کاربران خاص</p>' : '<p class="text-green-600"><i class="ri-global-line ml-1"></i>برای همه کاربران</p>'}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    discountCodesList.innerHTML = `
+                        <div class="text-center py-12">
+                            <i class="ri-coupon-line text-6xl text-gray-300 mb-4"></i>
+                            <p class="text-gray-500 text-lg">هیچ کد تخفیف فعالی برای این سالن موجود نیست.</p>
+                            <p class="text-gray-400 text-sm mt-2">کدهای تخفیف ممکن است منقضی شده باشند یا شرایط استفاده را ندارند.</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading discount codes:', error);
+                loadingElement.classList.add('hidden');
+                contentElement.classList.remove('hidden');
+                
+                document.getElementById('totalDiscountCodes').textContent = '0';
+                document.getElementById('discountCodesList').innerHTML = `
+                    <div class="text-center py-12">
+                        <i class="ri-error-warning-line text-6xl text-red-300 mb-4"></i>
+                        <p class="text-red-500 text-lg">خطا در بارگذاری کدهای تخفیف</p>
+                        <p class="text-gray-400 text-sm mt-2">لطفاً دوباره تلاش کنید</p>
+                        <button onclick="loadDiscountCodes(${salonId})" class="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
+                            تلاش مجدد
+                        </button>
+                    </div>
+                `;
+            });
+    }
+
+    // Function to format Persian dates
+    function formatPersianDate(dateString) {
+        if (!dateString) return '';
+        
+        try {
+            const date = new Date(dateString);
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            
+            // Convert to Persian digits
+            const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+            const formatDate = `${year}/${month.toString().padStart(2, '0')}/${day.toString().padStart(2, '0')}`;
+            
+            return formatDate.replace(/\d/g, (digit) => persianDigits[parseInt(digit)]);
+        } catch (error) {
+            return dateString;
+        }
+    }
+
     function closeNoteModal() {
         closeModal('addNoteModal');
         document.getElementById('noteContent').value = ''; // Clear textarea
@@ -194,6 +348,12 @@
         }
         if (event.target.id === 'addSmsCreditModal') {
             closeModal('addSmsCreditModal');
+        }
+        if (event.target.id === 'reduceSmsCreditModal') {
+            closeModal('reduceSmsCreditModal');
+        }
+        if (event.target.id === 'discountCodesModal') {
+            closeModal('discountCodesModal');
         }
     }
 </script>
