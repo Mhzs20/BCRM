@@ -129,6 +129,75 @@
                     </div>
                 </div>
 
+                <!-- Discount Codes Stats -->
+                <div class="bg-white overflow-hidden shadow-md sm:rounded-lg p-6 col-span-1 md:col-span-2 lg:col-span-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-purple-500 rounded-md p-3">
+                                <i class="ri-coupon-line text-2xl text-white"></i>
+                            </div>
+                            <div class="mr-4">
+                                <h3 class="text-lg font-semibold text-gray-700">آمار کدهای تخفیف</h3>
+                            </div>
+                        </div>
+                        <a href="{{ route('admin.discount-codes.index') }}" 
+                           class="text-purple-600 hover:text-purple-800 text-sm font-medium">
+                            مشاهده همه
+                        </a>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-blue-600">{{ $totalDiscountCodes }}</div>
+                            <div class="text-sm text-blue-600">کل کدها</div>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-green-600">{{ $activeDiscountCodes }}</div>
+                            <div class="text-sm text-green-600">فعال</div>
+                        </div>
+                        <div class="bg-red-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-red-600">{{ $expiredDiscountCodes }}</div>
+                            <div class="text-sm text-red-600">منقضی شده</div>
+                        </div>
+                        <div class="bg-yellow-50 p-4 rounded-lg">
+                            <div class="text-2xl font-bold text-yellow-600">{{ $usedDiscountCodes }}</div>
+                            <div class="text-sm text-yellow-600">استفاده شده</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Usage Stats -->
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-medium text-gray-800 mb-3">آمار استفاده</h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">تعداد استفاده:</span>
+                                    <span class="font-semibold">{{ $totalDiscountUsage }} بار</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">مجموع تخفیف داده شده:</span>
+                                    <span class="font-semibold">{{ number_format($totalDiscountAmount, 0) }} تومان</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Top Discount Codes -->
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-medium text-gray-800 mb-3">پرکاربردترین کدها</h4>
+                            <div class="space-y-2">
+                                @forelse($topDiscountCodes as $code)
+                                    <div class="flex justify-between items-center text-sm">
+                                        <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">{{ $code->code }}</span>
+                                        <span class="text-gray-600">{{ $code->orders_count }} استفاده</span>
+                                    </div>
+                                @empty
+                                    <p class="text-gray-500 text-sm">هیچ کد تخفیفی استفاده نشده</p>
+                                @endforelse
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Top 10 Salons -->
                 <div class="bg-white overflow-hidden shadow-md sm:rounded-lg p-6 col-span-1 md:col-span-2 lg:col-span-4">
                     <div class="flex items-center mb-4">

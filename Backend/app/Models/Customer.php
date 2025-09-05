@@ -51,6 +51,11 @@ class Customer extends Model
         return $this->hasMany(Appointment::class);
     }
 
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
     public function howIntroduced()
     {
         return $this->belongsTo(HowIntroduced::class);

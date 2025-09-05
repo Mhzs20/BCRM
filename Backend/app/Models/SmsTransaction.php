@@ -37,6 +37,7 @@ class SmsTransaction extends Model
         'sms_count',
         'description',
         'reference_id',
+        'type',
     ];
 
     protected $casts = [

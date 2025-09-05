@@ -44,7 +44,7 @@ class StaffController extends Controller
 
 
         $staffMembers = $query->orderBy($sortBy, $sortDirection)
-            ->paginate($request->input('per_page', 15));
+            ->paginate($request->input('per_page', 100));
 
         $staffMembers->getCollection()->transform(function ($staff) {
             $staff->total_income = (float) $staff->total_income;
@@ -73,7 +73,7 @@ class StaffController extends Controller
         }
 
         $staffMembers = $query->orderBy($request->input('sort_by', 'full_name'), $request->input('sort_direction', 'asc'))
-            ->paginate($request->input('per_page', 15));
+            ->paginate($request->input('per_page', 100));
 
         $staffMembers->getCollection()->transform(function ($staff) {
             $staff->total_income = (float) $staff->total_income;
