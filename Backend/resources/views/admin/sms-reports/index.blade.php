@@ -27,7 +27,7 @@
                                 وضعیت تایید
                             </th>
                             <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                آمار ارسال
+                                وضعیت ارسال
                             </th>
                             <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
                                 تاریخ درخواست
@@ -60,17 +60,59 @@
                                             <span aria-hidden class="absolute inset-0 bg-green-200 opacity-50 rounded-full"></span>
                                             <span class="relative">تایید شده</span>
                                         </span>
+                                        @if($batch->approved_by)
+                                            <p class="text-xs text-gray-500 mt-1">توسط: {{ $batch->approved_by->name }}</p>
+                                            <p class="text-xs text-gray-500">{{ \Morilog\Jalali\Jalalian::fromCarbon($batch->approved_at)->format('Y/m/d H:i') }}</p>
+                                        @endif
                                     @elseif ($batch->approval_status == 'rejected')
                                         <span class="relative inline-block px-3 py-1 font-semibold text-red-900 leading-tight">
                                             <span aria-hidden="true" class="absolute inset-0 bg-red-200 opacity-50 rounded-full"></span>
                                             <span class="relative">رد شده</span>
                                         </span>
+                                        @if($batch->approved_by)
+                                            <p class="text-xs text-gray-500 mt-1">توسط: {{ $batch->approved_by->name }}</p>
+                                            <p class="text-xs text-gray-500">{{ \Morilog\Jalali\Jalalian::fromCarbon($batch->approved_at)->format('Y/m/d H:i') }}</p>
+                                        @endif
                                     @endif
                                 </td>
                                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                    <p class="text-green-600">موفق: {{ $batch->successful_sends }}</p>
-                                    <p class="text-red-600">ناموفق: {{ $batch->failed_sends }}</p>
-                                    <p class="text-yellow-600">در صف: {{ $batch->pending_sends }}</p>
+                                    @if ($batch->approval_status == 'approved')
+                                        @if($batch->successful_sends > 0 || $batch->failed_sends > 0)
+                                            <span class="relative inline-block px-3 py-1 font-semibold text-green-900 leading-tight">
+                                                <span aria-hidden class="absolute inset-0 bg-green-200 opacity-50 rounded-full"></span>
+                                                <span class="relative">ارسال شده</span>
+                                            </span>
+                                            <div class="text-xs text-gray-500 mt-1">
+                                                <p class="text-green-600">موفق: {{ $batch->successful_sends }}</p>
+                                                @if($batch->failed_sends > 0)
+                                                    <p class="text-red-600">ناموفق: {{ $batch->failed_sends }}</p>
+                                                @endif
+                                                @if($batch->pending_sends > 0)
+                                                    <p class="text-yellow-600">در صف: {{ $batch->pending_sends }}</p>
+                                                @endif
+                                            </div>
+                                        @elseif($batch->pending_sends > 0)
+                                            <span class="relative inline-block px-3 py-1 font-semibold text-blue-900 leading-tight">
+                                                <span aria-hidden class="absolute inset-0 bg-blue-200 opacity-50 rounded-full"></span>
+                                                <span class="relative">در انتظار ارسال</span>
+                                            </span>
+                                        @else
+                                            <span class="relative inline-block px-3 py-1 font-semibold text-gray-900 leading-tight">
+                                                <span aria-hidden class="absolute inset-0 bg-gray-200 opacity-50 rounded-full"></span>
+                                                <span class="relative">نامشخص</span>
+                                            </span>
+                                        @endif
+                                    @elseif ($batch->approval_status == 'rejected')
+                                        <span class="relative inline-block px-3 py-1 font-semibold text-red-900 leading-tight">
+                                            <span aria-hidden="true" class="absolute inset-0 bg-red-200 opacity-50 rounded-full"></span>
+                                            <span class="relative">رد شده</span>
+                                        </span>
+                                    @else
+                                        <span class="relative inline-block px-3 py-1 font-semibold text-yellow-900 leading-tight">
+                                            <span aria-hidden class="absolute inset-0 bg-yellow-200 opacity-50 rounded-full"></span>
+                                            <span class="relative">در انتظار تایید</span>
+                                        </span>
+                                    @endif
                                 </td>
                                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                                     <p class="text-gray-900 whitespace-no-wrap">

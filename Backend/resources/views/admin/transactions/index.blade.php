@@ -96,6 +96,7 @@
                     <th class="px-4 py-2">وضعیت سفارش</th>
                     <th class="px-4 py-2">وضعیت تراکنش</th>
                     <th class="px-4 py-2">تاریخ</th>
+                    <th class="px-4 py-2">عملیات</th>
                 </tr>
             </thead>
             <tbody>
@@ -117,10 +118,30 @@
                             <span class="px-2 py-1 rounded text-xs {{ ($tx->status ?? '')==='completed' ? 'bg-green-100 text-green-700' : (($tx->status ?? '')==='pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-600') }}">{{ $tx->status ?? '-' }}</span>
                         </td>
                         <td class="px-4 py-2">{{ verta($order->created_at)->format('Y/m/d H:i') }}</td>
+                        <td class="px-4 py-2">
+                            <div class="flex flex-col gap-2">
+                                <!-- تغییر وضعیت سفارش -->
+                                <select class="border rounded px-2 py-1 text-xs order-status-select" data-order-id="{{ $order->id }}" data-current-status="{{ $order->status }}">
+                                    <option value="pending" @selected($order->status === 'pending')>در انتظار</option>
+                                    <option value="paid" @selected($order->status === 'paid')>پرداخت شده</option>
+                                    <option value="failed" @selected($order->status === 'failed')>ناموفق</option>
+                                </select>
+                                
+                                @if($tx)
+                                <!-- تغییر وضعیت تراکنش -->
+                                <select class="border rounded px-2 py-1 text-xs transaction-status-select" data-transaction-id="{{ $tx->id }}" data-current-status="{{ $tx->status }}">
+                                    <option value="pending" @selected($tx->status === 'pending')>در انتظار</option>
+                                    <option value="completed" @selected($tx->status === 'completed')>تکمیل شده</option>
+                                    <option value="failed" @selected($tx->status === 'failed')>ناموفق</option>
+                                    <option value="expired" @selected($tx->status === 'expired')>منقضی شده</option>
+                                </select>
+                                @endif
+                            </div>
+                        </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="11" class="px-4 py-6 text-center text-gray-500">هیچ تراکنشی یافت نشد.</td>
+                        <td colspan="12" class="px-4 py-6 text-center text-gray-500">هیچ تراکنشی یافت نشد.</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -129,4 +150,145 @@
 
     <div class="mt-4">{{ $orders->links() }}</div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle order status change
+    document.querySelectorAll('.order-status-select').forEach(function(select) {
+        select.addEventListener('change', function() {
+            const orderId = this.dataset.orderId;
+            const currentStatus = this.dataset.currentStatus;
+            const newStatus = this.value;
+            
+            if (newStatus === currentStatus) return;
+            
+            if (confirm('آیا از تغییر وضعیت سفارش اطمینان دارید؟')) {
+                updateOrderStatus(orderId, newStatus, this);
+            } else {
+                this.value = currentStatus; // Reset to original value
+            }
+        });
+    });
+    
+    // Handle transaction status change  
+    document.querySelectorAll('.transaction-status-select').forEach(function(select) {
+        select.addEventListener('change', function() {
+            const transactionId = this.dataset.transactionId;
+            const currentStatus = this.dataset.currentStatus;
+            const newStatus = this.value;
+            
+            if (newStatus === currentStatus) return;
+            
+            if (confirm('آیا از تغییر وضعیت تراکنش اطمینان دارید؟')) {
+                updateTransactionStatus(transactionId, newStatus, this);
+            } else {
+                this.value = currentStatus; // Reset to original value
+            }
+        });
+    });
+});
+
+function updateOrderStatus(orderId, status, selectElement) {
+    fetch(`{{ url('admin/transactions/orders') }}/${orderId}/status`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({ status: status })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            selectElement.dataset.currentStatus = status;
+            
+            // Update status badge in the same row
+            const row = selectElement.closest('tr');
+            const statusCell = row.querySelector('td:nth-child(9) span');
+            updateStatusBadge(statusCell, status, 'order');
+            
+            showMessage(data.message, 'success');
+        } else {
+            throw new Error(data.message || 'خطا در به‌روزرسانی وضعیت');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        selectElement.value = selectElement.dataset.currentStatus; // Reset
+        showMessage('خطا در به‌روزرسانی وضعیت سفارش', 'error');
+    });
+}
+
+function updateTransactionStatus(transactionId, status, selectElement) {
+    fetch(`{{ url('admin/transactions/transactions') }}/${transactionId}/status`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({ status: status })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            selectElement.dataset.currentStatus = status;
+            
+            // Update status badge in the same row
+            const row = selectElement.closest('tr');
+            const statusCell = row.querySelector('td:nth-child(10) span');
+            updateStatusBadge(statusCell, status, 'transaction');
+            
+            showMessage(data.message, 'success');
+        } else {
+            throw new Error(data.message || 'خطا در به‌روزرسانی وضعیت');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        selectElement.value = selectElement.dataset.currentStatus; // Reset
+        showMessage('خطا در به‌روزرسانی وضعیت تراکنش', 'error');
+    });
+}
+
+function updateStatusBadge(badgeElement, status, type) {
+    // Remove old classes
+    badgeElement.className = 'px-2 py-1 rounded text-xs';
+    
+    if (type === 'order') {
+        if (status === 'paid') {
+            badgeElement.classList.add('bg-green-100', 'text-green-700');
+        } else if (status === 'pending') {
+            badgeElement.classList.add('bg-yellow-100', 'text-yellow-700');
+        } else {
+            badgeElement.classList.add('bg-red-100', 'text-red-600');
+        }
+    } else { // transaction
+        if (status === 'completed') {
+            badgeElement.classList.add('bg-green-100', 'text-green-700');
+        } else if (status === 'pending') {
+            badgeElement.classList.add('bg-yellow-100', 'text-yellow-700');
+        } else {
+            badgeElement.classList.add('bg-red-100', 'text-red-600');
+        }
+    }
+    
+    badgeElement.textContent = status;
+}
+
+function showMessage(message, type) {
+    // Create toast notification
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg text-white z-50 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+</script>
 @endsection
