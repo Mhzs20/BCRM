@@ -501,7 +501,7 @@ class ManualSmsController extends Controller
 
         $smsTransactions = SmsTransaction::where('sms_type', 'manual_sms')
             ->whereNotNull('batch_id')
-            ->with('user', 'salon')
+            ->with(['user', 'salon', 'approver'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -520,6 +520,8 @@ class ManualSmsController extends Controller
                 'edited_content' => $firstTransaction->edited_content,
                 'recipients_count' => $batch->count(),
                 'approval_status' => $firstTransaction->approval_status,
+                'approved_by' => $firstTransaction->approver,
+                'approved_at' => $firstTransaction->approved_at,
                 'created_at' => $firstTransaction->created_at,
                 'successful_sends' => $successfulCount,
                 'failed_sends' => $failedCount,

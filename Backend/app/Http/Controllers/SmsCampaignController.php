@@ -18,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 
 class SmsCampaignController extends Controller
 {
@@ -26,6 +27,20 @@ class SmsCampaignController extends Controller
     public function __construct(SmsService $smsService)
     {
         $this->smsService = $smsService;
+    }
+
+    /**
+     * Display the admin approval page for SMS campaigns
+     */
+    public function index()
+    {
+        $pendingCampaigns = SmsCampaign::with(['salon', 'user'])
+            ->where('approval_status', 'pending')
+            ->where('uses_template', false)
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+
+        return view('admin.sms-campaign-approval.index', compact('pendingCampaigns'));
     }
 
     public function prepareCampaign(FilterSmsCampaignRequest $request, Salon $salon): SmsCampaignResource
@@ -39,10 +54,15 @@ class SmsCampaignController extends Controller
         $customerCount = $customers->count();
 
         $message = $request->input('message', '');
+        $usesTemplate = false;
+        $smsTemplateId = null;
+        
         if ($request->has('sms_template_id')) {
             $template = SalonSmsTemplate::find($request->input('sms_template_id'));
             if ($template) {
                 $message = $template->template;
+                $usesTemplate = true;
+                $smsTemplateId = $template->id;
             }
         }
 
@@ -60,6 +80,9 @@ class SmsCampaignController extends Controller
             'customer_count' => $customerCount,
             'total_cost' => $totalSmsParts,
             'status' => 'draft',
+            'approval_status' => $usesTemplate ? 'approved' : 'pending', // Auto-approve template usage
+            'uses_template' => $usesTemplate,
+            'sms_template_id' => $smsTemplateId,
         ]);
 
         // Load relationships for complete response
@@ -84,10 +107,19 @@ class SmsCampaignController extends Controller
             return response()->json(['message' => 'این کمپین قبلاً ارسال شده یا در حال پردازش است.'], 422);
         }
 
+        // Check approval status for custom messages
+        if (!$campaign->uses_template && $campaign->approval_status !== 'approved') {
+            return response()->json([
+                'message' => 'این کمپین نیاز به تایید ادمین دارد و هنوز تایید نشده است.',
+                'approval_status' => $campaign->approval_status
+            ], 422);
+        }
+
         try {
             DB::transaction(function () use ($salon, $campaign) {
                 // Re-run & lock relevant data
-                $customers = $this->buildFilteredQuery(new Request($campaign->filters), $campaign->salon)->get();
+                $filters = json_decode($campaign->filters, true) ?: [];
+                $customers = $this->buildFilteredQuery(new Request($filters), $campaign->salon)->get();
 
                 // Build personalized messages
                 $messagesToInsert = $customers->map(function ($customer) use ($campaign) {
@@ -134,11 +166,19 @@ class SmsCampaignController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        SendSmsCampaign::dispatch($campaign);
+        // Only dispatch the job if the campaign is using a template (auto-approved) or already approved
+        if ($campaign->uses_template || $campaign->approval_status === 'approved') {
+            SendSmsCampaign::dispatch($campaign);
+            $message = "کمپین پیامکی برای {$campaign->customer_count} مشتری با موفقیت در صف ارسال قرار گرفت.";
+        } else {
+            $message = "کمپین پیامکی برای {$campaign->customer_count} مشتری ایجاد شد و به ادمین برای تایید ارسال شده است.";
+        }
 
         return response()->json([
-            'message' => "کمپین پیامکی برای {$campaign->customer_count} مشتری با موفقیت در صف ارسال قرار گرفت.",
+            'message' => $message,
             'campaign_id' => $campaign->id,
+            'requires_approval' => !$campaign->uses_template,
+            'approval_status' => $campaign->approval_status,
         ]);
     }
 
@@ -246,5 +286,172 @@ class SmsCampaignController extends Controller
         }
 
         return $enhancedFilters;
+    }
+
+    /**
+     * Get pending SMS campaigns for admin approval
+     */
+    public function getPendingCampaigns(Request $request): JsonResponse
+    {
+        $campaigns = SmsCampaign::with(['salon', 'user'])
+            ->where('approval_status', 'pending')
+            ->where('uses_template', false)
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+
+        return response()->json($campaigns);
+    }
+
+    /**
+     * Show the approval page for admin
+     */
+    public function showApprovalPage()
+    {
+        if (!Auth::user()->is_superadmin) {
+            abort(403, 'اقدام غیرمجاز.');
+        }
+
+        return view('admin.sms-campaign-approval.index');
+    }
+
+    /**
+     * Approve an SMS campaign
+     */
+    public function approveCampaign(Request $request, SmsCampaign $campaign): JsonResponse
+    {
+        if (!Auth::user()->is_superadmin) {
+            return response()->json(['message' => 'اقدام غیرمجاز.'], 403);
+        }
+
+        if ($campaign->approval_status !== 'pending') {
+            return response()->json(['message' => 'این کمپین قبلاً بررسی شده است.'], 422);
+        }
+
+        $request->validate([
+            'edited_message' => 'nullable|string|max:1000',
+        ]);
+
+        $campaign->update([
+            'approval_status' => 'approved',
+            'approved_by' => Auth::id(),
+            'approved_at' => now(),
+            'message' => $request->input('edited_message', $campaign->message),
+        ]);
+
+        // Automatically trigger send process for approved campaigns
+        if ($campaign->status === 'draft') {
+            try {
+                // Create a fake request with campaign data to reuse sendCampaign logic
+                $filters = json_decode($campaign->filters, true) ?: [];
+                $sendRequest = new Request($filters);
+                $this->sendCampaign($sendRequest, $campaign->salon, $campaign);
+            } catch (\Exception $e) {
+                Log::error("Failed to send approved campaign #{$campaign->id}: " . $e->getMessage());
+            }
+        }
+
+        return response()->json(['success' => true, 'message' => 'کمپین با موفقیت تایید شد و در صف ارسال قرار گرفت.']);
+    }
+
+    /**
+     * Reject an SMS campaign
+     */
+    public function rejectCampaign(Request $request, SmsCampaign $campaign): JsonResponse
+    {
+        if (!Auth::user()->is_superadmin) {
+            return response()->json(['message' => 'اقدام غیرمجاز.'], 403);
+        }
+
+        if ($campaign->approval_status !== 'pending') {
+            return response()->json(['message' => 'این کمپین قبلاً بررسی شده است.'], 422);
+        }
+
+        $request->validate([
+            'rejection_reason' => 'required|string|max:500',
+        ]);
+
+        $campaign->update([
+            'approval_status' => 'rejected',
+            'approved_by' => Auth::id(),
+            'approved_at' => now(),
+            'rejection_reason' => $request->input('rejection_reason'),
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'کمپین رد شد.']);
+    }
+
+    /**
+     * Update campaign content before approval
+     */
+    public function updateContent(Request $request, SmsCampaign $campaign): JsonResponse
+    {
+        if (!Auth::user()->is_superadmin) {
+            return response()->json(['message' => 'اقدام غیرمجاز.'], 403);
+        }
+
+        if ($campaign->approval_status !== 'pending') {
+            return response()->json(['message' => 'این کمپین قبلاً بررسی شده است.'], 422);
+        }
+
+        $request->validate([
+            'edited_message' => 'required|string|max:1000',
+        ]);
+
+        $campaign->update([
+            'message' => $request->input('edited_message'),
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'محتوای کمپین با موفقیت ویرایش شد.']);
+    }
+
+    /**
+     * Get campaign status (for salon users to track their campaigns)
+     */
+    public function getCampaignStatus(Salon $salon, SmsCampaign $campaign): JsonResponse
+    {
+        Gate::authorize('manageResources', $salon);
+
+        if ($campaign->salon_id !== $salon->id) {
+            return response()->json(['message' => 'این کمپین به این سالن تعلق ندارد.'], 403);
+        }
+
+        $campaign->load(['approver']);
+
+        return response()->json([
+            'id' => $campaign->id,
+            'status' => $campaign->status,
+            'approval_status' => $campaign->approval_status,
+            'uses_template' => $campaign->uses_template,
+            'message' => $campaign->message,
+            'customer_count' => $campaign->customer_count,
+            'total_cost' => $campaign->total_cost,
+            'approved_by' => $campaign->approver ? $campaign->approver->name : null,
+            'approved_at' => $campaign->approved_at,
+            'rejection_reason' => $campaign->rejection_reason,
+            'created_at' => $campaign->created_at,
+        ]);
+    }
+
+    /**
+     * Display reports page for SMS campaigns
+     */
+    public function reports()
+    {
+        $campaigns = SmsCampaign::with(['salon', 'user', 'approver', 'messages'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+
+        // Enhance filters with complete object data for each campaign
+        foreach ($campaigns as $campaign) {
+            if ($campaign->filters) {
+                $filters = is_string($campaign->filters) ? json_decode($campaign->filters, true) : $campaign->filters;
+                if ($filters) {
+                    $enhancedFilters = $this->enhanceFiltersWithObjects($filters, $campaign->salon);
+                    $campaign->filters = $enhancedFilters;
+                }
+            }
+        }
+
+        return view('admin.sms-campaign-reports.index', compact('campaigns'));
     }
 }

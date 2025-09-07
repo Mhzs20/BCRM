@@ -104,4 +104,42 @@ class AdminTransactionController extends Controller
             'groupData' => $groupData,
         ]);
     }
+
+    /**
+     * Update order status
+     */
+    public function updateOrderStatus(Request $request, Order $order)
+    {
+        $request->validate([
+            'status' => 'required|in:pending,paid,failed'
+        ]);
+
+        $order->status = $request->status;
+        $order->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'وضعیت سفارش با موفقیت به‌روزرسانی شد.',
+            'new_status' => $order->status
+        ]);
+    }
+
+    /**
+     * Update transaction status
+     */
+    public function updateTransactionStatus(Request $request, Transaction $transaction)
+    {
+        $request->validate([
+            'status' => 'required|in:pending,completed,failed,expired'
+        ]);
+
+        $transaction->status = $request->status;
+        $transaction->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'وضعیت تراکنش با موفقیت به‌روزرسانی شد.',
+            'new_status' => $transaction->status
+        ]);
+    }
 }
