@@ -213,11 +213,6 @@
                                        title="مشاهده جزئیات">
                                         <i class="ri-eye-line text-lg"></i>
                                     </a>
-                                    <a href="{{ route('admin.salons.edit', $salon) }}" 
-                                       class="text-yellow-600 hover:text-yellow-900 transition-colors duration-200"
-                                       title="ویرایش">
-                                        <i class="ri-edit-line text-lg"></i>
-                                    </a>
                                 </div>
                             </td>
                         </tr>

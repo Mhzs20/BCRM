@@ -51,12 +51,63 @@ class DiscountCodeController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $discountCodes = DiscountCode::with(['orders', 'salonUsages.salon'])
+        $query = DiscountCode::with(['orders', 'salonUsages.salon'])
             ->withCount('salonUsages')
-            ->orderBy('created_at', 'desc')
-            ->get();
+            ->orderBy('created_at', 'desc');
+
+        // Search filter
+        if ($request->filled('search')) {
+            $query->where('code', 'like', '%' . $request->search . '%');
+        }
+
+        // Status filter
+        if ($request->filled('status')) {
+            switch ($request->status) {
+                case 'active':
+                    $query->where('is_active', true)
+                          ->where(function($q) {
+                              $q->whereNull('expires_at')
+                                ->orWhere('expires_at', '>', now());
+                          });
+                    break;
+                case 'inactive':
+                    $query->where('is_active', false);
+                    break;
+                case 'expired':
+                    $query->where('is_active', true)
+                          ->where('expires_at', '<', now());
+                    break;
+            }
+        }
+
+        // Type filter
+        if ($request->filled('type')) {
+            $query->where('type', $request->type);
+        }
+
+        // User filter type
+        if ($request->filled('user_filter_type')) {
+            $query->where('user_filter_type', $request->user_filter_type);
+        }
+
+        // Date range filter
+        if ($request->filled('created_from')) {
+            $fromDate = $this->convertPersianDate($request->created_from);
+            if ($fromDate) {
+                $query->whereDate('created_at', '>=', $fromDate);
+            }
+        }
+
+        if ($request->filled('created_to')) {
+            $toDate = $this->convertPersianDate($request->created_to);
+            if ($toDate) {
+                $query->whereDate('created_at', '<=', $toDate);
+            }
+        }
+
+        $discountCodes = $query->paginate(15)->appends($request->all());
             
         return view('admin.discount-codes.index', compact('discountCodes'));
     }
@@ -221,7 +272,39 @@ class DiscountCodeController extends Controller
     {
         $discountCode->load('orders');
         $filterOptions = $filterService->getFilterOptions();
-        return view('admin.discount-codes.edit', array_merge(compact('discountCode'), $filterOptions));
+        
+        // Apply filters if provided
+        $filteredSalons = null;
+        if (request('filter_applied')) {
+            $filters = [];
+            $filterFields = ['province_id', 'city_id', 'business_category_id', 'business_subcategory_id', 'status', 'sms_balance_status', 'last_sms_purchase', 'monthly_sms_consumption'];
+            
+            foreach ($filterFields as $field) {
+                if (request($field)) {
+                    $filters[$field] = request($field);
+                }
+            }
+            
+            if (!empty($filters)) {
+                $filteredSalons = $filterService->getFilteredSalons($filters, 50);
+            }
+        }
+        
+        // Load related data for filters
+        if (request('province_id')) {
+            $cities = City::where('province_id', request('province_id'))->get();
+            $filterOptions['cities'] = $cities;
+        }
+        
+        if (request('business_category_id')) {
+            $businessSubcategories = BusinessSubcategory::where('business_category_id', request('business_category_id'))->get();
+            $filterOptions['businessSubcategories'] = $businessSubcategories;
+        }
+        
+        return view('admin.discount-codes.edit', array_merge(
+            compact('discountCode', 'filteredSalons'), 
+            $filterOptions
+        ));
     }
 
     /**
@@ -279,11 +362,20 @@ class DiscountCodeController extends Controller
         // Handle user filters
         if ($request->user_filter_type === 'filtered') {
             $filters = [];
-            $filterFields = ['province_id', 'city_id', 'business_category_id', 'business_subcategory_id', 'status', 'sms_balance_status', 'last_sms_purchase', 'monthly_sms_consumption'];
+            $filterMapping = [
+                'filter_province_id' => 'province_id',
+                'filter_city_id' => 'city_id', 
+                'filter_business_category_id' => 'business_category_id',
+                'filter_business_subcategory_id' => 'business_subcategory_id',
+                'filter_status' => 'status',
+                'filter_sms_balance_status' => 'sms_balance_status',
+                'filter_last_sms_purchase' => 'last_sms_purchase',
+                'filter_monthly_sms_consumption' => 'monthly_sms_consumption'
+            ];
             
-            foreach ($filterFields as $field) {
-                if ($request->filled($field)) {
-                    $filters[$field] = $request->$field;
+            foreach ($filterMapping as $formField => $dbField) {
+                if ($request->filled($formField)) {
+                    $filters[$dbField] = $request->$formField;
                 }
             }
             

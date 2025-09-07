@@ -35,6 +35,12 @@ class SmsCampaignResource extends JsonResource
             'customer_count' => $this->customer_count,
             'total_cost' => $this->total_cost,
             'status' => $this->status,
+            'approval_status' => $this->approval_status,
+            'uses_template' => $this->uses_template,
+            'sms_template_id' => $this->sms_template_id,
+            'approved_by' => $this->approved_by,
+            'approved_at' => $this->approved_at,
+            'rejection_reason' => $this->rejection_reason,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

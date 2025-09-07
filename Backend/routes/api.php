@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\AppController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\BannerController as ApiBannerController;
 use App\Http\Controllers\SatisfactionController;
+use App\Http\Controllers\ContactPickerController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -93,6 +94,15 @@ Route::middleware('auth:api')->group(function () {
             Route::post('customers/import/contacts', [CustomerController::class, 'importContacts'])->name('customers.import.contacts');
             Route::apiResource('customers', CustomerController::class)->except(['create', 'edit']);
 
+            // Contact API Picker Routes
+            Route::prefix('contact-picker')->name('contact_picker.')->group(function() {
+                Route::get('available-contacts', [ContactPickerController::class, 'getAvailableContacts'])->name('available_contacts');
+                Route::post('pick-and-import', [ContactPickerController::class, 'pickAndImportContacts'])->name('pick_and_import');
+                Route::post('validate', [ContactPickerController::class, 'validateContacts'])->name('validate');
+                Route::post('bulk-select-phone', [ContactPickerController::class, 'bulkSelectByPhoneNumbers'])->name('bulk_select_phone');
+                Route::get('import-history', [ContactPickerController::class, 'getImportHistory'])->name('import_history');
+            });
+
             Route::get('staff/booking-list', [StaffController::class, 'getBookingList'])->name('staff.bookingList');
             Route::get('staff/search', [StaffController::class, 'search'])->name('staff.search');
             Route::apiResource('staff', StaffController::class)->except(['create', 'edit']);
@@ -146,6 +156,7 @@ Route::middleware('auth:api')->group(function () {
             Route::prefix('sms-campaign')->name('sms_campaign.')->group(function () {
                 Route::post('prepare', [SmsCampaignController::class, 'prepareCampaign'])->name('prepare');
                 Route::post('{campaign}/send', [SmsCampaignController::class, 'sendCampaign'])->name('send');
+                Route::get('{campaign}/status', [SmsCampaignController::class, 'getCampaignStatus'])->name('status');
             });
         });
     });

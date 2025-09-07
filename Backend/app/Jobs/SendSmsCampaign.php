@@ -40,6 +40,13 @@ class SendSmsCampaign implements ShouldQueue
             return;
         }
 
+        // Check approval status for custom messages
+        if (!$this->campaign->uses_template && $this->campaign->approval_status !== 'approved') {
+            Log::warning("Skipping SMS Campaign #{$this->campaign->id} because it's not approved by admin.");
+            $this->campaign->update(['status' => 'failed']);
+            return;
+        }
+
         $this->campaign->update(['status' => 'sending']);
 
         try {

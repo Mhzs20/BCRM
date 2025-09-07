@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\AdminBulkSmsGiftController; // New controller
 use App\Http\Controllers\Admin\AdminBulkSmsController; // Bulk SMS controller
 use App\Http\Controllers\Admin\AdminTransactionController; // Transactions controller
 use App\Http\Controllers\ManualSmsController;
+use App\Http\Controllers\SmsCampaignController;
 use App\Http\Middleware\SuperAdminMiddleware;
 use Illuminate\Support\Facades\Route;
 
@@ -34,6 +35,18 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
     Route::post('manual-sms-approval/{batchId}/update-content', [ManualSmsController::class, 'updateManualSmsContent'])->name('manual_sms.update_content');
     Route::post('manual-sms-approval/{batchId}/approve', [ManualSmsController::class, 'approveManualSms'])->name('manual_sms.approve');
     Route::post('manual-sms-approval/{batchId}/reject', [ManualSmsController::class, 'rejectManualSms'])->name('manual_sms.reject');
+
+        // SMS Campaign Approval Routes
+    Route::prefix('sms-campaign-approval')->group(function () {
+        Route::get('/', [SmsCampaignController::class, 'index'])->name('sms_campaign_approval.index');
+        Route::get('/pending', [SmsCampaignController::class, 'getPendingCampaigns'])->name('sms_campaign_approval.pending');
+        Route::post('/{campaign}/approve', [SmsCampaignController::class, 'approveCampaign'])->name('sms_campaign_approval.approve');
+        Route::post('/{campaign}/reject', [SmsCampaignController::class, 'rejectCampaign'])->name('sms_campaign_approval.reject');
+        Route::put('/{campaign}/update-content', [SmsCampaignController::class, 'updateContent'])->name('sms_campaign_approval.update-content');
+    });
+
+    // SMS Campaign Reports
+    Route::get('sms-campaign-reports', [SmsCampaignController::class, 'reports'])->name('sms-campaign-reports.index');
     Route::post('sms-templates/system-update', [SmsTemplateController::class, 'systemUpdate'])->name('sms-templates.system-update');
     Route::resource('sms-templates', SmsTemplateController::class)->except(['show']);
     Route::post('sms-template-categories', [SmsTemplateCategoryController::class, 'store'])->name('sms-template-categories.store');
@@ -91,4 +104,6 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
 
     // Transactions (Payment) List
     Route::get('transactions', [AdminTransactionController::class, 'index'])->name('transactions.index');
+    Route::put('transactions/orders/{order}/status', [AdminTransactionController::class, 'updateOrderStatus'])->name('transactions.orders.update-status');
+    Route::put('transactions/transactions/{transaction}/status', [AdminTransactionController::class, 'updateTransactionStatus'])->name('transactions.transactions.update-status');
 });

@@ -19,10 +19,17 @@ class SmsCampaign extends Model
         'customer_count',
         'total_cost',
         'status',
+        'approval_status',
+        'approved_by',
+        'approved_at',
+        'rejection_reason',
+        'uses_template',
+        'sms_template_id',
     ];
 
     protected $casts = [
         'filters' => 'array',
+        'approved_at' => 'datetime',
     ];
 
     public function salon(): BelongsTo
@@ -38,5 +45,15 @@ class SmsCampaign extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(SmsCampaignMessage::class);
+    }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function smsTemplate(): BelongsTo
+    {
+        return $this->belongsTo(SalonSmsTemplate::class, 'sms_template_id');
     }
 }
