@@ -29,6 +29,23 @@ class AuthService
      */
     public function generateOtp(string $mobile): string
     {
+        // بررسی محدودیت زمانی 90 ثانیه برای درخواست OTP جدید
+        $lastOtpTimeKey = 'last_otp_time_' . $mobile;
+        $lastOtpTime = Cache::get($lastOtpTimeKey);
+        
+        if ($lastOtpTime) {
+            $currentTime = now();
+            $lastOtpCarbon = is_string($lastOtpTime) ? Carbon::parse($lastOtpTime) : $lastOtpTime;
+            $timeSinceLastOtp = $currentTime->timestamp - $lastOtpCarbon->timestamp;
+            
+            Log::info("AuthService::generateOtp - Time check for mobile: {$mobile}. Last OTP: {$lastOtpCarbon}, Current: {$currentTime}, Diff: {$timeSinceLastOtp} seconds");
+            
+            if ($timeSinceLastOtp < 90) {
+                $remainingSeconds = 90 - $timeSinceLastOtp;
+                throw new \Exception("برای درخواست کد تایید جدید باید {$remainingSeconds} ثانیه صبر کنید.");
+            }
+        }
+
         $cacheKey = 'otp_attempts_' . $mobile;
         $attempts = Cache::get($cacheKey, 0);
 
@@ -50,6 +67,9 @@ class AuthService
                 'otp_expires_at' => $expiresAt
             ]
         );
+
+        // ذخیره زمان ارسال آخرین OTP
+        Cache::put($lastOtpTimeKey, now(), now()->addMinutes(10));
 
         $this->smsService->sendOtp($mobile, $otp, $user);
 

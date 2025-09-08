@@ -54,6 +54,12 @@ class SendAppointmentReminderSms implements ShouldQueue
             return;
         }
 
+        // Only mark as processing if not already marked (in case called manually)
+        if ($appointment->reminder_sms_status === 'not_sent') {
+            $appointment->reminder_sms_status = 'processing';
+            $appointment->save();
+        }
+
         $smsService->sendAppointmentReminder($customer, $appointment, $this->salon);
         // The SmsService now handles updating the appointment's SMS status.
         Log::info("Reminder SMS sending process initiated for appointment {$appointment->id}. Status updates handled by SmsService.");

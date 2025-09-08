@@ -168,7 +168,7 @@ class SmsService
             case 11: // نرسیده به گیرنده
             case 13: // لغو شده
             case 14: // بلاک شده
-                return 'failed'; // Using 'failed' for all non-delivered statuses
+                return 'not_sent'; // Return 'not_sent' for failed deliveries as per requirement
             case 100: // شناسه پیامک نامعتبر است
             default:
                 return 'not_sent'; // Default or unknown status
@@ -313,13 +313,41 @@ class SmsService
                 return ['status' => 'success', 'message' => 'پیامک با موفقیت ارسال شد.'];
             } else {
                 Log::error("Kavenegar sendSms returned no entries or failed for '{$eventType}' to {$receptor}.");
-                $this->logTransaction($salon->user_id, $receptor, $message, 'failed', $eventType, $salon->id, $customerId, $appointmentId, 'Kavenegar API call failed or returned empty.'); // Pass actual appointmentId
+                
+                // Update appointment status to not_sent if applicable
+                if ($appointmentId) {
+                    $appointment = Appointment::find($appointmentId);
+                    if ($appointment) {
+                        if ($eventType === 'appointment_reminder') {
+                            $appointment->reminder_sms_status = 'not_sent';
+                        } elseif ($eventType === 'satisfaction_survey') {
+                            $appointment->satisfaction_sms_status = 'not_sent';
+                        }
+                        $appointment->save();
+                    }
+                }
+                
+                $this->logTransaction($salon->user_id, $receptor, $message, 'not_sent', $eventType, $salon->id, $customerId, $appointmentId, 'Kavenegar API call failed or returned empty.'); // Pass actual appointmentId
                 return ['status' => 'error', 'message' => 'خطا در ارسال پیامک.'];
             }
 
         } catch (\Exception $e) {
             Log::error("SMS ('{$eventType}') sending critical exception to {$receptor} for Salon ID {$salon->id}: " . $e->getMessage());
-            $this->logTransaction($salon->user_id, $receptor, $message, 'error', $eventType, $salon->id, $customerId, $appointmentId, $e->getMessage()); // Pass actual appointmentId
+            
+            // Update appointment status to not_sent if applicable
+            if ($appointmentId) {
+                $appointment = Appointment::find($appointmentId);
+                if ($appointment) {
+                    if ($eventType === 'appointment_reminder') {
+                        $appointment->reminder_sms_status = 'not_sent';
+                    } elseif ($eventType === 'satisfaction_survey') {
+                        $appointment->satisfaction_sms_status = 'not_sent';
+                    }
+                    $appointment->save();
+                }
+            }
+            
+            $this->logTransaction($salon->user_id, $receptor, $message, 'not_sent', $eventType, $salon->id, $customerId, $appointmentId, $e->getMessage()); // Pass actual appointmentId
             return ['status' => 'error', 'message' => 'خطای سیستمی در ارسال پیامک.'];
         }
     }

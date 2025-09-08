@@ -17,22 +17,11 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // Runs the reminder check every minute
+        // Send SMS reminders every minute
         $schedule->command('sms:send-reminders')->everyMinute();
 
-        // به‌روزرسانی وضعیت نوبت‌های گذشته به "انجام‌شده"
-        $schedule->command('appointments:update-status')
-            ->hourly(); // مثال: هر ساعت
-
-        // ارسال پیام تبریک تولد
-        $schedule->command('sms:send-birthday-greetings')
-            ->dailyAt('08:00'); // مثال: هر روز ساعت ۸ صبح
-
-        // بررسی وضعیت پیامک ها
-        $schedule->job(\App\Jobs\CheckSmsStatus::class)->everyFiveMinutes();
-
-        // Cancel past appointments
-        $schedule->command('appointments:cancel-past')->daily();
+        // Cancel past appointments - runs every 5 minutes for optimal user experience
+        $schedule->command('appointments:cancel-past')->everyFiveMinutes();
     }
 
     /**

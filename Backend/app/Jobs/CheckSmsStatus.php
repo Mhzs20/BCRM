@@ -43,7 +43,9 @@ class CheckSmsStatus implements ShouldQueue
     private function checkAppointmentSms(SmsService $smsService): void
     {
         $appointments = Appointment::where('reminder_sms_status', 'pending')
+            ->orWhere('reminder_sms_status', 'processing')
             ->orWhere('satisfaction_sms_status', 'pending')
+            ->orWhere('satisfaction_sms_status', 'processing')
             ->get();
 
         $messageIds = $appointments->pluck('reminder_sms_message_id')
@@ -74,11 +76,11 @@ class CheckSmsStatus implements ShouldQueue
         $statusField = "{$type}_sms_status";
         $messageIdField = "{$type}_sms_message_id";
 
-        if ($appointment->$statusField === 'pending' && $appointment->$messageIdField) {
+        if (in_array($appointment->$statusField, ['pending', 'processing']) && $appointment->$messageIdField) {
             $messageId = $appointment->$messageIdField;
             if (isset($statuses[$messageId])) {
                 $newStatus = $smsService->mapKavenegarStatusToInternal($statuses[$messageId]);
-                if ($newStatus !== 'pending') {
+                if (!in_array($newStatus, ['pending', 'processing'])) {
                     $appointment->$statusField = $newStatus;
                     $appointment->save();
                     Log::info("Updated {$type} SMS status for appointment {$appointment->id} to {$newStatus}.");
