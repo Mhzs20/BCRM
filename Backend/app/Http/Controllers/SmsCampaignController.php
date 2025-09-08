@@ -151,7 +151,8 @@ class SmsCampaignController extends Controller
         try {
             DB::transaction(function () use ($salon, $campaign) {
                 // Re-run & lock relevant data
-                $filters = json_decode($campaign->filters, true) ?: [];
+                $filters = is_string($campaign->filters) ? json_decode($campaign->filters, true) : $campaign->filters;
+                $filters = $filters ?: [];
                 $customers = $this->buildFilteredQuery(new Request($filters), $campaign->salon)->get();
 
                 // Build personalized messages
