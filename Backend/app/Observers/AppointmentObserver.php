@@ -18,15 +18,18 @@ class AppointmentObserver
         $appointment->hash = $hashids->encode($appointment->id);
         $appointment->saveQuietly(); // Use saveQuietly to avoid triggering the updated event
 
-        $customerName = optional($appointment->customer)->name ?? 'N/A';
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'salon_id' => $appointment->salon_id,
-            'activity_type' => 'created',
-            'description' => "New appointment created for customer: {$customerName}",
-            'loggable_id' => $appointment->id,
-            'loggable_type' => Appointment::class,
-        ]);
+        // Only create activity log if we have an authenticated user
+        if (Auth::id()) {
+            $customerName = optional($appointment->customer)->name ?? 'N/A';
+            ActivityLog::create([
+                'user_id' => Auth::id(),
+                'salon_id' => $appointment->salon_id,
+                'activity_type' => 'created',
+                'description' => "New appointment created for customer: {$customerName}",
+                'loggable_id' => $appointment->id,
+                'loggable_type' => Appointment::class,
+            ]);
+        }
     }
 
     public function updated(Appointment $appointment)
@@ -36,14 +39,17 @@ class AppointmentObserver
             $customerName = optional($appointment->customer)->name ?? 'N/A';
             $description = "Appointment for customer {$customerName} was {$activityType}.";
 
-            ActivityLog::create([
-                'user_id' => Auth::id(),
-                'salon_id' => $appointment->salon_id,
-                'activity_type' => $activityType,
-                'description' => $description,
-                'loggable_id' => $appointment->id,
-                'loggable_type' => Appointment::class,
-            ]);
+            // Only create activity log if we have an authenticated user
+            if (Auth::id()) {
+                ActivityLog::create([
+                    'user_id' => Auth::id(),
+                    'salon_id' => $appointment->salon_id,
+                    'activity_type' => $activityType,
+                    'description' => $description,
+                    'loggable_id' => $appointment->id,
+                    'loggable_type' => Appointment::class,
+                ]);
+            }
         }
 
         if ($appointment->isDirty('status') && $appointment->status === 'done') {
@@ -55,14 +61,17 @@ class AppointmentObserver
 
     public function deleted(Appointment $appointment)
     {
-        $customerName = optional($appointment->customer)->name ?? 'N/A';
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'salon_id' => $appointment->salon_id,
-            'activity_type' => 'deleted',
-            'description' => "Appointment for customer {$customerName} was deleted.",
-            'loggable_id' => $appointment->id,
-            'loggable_type' => Appointment::class,
-        ]);
+        // Only create activity log if we have an authenticated user
+        if (Auth::id()) {
+            $customerName = optional($appointment->customer)->name ?? 'N/A';
+            ActivityLog::create([
+                'user_id' => Auth::id(),
+                'salon_id' => $appointment->salon_id,
+                'activity_type' => 'deleted',
+                'description' => "Appointment for customer {$customerName} was deleted.",
+                'loggable_id' => $appointment->id,
+                'loggable_type' => Appointment::class,
+            ]);
+        }
     }
 }

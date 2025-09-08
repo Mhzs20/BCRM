@@ -225,25 +225,29 @@ class SmsCampaignController extends Controller
         }
 
         if ($request->filled('min_payment') || $request->filled('max_payment')) {
-            // For SQLite compatibility, we need to use a different approach
+            // Calculate customer payments from completed appointments total_price
             if ($request->filled('min_payment')) {
                 $minPayment = $request->input('min_payment');
                 $query->whereIn('id', function($q) use ($salon, $minPayment) {
                     $q->select('customer_id')
-                      ->from('payments_received')
+                      ->from('appointments')
                       ->where('salon_id', $salon->id)
+                      ->where('status', 'completed')
+                      ->whereNotNull('total_price')
                       ->groupBy('customer_id')
-                      ->havingRaw('SUM(amount) >= ?', [$minPayment]);
+                      ->havingRaw('SUM(total_price) >= ?', [$minPayment]);
                 });
             }
             if ($request->filled('max_payment')) {
                 $maxPayment = $request->input('max_payment');
                 $query->whereIn('id', function($q) use ($salon, $maxPayment) {
                     $q->select('customer_id')
-                      ->from('payments_received')
+                      ->from('appointments')
                       ->where('salon_id', $salon->id)
+                      ->where('status', 'completed')
+                      ->whereNotNull('total_price')
                       ->groupBy('customer_id')
-                      ->havingRaw('SUM(amount) <= ?', [$maxPayment]);
+                      ->havingRaw('SUM(total_price) <= ?', [$maxPayment]);
                 });
             }
         }
