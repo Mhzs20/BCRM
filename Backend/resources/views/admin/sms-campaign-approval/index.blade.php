@@ -259,22 +259,51 @@
         if (campaign.filters) {
             try {
                 const filters = typeof campaign.filters === 'string' ? JSON.parse(campaign.filters) : campaign.filters;
-                if (filters.phone_numbers && filters.phone_numbers.length > 0) {
-                    filtersText += `شماره‌های تماس: ${filters.phone_numbers.join(', ')}\n`;
-                }
+                
+                // Age filter
                 if (filters.min_age || filters.max_age) {
                     filtersText += `سن: ${filters.min_age || 0} تا ${filters.max_age || 'نامحدود'}\n`;
                 }
-                if (filters.professions && filters.professions.length > 0) {
+                
+                // Professions - prioritize enhanced data
+                if (filters.professions && Array.isArray(filters.professions) && filters.professions.length > 0) {
                     filtersText += `مشاغل: ${filters.professions.map(p => p.name).join(', ')}\n`;
+                } else if (filters.profession_id && Array.isArray(filters.profession_id) && filters.profession_id.length > 0) {
+                    filtersText += `شناسه مشاغل: ${filters.profession_id.join(', ')}\n`;
                 }
-                if (filters.customer_groups && filters.customer_groups.length > 0) {
+                
+                // Customer groups - prioritize enhanced data
+                if (filters.customer_groups && Array.isArray(filters.customer_groups) && filters.customer_groups.length > 0) {
                     filtersText += `گروه‌های مشتری: ${filters.customer_groups.map(g => g.name).join(', ')}\n`;
+                } else if (filters.customer_group_id && Array.isArray(filters.customer_group_id) && filters.customer_group_id.length > 0) {
+                    filtersText += `شناسه گروه‌های مشتری: ${filters.customer_group_id.join(', ')}\n`;
                 }
-                if (filters.how_introduceds && filters.how_introduceds.length > 0) {
+                
+                // How introduced - prioritize enhanced data
+                if (filters.how_introduceds && Array.isArray(filters.how_introduceds) && filters.how_introduceds.length > 0) {
                     filtersText += `نحوه آشنایی: ${filters.how_introduceds.map(h => h.name).join(', ')}\n`;
+                } else if (filters.how_introduced_id && Array.isArray(filters.how_introduced_id) && filters.how_introduced_id.length > 0) {
+                    filtersText += `شناسه نحوه آشنایی: ${filters.how_introduced_id.join(', ')}\n`;
+                }
+                
+                // Payment amount filter
+                if (filters.min_payment || filters.max_payment) {
+                    const minPayment = filters.min_payment ? filters.min_payment.toLocaleString() : '0';
+                    const maxPayment = filters.max_payment ? filters.max_payment.toLocaleString() : 'نامحدود';
+                    filtersText += `مبلغ پرداخت: ${minPayment} تا ${maxPayment} تومان\n`;
+                }
+                
+                // Appointments count filter
+                if (filters.min_appointments || filters.max_appointments) {
+                    filtersText += `تعداد قرارملاقات: ${filters.min_appointments || 0} تا ${filters.max_appointments || 'نامحدود'}\n`;
+                }
+                
+                // Phone numbers filter (if exists)
+                if (filters.phone_numbers && Array.isArray(filters.phone_numbers) && filters.phone_numbers.length > 0) {
+                    filtersText += `شماره‌های تلفن: ${filters.phone_numbers.join(', ')}\n`;
                 }
             } catch (e) {
+                console.error('خطا در پردازش فیلترها:', e);
                 filtersText = 'خطا در نمایش فیلترها';
             }
         }

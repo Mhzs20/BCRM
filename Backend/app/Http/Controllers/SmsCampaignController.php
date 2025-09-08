@@ -40,6 +40,17 @@ class SmsCampaignController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
+        // Enhance filters with complete object data for each campaign
+        foreach ($pendingCampaigns as $campaign) {
+            if ($campaign->filters) {
+                $filters = is_string($campaign->filters) ? json_decode($campaign->filters, true) : $campaign->filters;
+                if ($filters) {
+                    $enhancedFilters = $this->enhanceFiltersWithObjects($filters, $campaign->salon);
+                    $campaign->filters = $enhancedFilters;
+                }
+            }
+        }
+
         return view('admin.sms-campaign-approval.index', compact('pendingCampaigns'));
     }
 
