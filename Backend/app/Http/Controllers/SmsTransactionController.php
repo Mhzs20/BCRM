@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Salon;
 use App\Models\SmsTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,10 +13,9 @@ class SmsTransactionController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
+    public function index(Request $request, Salon $salon = null)
     {
         $user = Auth::user();
-        $salon = $request->route('salon');
         
         // Verify user has access to this salon
         if ($salon && !$user->salons()->where('id', $salon->id)->exists()) {
