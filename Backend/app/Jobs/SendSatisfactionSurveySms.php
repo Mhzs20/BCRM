@@ -54,6 +54,12 @@ class SendSatisfactionSurveySms implements ShouldQueue
             return;
         }
 
+        // Only mark as processing if not already marked
+        if ($appointment->satisfaction_sms_status === 'not_sent') {
+            $appointment->satisfaction_sms_status = 'processing';
+            $appointment->save();
+        }
+
         $smsService->sendSatisfactionSurvey($customer, $appointment, $this->salon);
         // The SmsService now handles updating the appointment's SMS status.
         Log::info("Satisfaction survey SMS sending process initiated for appointment {$appointment->id}. Status updates handled by SmsService.");
