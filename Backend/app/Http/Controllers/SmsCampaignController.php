@@ -108,7 +108,7 @@ class SmsCampaignController extends Controller
         $campaign = SmsCampaign::create([
             'salon_id' => $salon->id,
             'user_id' => Auth::id(),
-            'filters' => $request->validated(),
+            'filters' => json_encode($request->validated(), JSON_UNESCAPED_UNICODE),
             'message' => $message,
             'customer_count' => $customerCount,
             'total_cost' => $totalSmsParts,
