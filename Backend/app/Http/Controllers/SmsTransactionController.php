@@ -23,7 +23,7 @@ class SmsTransactionController extends Controller
         }
 
         $query = SmsTransaction::query()
-            ->with(['smsPackage', 'customer:id,name,phone_number', 'appointment:id,scheduled_at'])
+            ->with(['smsPackage', 'customer:id,name,phone_number', 'appointment:id,appointment_date,start_time,end_time'])
             ->latest();
 
         // Filter by salon if provided in route
@@ -114,9 +114,15 @@ class SmsTransactionController extends Controller
 
             // Add appointment info if exists
             if ($transaction->appointment) {
+                // Combine appointment_date and start_time to create a datetime
+                $appointmentDateTime = $transaction->appointment->appointment_date->format('Y-m-d') . ' ' . $transaction->appointment->start_time;
+                
                 $data['appointment'] = [
                     'id' => $transaction->appointment->id,
-                    'scheduled_at' => Jalalian::fromDateTime($transaction->appointment->scheduled_at)->format('Y/m/d H:i:s'),
+                    'appointment_date' => Jalalian::fromDateTime($transaction->appointment->appointment_date)->format('Y/m/d'),
+                    'start_time' => $transaction->appointment->start_time,
+                    'end_time' => $transaction->appointment->end_time,
+                    'scheduled_at' => Jalalian::fromDateTime($appointmentDateTime)->format('Y/m/d H:i:s'),
                 ];
             }
 
