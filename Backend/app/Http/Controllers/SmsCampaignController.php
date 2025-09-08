@@ -54,7 +54,7 @@ class SmsCampaignController extends Controller
         return view('admin.sms-campaign-approval.index', compact('pendingCampaigns'));
     }
 
-    public function prepareCampaign(FilterSmsCampaignRequest $request, Salon $salon): SmsCampaignResource
+    public function prepareCampaign(FilterSmsCampaignRequest $request, Salon $salon)
     {
         Gate::authorize('manageResources', $salon);
 
@@ -63,6 +63,15 @@ class SmsCampaignController extends Controller
         // Get customers directly instead of using pluck to avoid HAVING issues with distinct
         $customers = $query->get();
         $customerCount = $customers->count();
+
+        // Check if any customers match the filter
+        if ($customerCount === 0) {
+            return response()->json([
+                'message' => 'هیچ مشتری‌ای با فیلترهای انتخابی یافت نشد.',
+                'customer_count' => 0,
+                'error_type' => 'no_customers'
+            ], 422);
+        }
 
         $message = $request->input('message', '');
         $usesTemplate = false;
@@ -82,6 +91,19 @@ class SmsCampaignController extends Controller
             $finalMessage = str_replace('{customer_name}', $customer->name, $message);
             return $this->smsService->calculateSmsCount($finalMessage);
         });
+
+        // Check if salon has enough SMS balance
+        $smsBalance = $salon->smsBalance()->first();
+        if (!$smsBalance || $smsBalance->balance < $totalSmsParts) {
+            $currentBalance = $smsBalance ? $smsBalance->balance : 0;
+            return response()->json([
+                'message' => 'اعتبار پیامک کافی نیست.',
+                'required_sms_count' => $totalSmsParts,
+                'current_balance' => $currentBalance,
+                'customer_count' => $customerCount,
+                'error_type' => 'insufficient_balance'
+            ], 422);
+        }
 
         $campaign = SmsCampaign::create([
             'salon_id' => $salon->id,
@@ -359,13 +381,80 @@ class SmsCampaignController extends Controller
                 // Create a fake request with campaign data to reuse sendCampaign logic
                 $filters = json_decode($campaign->filters, true) ?: [];
                 $sendRequest = new Request($filters);
-                $this->sendCampaign($sendRequest, $campaign->salon, $campaign);
+                
+                // Use a separate method to avoid authorization issues in admin approval
+                $this->processCampaignSending($campaign);
+                
             } catch (\Exception $e) {
                 Log::error("Failed to send approved campaign #{$campaign->id}: " . $e->getMessage());
+                return response()->json([
+                    'success' => false, 
+                    'message' => 'خطا در ارسال کمپین: ' . $e->getMessage()
+                ], 500);
             }
         }
 
         return response()->json(['success' => true, 'message' => 'کمپین با موفقیت تایید شد و در صف ارسال قرار گرفت.']);
+    }
+
+    /**
+     * Process campaign sending without authorization checks (for admin approval)
+     */
+    private function processCampaignSending(SmsCampaign $campaign): void
+    {
+        if ($campaign->status !== 'draft') {
+            throw new \Exception('این کمپین قبلاً ارسال شده یا در حال پردازش است.');
+        }
+
+        DB::transaction(function () use ($campaign) {
+            // Re-run & lock relevant data
+            $filters = json_decode($campaign->filters, true) ?: [];
+            $customers = $this->buildFilteredQuery(new Request($filters), $campaign->salon)->get();
+
+            // Build personalized messages
+            $messagesToInsert = $customers->map(function ($customer) use ($campaign) {
+                $finalMessage = str_replace('{customer_name}', $customer->name, $campaign->message);
+                return [
+                    'sms_campaign_id' => $campaign->id,
+                    'customer_id' => $customer->id,
+                    'phone_number' => $customer->phone_number,
+                    'message' => $finalMessage,
+                    'status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            });
+
+            // Recalculate real total cost based on final personalized messages
+            $newTotalCost = $messagesToInsert->sum(function ($row) {
+                return $this->smsService->calculateSmsCount($row['message']);
+            });
+
+            // Lock & check balance
+            $balance = $campaign->salon->smsBalance()->lockForUpdate()->first();
+            if (!$balance || $balance->balance < $newTotalCost) {
+                throw new \Exception('اعتبار پیامک کافی نیست.');
+            }
+
+            // Deduct full recalculated cost (no prior deduction at draft stage)
+            if ($newTotalCost > 0) {
+                $balance->decrement('balance', $newTotalCost);
+            }
+
+            // Update campaign stats atomically
+            $campaign->update([
+                'status' => 'pending',
+                'total_cost' => $newTotalCost,
+                'customer_count' => $customers->count(),
+            ]);
+
+            if ($messagesToInsert->isNotEmpty()) {
+                $campaign->messages()->insert($messagesToInsert->toArray());
+            }
+        });
+
+        // Dispatch the job for sending
+        SendSmsCampaign::dispatch($campaign);
     }
 
     /**
