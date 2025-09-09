@@ -54,7 +54,7 @@ class SatisfactionController extends Controller
             return response()->json(['message' => 'هنوز زمان نوبت به پایان نرسیده است.'], 422);
         }
 
-        SendSatisfactionSurveySms::dispatch($appointment);
+    SendSatisfactionSurveySms::dispatch($appointment, $appointment->salon);
 
         return response()->json(['message' => 'پیامک نظرسنجی با موفقیت ارسال شد.']);
     }
