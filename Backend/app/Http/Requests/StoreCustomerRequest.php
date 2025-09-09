@@ -34,9 +34,10 @@ class StoreCustomerRequest extends FormRequest
                 'required',
                 'string',
                 'max:20',
-                Rule::unique('customers', 'phone_number')->where(function ($query) use ($salonId) {
-                    return $query->where('salon_id', $salonId);
-                })
+                    Rule::unique('customers', 'phone_number')->where(function ($query) use ($salonId) {
+                        return $query->where('salon_id', $salonId)
+                            ->whereNull('deleted_at');
+                    })
             ],
             'profile_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'birth_date' => 'nullable|jdate_format:Y/m/d',
