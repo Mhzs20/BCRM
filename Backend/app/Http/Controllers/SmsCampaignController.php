@@ -143,11 +143,10 @@ class SmsCampaignController extends Controller
         // Check approval status for custom messages
         if (!$campaign->uses_template && $campaign->approval_status !== 'approved') {
             return response()->json([
-                'message' => 'این کمپین نیاز به تایید ادمین دارد و هنوز تایید نشده است.',
+                'message' => 'کمپین شما با موفقیت ثبت شد و اکنون در حال بررسی است. به‌محض تأیید، پیام‌ها ارسال خواهند شد..',
                 'approval_status' => $campaign->approval_status
             ], 422);
         }
-
         try {
             DB::transaction(function () use ($salon, $campaign) {
                 // Re-run & lock relevant data

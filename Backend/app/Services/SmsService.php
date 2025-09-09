@@ -282,43 +282,34 @@ class SmsService
                 $firstEntry = $smsEntries[0]; // Kavenegar returns an array of entries
                 $messageId = $firstEntry['messageid'] ?? null;
                 $kavenegarStatus = $firstEntry['status'] ?? null;
-                
                 $internalStatus = ($kavenegarStatus !== null) 
                     ? $this->mapKavenegarStatusToInternal($kavenegarStatus) 
                     : 'not_sent';
-
                 // Update appointment status if applicable
                 if ($appointmentId) { // Use the actual appointmentId for DB operations
                     $appointment = Appointment::find($appointmentId);
                     if ($appointment) {
-                        // Determine which status field to update based on eventType
-                        if ($eventType === 'appointment_reminder') {
+                        if ($eventType === 'appointment_reminder' || $eventType === 'manual_reminder') {
                             $appointment->reminder_sms_status = $internalStatus;
                             $appointment->reminder_sms_message_id = $messageId;
                         } elseif ($eventType === 'satisfaction_survey') {
                             $appointment->satisfaction_sms_status = $internalStatus;
                             $appointment->satisfaction_sms_message_id = $messageId;
                         } elseif ($eventType === 'appointment_cancellation') { 
-                            // This was missing. Assuming a column exists or should be created.
-                            // For now, let's assume a generic status update is safe.
-                            // If a specific column like `cancellation_sms_status` exists, it should be used.
-                            // Let's log it for now, as we don't have the table structure.
                             Log::info("Updating status for cancellation of appointment {$appointmentId} to {$internalStatus}");
                         }
                         $appointment->save();
                     }
                 }
-
                 $this->logTransaction($salon->user_id, $receptor, $message, $internalStatus, $eventType, $salon->id, $customerId, $appointmentId, json_encode($smsEntries)); // Pass actual appointmentId
                 return ['status' => 'success', 'message' => 'پیامک با موفقیت ارسال شد.'];
             } else {
                 Log::error("Kavenegar sendSms returned no entries or failed for '{$eventType}' to {$receptor}.");
-                
                 // Update appointment status to not_sent if applicable
                 if ($appointmentId) {
                     $appointment = Appointment::find($appointmentId);
                     if ($appointment) {
-                        if ($eventType === 'appointment_reminder') {
+                        if ($eventType === 'appointment_reminder' || $eventType === 'manual_reminder') {
                             $appointment->reminder_sms_status = 'not_sent';
                         } elseif ($eventType === 'satisfaction_survey') {
                             $appointment->satisfaction_sms_status = 'not_sent';
@@ -326,7 +317,6 @@ class SmsService
                         $appointment->save();
                     }
                 }
-                
                 $this->logTransaction($salon->user_id, $receptor, $message, 'not_sent', $eventType, $salon->id, $customerId, $appointmentId, 'Kavenegar API call failed or returned empty.'); // Pass actual appointmentId
                 return ['status' => 'error', 'message' => 'خطا در ارسال پیامک.'];
             }
@@ -338,7 +328,7 @@ class SmsService
             if ($appointmentId) {
                 $appointment = Appointment::find($appointmentId);
                 if ($appointment) {
-                    if ($eventType === 'appointment_reminder') {
+                    if ($eventType === 'appointment_reminder' || $eventType === 'manual_reminder') {
                         $appointment->reminder_sms_status = 'not_sent';
                     } elseif ($eventType === 'satisfaction_survey') {
                         $appointment->satisfaction_sms_status = 'not_sent';

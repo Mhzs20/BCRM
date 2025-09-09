@@ -22,6 +22,9 @@ class Kernel extends ConsoleKernel
 
         // Cancel past appointments - runs every 5 minutes for optimal user experience
         $schedule->command('appointments:cancel-past')->everyFiveMinutes();
+
+        // Update reminder SMS status every 5 minutes
+        $schedule->command('sms:update-reminder-status')->everyFiveMinutes();
     }
 
     /**
