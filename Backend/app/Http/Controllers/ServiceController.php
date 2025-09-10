@@ -78,6 +78,17 @@ class ServiceController extends Controller
                 return $request->exists($key);
             })->toArray();
 
+            // Prevent deactivating service if it has active appointments
+            if (
+                array_key_exists('is_active', $updateData) &&
+                $updateData['is_active'] === false &&
+                $service->appointments()->whereIn('status', ['pending', 'confirmed'])->exists()
+            ) {
+                return response()->json([
+                    'message' => 'امکان غیرفعال‌سازی خدمت دارای نوبت فعال وجود ندارد.',
+                ], 422);
+            }
+
             if (Arr::except($updateData, ['staff_ids'])) {
                 $service->update(Arr::except($updateData, ['staff_ids']));
             }
@@ -100,6 +111,14 @@ class ServiceController extends Controller
     public function destroy(Salon $salon, Service $service)
     {
         // $this->authorize('delete', $service);
+
+        // Prevent deleting service if it has active appointments
+        $activeStatuses = ['pending', 'confirmed', 'pending_confirmation'];
+        if ($service->appointments()->whereIn('status', $activeStatuses)->exists()) {
+            return response()->json([
+                'message' => 'امکان حذف خدمت دارای نوبت فعال وجود ندارد.',
+            ], 422);
+        }
 
         try {
             $service->delete();

@@ -207,33 +207,51 @@ class AppointmentController extends Controller
         DB::beginTransaction();
 
         try {
-            if ($needsRecalculation) {
-                $newServiceIds = $validatedData['service_ids'] ?? $appointment->services->pluck('id')->toArray();
-                $newStaffId = $validatedData['staff_id'] ?? $appointment->staff_id;
-                $newDate = $validatedData['appointment_date'] ?? $appointment->appointment_date->format('Y-m-d');
-                $newStartTime = $validatedData['start_time'] ?? Carbon::parse($appointment->start_time)->format('H:i');
+                $oldServiceIds = $appointment->services->pluck('id')->toArray();
+                $oldStaffId = $appointment->staff_id;
+                $oldDate = $appointment->appointment_date->format('Y-m-d');
+                $oldStartTime = Carbon::parse($appointment->start_time)->format('H:i');
 
-                $newTotalDuration = $validatedData['total_duration'] ?? $appointment->total_duration; // Get total_duration for update
+                $newServiceIds = $validatedData['service_ids'] ?? $oldServiceIds;
+                $newStaffId = $validatedData['staff_id'] ?? $oldStaffId;
+                $newDate = $validatedData['appointment_date'] ?? $oldDate;
+                $newStartTime = $validatedData['start_time'] ?? $oldStartTime;
+                $newTotalDuration = $validatedData['total_duration'] ?? $appointment->total_duration;
 
-                if (!$this->appointmentBookingService->isSlotStillAvailable($salon->id, $newStaffId, $newServiceIds, $newTotalDuration, $newDate, $newStartTime, $appointment->id)) {
-                    DB::rollBack();
-                    return response()->json(['message' => 'زمان انتخابی جدید با نوبت دیگری تداخل دارد.'], 409);
-                }
-
-                $appointmentDetails = $this->appointmentBookingService->prepareAppointmentData(
-                    $salon->id,
-                    $appointment->customer_id,
-                    $newStaffId,
-                    $newServiceIds,
-                    $newDate,
-                    $newStartTime,
-                    $newTotalDuration, // Pass total_duration
-                    $validatedData['notes'] ?? $appointment->notes
+                $appointmentModified = (
+                    $newServiceIds !== $oldServiceIds ||
+                    $newDate != $oldDate ||
+                    $newStartTime != $oldStartTime
                 );
 
-                $appointment->update($appointmentDetails['appointment_data']);
-                $appointment->services()->sync($appointmentDetails['service_pivot_data']);
-            }
+                if ($needsRecalculation) {
+                    if (!$this->appointmentBookingService->isSlotStillAvailable($salon->id, $newStaffId, $newServiceIds, $newTotalDuration, $newDate, $newStartTime, $appointment->id)) {
+                        DB::rollBack();
+                        return response()->json(['message' => 'زمان انتخابی جدید با نوبت دیگری تداخل دارد.'], 409);
+                    }
+
+                    $appointmentDetails = $this->appointmentBookingService->prepareAppointmentData(
+                        $salon->id,
+                        $appointment->customer_id,
+                        $newStaffId,
+                        $newServiceIds,
+                        $newDate,
+                        $newStartTime,
+                        $newTotalDuration,
+                        $validatedData['notes'] ?? $appointment->notes
+                    );
+
+                    $appointment->update($appointmentDetails['appointment_data']);
+                    $appointment->services()->sync($appointmentDetails['service_pivot_data']);
+
+                    // ارسال پیامک بروزرسانی فقط اگر واقعا نوبت تغییر کرده باشد
+                    if ($appointmentModified) {
+                        $customer = $appointment->customer;
+                        if ($customer) {
+                            \App\Jobs\SendAppointmentModificationSms::dispatch($customer, $appointment, $salon);
+                        }
+                    }
+                }
 
             $updateData = Arr::except($validatedData, ['service_ids', 'internal_notes']);
 
@@ -265,6 +283,10 @@ class AppointmentController extends Controller
     {
         if ($appointment->salon_id != $salon_id) {
             return response()->json(['message' => 'نوبت یافت نشد.'], 404);
+        }
+
+        if ($appointment->status === 'done') {
+            return response()->json(['message' => 'امکان لغو نوبت انجام شده وجود ندارد.'], 403);
         }
 
         $customer = $appointment->customer;
@@ -493,6 +515,10 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
     {
         if ($appointment->salon_id != $salon->id) {
             return response()->json(['message' => 'نوبت یافت نشد.'], 404);
+        }
+
+        if ($appointment->status === 'done') {
+            return response()->json(['message' => 'برای نوبت انجام شده امکان ارسال پیامک یادآوری وجود ندارد.'], 403);
         }
 
         try {

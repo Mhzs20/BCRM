@@ -26,7 +26,7 @@ class StoreStaffRequest extends FormRequest
         $salon = $this->route('salon');
         return [
             'full_name' => ['required', 'string', 'max:255'],
-            'phone_number' => ['nullable', 'string', 'max:20', Rule::unique('salon_staff', 'phone_number')->where('salon_id', $salon->id)],
+            'phone_number' => ['nullable', 'string', 'max:20', new \App\Rules\IranianPhoneNumber(), Rule::unique('salon_staff', 'phone_number')->where('salon_id', $salon->id)],
             'specialty' => ['nullable', 'string', 'max:255'],
             'is_active' => ['sometimes', 'boolean'],
             'profile_image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
