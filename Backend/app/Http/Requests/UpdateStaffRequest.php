@@ -29,7 +29,7 @@ class UpdateStaffRequest extends FormRequest
         $staff = $this->route('staff');
         return [
             'full_name' => ['sometimes', 'required', 'string', 'max:255'],
-            'phone_number' => ['sometimes','required','string','max:20',Rule::unique('salon_staff', 'phone_number')->where('salon_id', $salon->id)->ignore($staff->id)],
+            'phone_number' => ['sometimes','required','string','max:20',new \App\Rules\IranianPhoneNumber(),Rule::unique('salon_staff', 'phone_number')->where('salon_id', $salon->id)->ignore($staff->id)],
             'specialty' => ['sometimes', 'nullable', 'string', 'max:255'],
             'is_active' => ['sometimes', 'boolean'],
             'profile_image' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
