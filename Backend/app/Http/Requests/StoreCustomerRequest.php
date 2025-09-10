@@ -42,7 +42,7 @@ class StoreCustomerRequest extends FormRequest
             'profile_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'birth_date' => 'nullable|jdate_format:Y/m/d',
             'gender' => 'nullable|in:male,female,other',
-            'emergency_contact' => 'nullable|string|max:20',
+            'emergency_contact' => ['nullable', 'string', 'max:20', new \App\Rules\IranianPhoneNumber()],
             'address' => 'nullable|string',
             'notes' => 'nullable|string',
 

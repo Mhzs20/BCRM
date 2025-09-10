@@ -190,18 +190,40 @@ class StaffController extends Controller
     public function destroy(Salon $salon, Staff $staff)
     {
         $this->authorize('delete', $staff);
+        $fillStaffId = request()->input('fill_staff_id');
         try {
-            if ($staff->appointments()->whereIn('status', ['confirmed', 'pending'])->exists()) {
+            if (!$fillStaffId && $staff->appointments()->whereIn('status', ['confirmed', 'pending'])->exists()) {
                 return response()->json(['message' => 'این پرسنل دارای نوبت‌های فعال است و قابل حذف نیست.'], 403);
+            }
+            if ($fillStaffId) {
+                $fillStaff = Staff::where('salon_id', $salon->id)->find($fillStaffId);
+                if (!$fillStaff) {
+                    return response()->json(['message' => 'کارمند جایگزین پیدا نشد.'], 404);
+                }
+                // انتقال نوبت‌ها
+                \App\Models\Appointment::where('staff_id', $staff->id)->update(['staff_id' => $fillStaff->id]);
+                // اگر ستون staff_id در جدول payments وجود دارد، انتقال انجام شود
+                try {
+                    \App\Models\Payment::where('salon_id', $salon->id)->where('staff_id', $staff->id)
+                        ->update(['staff_id' => $fillStaff->id]);
+                } catch (\Exception $e) {
+                    Log::error('Payment staff_id update error: ' . $e->getMessage());
+                }
             }
             if ($staff->profile_image) {
                 Storage::disk('public')->delete($staff->profile_image);
             }
             $staff->delete();
-            return response()->json(null, 204);
+            return response()->json([
+                'success' => true,
+                'message' => 'پرسنل با موفقیت حذف شد و اطلاعات به کارمند جدید منتقل گردید.'
+            ], 200);
         } catch (\Exception $e) {
             Log::error('Staff delete failed: ' . $e->getMessage());
-            return response()->json(['message' => 'خطا در حذف پرسنل.'], 500);
+            return response()->json([
+                'message' => 'خطا در حذف پرسنل.',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
