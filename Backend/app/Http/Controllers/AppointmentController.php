@@ -61,6 +61,13 @@ class AppointmentController extends Controller
                 return response()->json(['message' => 'فرمت تاریخ شمسی نامعتبر است.'], 422);
             }
         }
+        $activeServicesCount = \App\Models\Service::where('salon_id', $salon_id)
+            ->whereIn('id', $validatedData['service_ids'])
+            ->where('is_active', true)
+            ->count();
+        if ($activeServicesCount !== count($validatedData['service_ids'])) {
+            return response()->json(['message' => 'یکی از سرویس‌های انتخاب شده غیر فعال است و امکان ثبت نوبت وجود ندارد.'], 422);
+        }
         $customer = null;
         DB::beginTransaction();
         try {

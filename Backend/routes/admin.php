@@ -15,7 +15,7 @@ use App\Http\Controllers\Admin\BannerController;
 use App\Http\Controllers\Admin\AdminSalonController;
 use App\Http\Controllers\Admin\AdminBulkSmsGiftController; // New controller
 use App\Http\Controllers\Admin\AdminBulkSmsController; // Bulk SMS controller
-use App\Http\Controllers\Admin\AdminTransactionController; // Transactions controller
+use App\Http\Controllers\Admin\AdminAppointmentController; // Appointments controller
 use App\Http\Controllers\ManualSmsController;
 use App\Http\Controllers\SmsCampaignController;
 use App\Http\Middleware\SuperAdminMiddleware;
@@ -106,4 +106,9 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
     Route::get('transactions', [AdminTransactionController::class, 'index'])->name('transactions.index');
     Route::put('transactions/orders/{order}/status', [AdminTransactionController::class, 'updateOrderStatus'])->name('transactions.orders.update-status');
     Route::put('transactions/transactions/{transaction}/status', [AdminTransactionController::class, 'updateTransactionStatus'])->name('transactions.transactions.update-status');
+
+    // Appointments
+    Route::get('appointments', [AdminAppointmentController::class, 'index'])->name('appointments.index');
+    Route::get('appointments/{appointment}', [AdminAppointmentController::class, 'show'])->name('appointments.show');
+    Route::put('appointments/{appointment}/status', [AdminAppointmentController::class, 'updateStatus'])->name('appointments.update-status');
 });
