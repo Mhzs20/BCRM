@@ -336,6 +336,13 @@ class SmsCampaignController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
+        // اطمینان از نمایش پیام ادیت‌شده
+        foreach ($campaigns as $campaign) {
+            if ($campaign->message) {
+                $campaign->message = $campaign->message;
+            }
+        }
+
         return response()->json($campaigns);
     }
 
@@ -368,12 +375,14 @@ class SmsCampaignController extends Controller
             'edited_message' => 'nullable|string|max:1000',
         ]);
 
-        $campaign->update([
-            'approval_status' => 'approved',
-            'approved_by' => Auth::id(),
-            'approved_at' => now(),
-            'message' => $request->input('edited_message', $campaign->message),
-        ]);
+        $editedMessage = $request->input('edited_message');
+        if ($editedMessage !== null) {
+            $campaign->message = $editedMessage;
+        }
+        $campaign->approval_status = 'approved';
+        $campaign->approved_by = Auth::id();
+        $campaign->approved_at = now();
+        $campaign->save();
 
         // Automatically trigger send process for approved campaigns
         if ($campaign->status === 'draft') {
@@ -381,15 +390,16 @@ class SmsCampaignController extends Controller
                 // Create a fake request with campaign data to reuse sendCampaign logic
                 $filters = json_decode($campaign->filters, true) ?: [];
                 $sendRequest = new Request($filters);
-                
+
                 // Use a separate method to avoid authorization issues in admin approval
                 $this->processCampaignSending($campaign);
-                
+
             } catch (\Exception $e) {
-                Log::error("Failed to send approved campaign #{$campaign->id}: " . $e->getMessage());
+                Log::error("Failed to send approved campaign #{$campaign->id}: " . $e->getMessage() . ' | Stack: ' . $e->getTraceAsString());
                 return response()->json([
-                    'success' => false, 
-                    'message' => 'خطا در ارسال کمپین: ' . $e->getMessage()
+                    'success' => false,
+                    'message' => 'خطا در ارسال کمپین: ' . $e->getMessage(),
+                    'details' => $e->getTraceAsString(),
                 ], 500);
             }
         }
@@ -501,9 +511,8 @@ class SmsCampaignController extends Controller
             'edited_message' => 'required|string|max:1000',
         ]);
 
-        $campaign->update([
-            'message' => $request->input('edited_message'),
-        ]);
+    $campaign->message = $request->input('edited_message');
+    $campaign->save();
 
         return response()->json(['success' => true, 'message' => 'محتوای کمپین با موفقیت ویرایش شد.']);
     }
