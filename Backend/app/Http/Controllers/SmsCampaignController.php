@@ -64,11 +64,16 @@ class SmsCampaignController extends Controller
         $customers = $query->get();
         $customerCount = $customers->count();
 
+        // Debug: Check total customers without filters
+        $totalCustomers = $salon->customers()->where('sms_opt_out', false)->count();
+
         // Check if any customers match the filter
         if ($customerCount === 0) {
             return response()->json([
                 'message' => 'هیچ مشتری‌ای با فیلترهای انتخابی یافت نشد.',
                 'customer_count' => 0,
+                'total_customers_in_salon' => $totalCustomers,
+                'filters_applied' => $request->only(['min_age', 'max_age', 'profession_id', 'customer_group_id', 'how_introduced_id', 'min_appointments', 'max_appointments']),
                 'error_type' => 'no_customers'
             ], 422);
         }
@@ -232,29 +237,39 @@ class SmsCampaignController extends Controller
         }
 
         if ($request->filled('profession_id')) {
-            $query->whereIn('profession_id', $request->input('profession_id'));
+            $query->whereHas('profession', function($q) use ($salon, $request) {
+                $q->where('salon_id', $salon->id)
+                  ->whereIn('id', $request->input('profession_id'));
+            });
         }
         if ($request->filled('customer_group_id')) {
-            $query->whereIn('customer_group_id', $request->input('customer_group_id'));
+            $query->whereHas('customerGroup', function($q) use ($salon, $request) {
+                $q->where('salon_id', $salon->id)
+                  ->whereIn('id', $request->input('customer_group_id'));
+            });
         }
         if ($request->filled('how_introduced_id')) {
-            $query->whereIn('how_introduced_id', $request->input('how_introduced_id'));
+            $query->whereHas('howIntroduced', function($q) use ($salon, $request) {
+                $q->where('salon_id', $salon->id)
+                  ->whereIn('id', $request->input('how_introduced_id'));
+            });
         }
 
         if ($request->filled('min_appointments') || $request->filled('max_appointments')) {
-            // Use subquery to filter customers based on appointment count
             $minAppointments = $request->input('min_appointments', 0);
             $maxAppointments = $request->input('max_appointments', PHP_INT_MAX);
             
-            $query->whereHas('appointments', function ($appointmentQuery) use ($minAppointments, $maxAppointments) {
-                $appointmentQuery->where('status', 'completed');
-            }, '>=', $minAppointments);
-            
-            if ($request->filled('max_appointments')) {
-                $query->whereHas('appointments', function ($appointmentQuery) {
-                    $appointmentQuery->where('status', 'completed');
-                }, '<=', $maxAppointments);
-            }
+            $query->whereIn('id', function($q) use ($salon, $minAppointments, $maxAppointments, $request) {
+                $q->select('customer_id')
+                  ->from('appointments')
+                  ->where('salon_id', $salon->id)
+                  ->groupBy('customer_id')
+                  ->havingRaw('COUNT(*) >= ?', [$minAppointments]);
+                  
+                if ($request->filled('max_appointments')) {
+                    $q->havingRaw('COUNT(*) <= ?', [$maxAppointments]);
+                }
+            });
         }
 
         if ($request->filled('min_payment') || $request->filled('max_payment')) {
@@ -265,7 +280,6 @@ class SmsCampaignController extends Controller
                     $q->select('customer_id')
                       ->from('appointments')
                       ->where('salon_id', $salon->id)
-                      ->where('status', 'completed')
                       ->whereNotNull('total_price')
                       ->groupBy('customer_id')
                       ->havingRaw('SUM(total_price) >= ?', [$minPayment]);
@@ -277,7 +291,6 @@ class SmsCampaignController extends Controller
                     $q->select('customer_id')
                       ->from('appointments')
                       ->where('salon_id', $salon->id)
-                      ->where('status', 'completed')
                       ->whereNotNull('total_price')
                       ->groupBy('customer_id')
                       ->havingRaw('SUM(total_price) <= ?', [$maxPayment]);

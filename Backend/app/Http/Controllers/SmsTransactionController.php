@@ -29,12 +29,14 @@ class SmsTransactionController extends Controller
         // Filter by salon if provided in route
         if ($salon) {
             $query->where('salon_id', $salon->id);
+            // For salon-specific requests, show only purchase transactions
+            $query->where('type', 'purchase');
         } else {
             // If no specific salon, filter by user's salons
             $query->where('user_id', $user->id);
         }
 
-        // Filter by transaction type if provided
+        // Additional filters (these can override the default purchase filter if needed)
         if ($request->filled('type')) {
             $query->where('type', $request->type);
         }
@@ -129,36 +131,24 @@ class SmsTransactionController extends Controller
             return $data;
         });
 
-        // Calculate summary statistics
+                // Calculate summary statistics
+        $summaryQuery = SmsTransaction::query();
+        
+        if ($salon) {
+            $summaryQuery->where('salon_id', $salon->id)->where('type', 'purchase');
+        } else {
+            $summaryQuery->where('user_id', $user->id);
+        }
+        
         $summary = [
-            'total_transactions' => $transactions->total(),
-            'total_amount' => SmsTransaction::when($salon, function($q) use ($salon) {
-                    return $q->where('salon_id', $salon->id);
-                }, function($q) use ($user) {
-                    return $q->where('user_id', $user->id);
-                })
-                ->sum('amount'),
-            'total_sms_sent' => SmsTransaction::when($salon, function($q) use ($salon) {
-                    return $q->where('salon_id', $salon->id);
-                }, function($q) use ($user) {
-                    return $q->where('user_id', $user->id);
-                })
-                ->sum('sms_count'),
-            'transactions_by_type' => SmsTransaction::when($salon, function($q) use ($salon) {
-                    return $q->where('salon_id', $salon->id);
-                }, function($q) use ($user) {
-                    return $q->where('user_id', $user->id);
-                })
-                ->selectRaw('type, COUNT(*) as count, COALESCE(SUM(amount), 0) as total_amount, COALESCE(SUM(sms_count), 0) as total_sms')
+            'total_transactions' => (clone $summaryQuery)->count(),
+            'total_amount' => (clone $summaryQuery)->sum('amount'),
+            'total_sms_sent' => (clone $summaryQuery)->sum('sms_count'),
+            'transactions_by_type' => (clone $summaryQuery)->selectRaw('type, COUNT(*) as count, COALESCE(SUM(amount), 0) as total_amount, COALESCE(SUM(sms_count), 0) as total_sms')
                 ->groupBy('type')
                 ->get()
                 ->keyBy('type'),
-            'transactions_by_status' => SmsTransaction::when($salon, function($q) use ($salon) {
-                    return $q->where('salon_id', $salon->id);
-                }, function($q) use ($user) {
-                    return $q->where('user_id', $user->id);
-                })
-                ->selectRaw('status, COUNT(*) as count')
+            'transactions_by_status' => (clone $summaryQuery)->selectRaw('status, COUNT(*) as count')
                 ->groupBy('status')
                 ->get()
                 ->keyBy('status'),
