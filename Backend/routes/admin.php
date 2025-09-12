@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\AdminSalonController;
 use App\Http\Controllers\Admin\AdminBulkSmsGiftController; // New controller
 use App\Http\Controllers\Admin\AdminBulkSmsController; // Bulk SMS controller
 use App\Http\Controllers\Admin\AdminAppointmentController; // Appointments controller
+use App\Http\Controllers\Admin\AdminTransactionController;
 use App\Http\Controllers\ManualSmsController;
 use App\Http\Controllers\SmsCampaignController;
 use App\Http\Middleware\SuperAdminMiddleware;
