@@ -198,7 +198,7 @@ class AppointmentReportController extends Controller
             ->groupBy('date')
             ->get()->avg('count');
 
-        $dailyAverageCompleted = (clone $baseQuery)->where('status', 'done')
+        $dailyAverageCompleted = (clone $baseQuery)->where('status', 'completed')
             ->select(DB::raw('DATE(start_time) as date'), DB::raw('count(*) as count'))
             ->groupBy('date')
             ->get()->avg('count');
