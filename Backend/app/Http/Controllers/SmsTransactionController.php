@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Order;
+use App\Models\Transaction;
 use App\Models\Salon;
 use App\Models\SmsTransaction;
 use Illuminate\Http\Request;
@@ -102,6 +104,7 @@ class SmsTransactionController extends Controller
                     'name' => $transaction->smsPackage->name,
                     'sms_count' => $transaction->smsPackage->sms_count,
                     'price' => $transaction->smsPackage->price,
+                    'discount_price' => $transaction->smsPackage->discount_price,
                 ];
             }
 
@@ -193,10 +196,131 @@ class SmsTransactionController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Display financial transactions for a specific salon
      */
-    public function destroy(SmsTransaction $smsTransaction)
+    public function financialTransactions(Request $request, Salon $salon = null)
     {
-        //
+        $user = Auth::user();
+        
+        // Verify user has access to this salon
+        if ($salon && !$user->salons()->where('id', $salon->id)->exists()) {
+            return response()->json(['error' => 'Unauthorized access to salon'], 403);
+        }
+
+        $query = Order::query()
+            ->with(['salon:id,name', 'user:id,name', 'smsPackage:id,name', 'transactions' => function($q) {
+                $q->latest();
+            }])
+            ->latest();
+
+        // Filter by salon if provided
+        if ($salon) {
+            $query->where('salon_id', $salon->id);
+        } else {
+            // If no specific salon, filter by user's salons
+            $query->where('user_id', $user->id);
+        }
+
+        // Filter by status if provided
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Filter by date range if provided
+        if ($request->filled('from_date')) {
+            $query->whereDate('created_at', '>=', $request->from_date);
+        }
+        if ($request->filled('to_date')) {
+            $query->whereDate('created_at', '<=', $request->to_date);
+        }
+
+        $orders = $query->paginate($request->get('per_page', 20));
+
+        $formattedOrders = $orders->getCollection()->map(function ($order) {
+            $data = [
+                'id' => $order->id,
+                'amount' => $order->amount,
+                'sms_count' => $order->sms_count,
+                'status' => $order->status,
+                'description' => $order->discount_code ? "خرید پکیج با کد تخفیف {$order->discount_code}" : 'خرید بسته پیامک',
+                'date' => Jalalian::fromDateTime($order->created_at)->format('Y/m/d'),
+                'time' => Jalalian::fromDateTime($order->created_at)->format('H:i:s'),
+                'created_at' => $order->created_at,
+            ];
+
+            // Add salon info if exists
+            if ($order->salon) {
+                $data['salon'] = [
+                    'id' => $order->salon->id,
+                    'name' => $order->salon->name,
+                ];
+            }
+
+            // Add user info if exists
+            if ($order->user) {
+                $data['user'] = [
+                    'id' => $order->user->id,
+                    'name' => $order->user->name,
+                ];
+            }
+
+            // Add SMS package info if exists
+            if ($order->smsPackage) {
+                $data['package'] = [
+                    'id' => $order->smsPackage->id,
+                    'name' => $order->smsPackage->name,
+                    'sms_count' => $order->smsPackage->sms_count,
+                    'price' => $order->smsPackage->price,
+                    'discount_price' => $order->smsPackage->discount_price,
+                ];
+            }
+
+            // Add transaction details if exists
+            if ($order->transactions && $order->transactions->isNotEmpty()) {
+                $transaction = $order->transactions->first();
+                $data['transaction'] = [
+                    'id' => $transaction->id,
+                    'gateway' => $transaction->gateway,
+                    'transaction_id' => $transaction->transaction_id,
+                    'reference_id' => $transaction->reference_id,
+                    'status' => $transaction->status,
+                    'description' => $transaction->description,
+                ];
+            }
+
+            return $data;
+        });
+
+        // Calculate summary statistics
+        $summaryQuery = Order::query();
+        
+        if ($salon) {
+            $summaryQuery->where('salon_id', $salon->id);
+        } else {
+            $summaryQuery->where('user_id', $user->id);
+        }
+
+        $summary = [
+            'total_orders' => (clone $summaryQuery)->count(),
+            'total_amount' => (clone $summaryQuery)->sum('amount'),
+            'total_sms_purchased' => (clone $summaryQuery)->sum('sms_count'),
+            'orders_by_status' => (clone $summaryQuery)->selectRaw('status, COUNT(*) as count, COALESCE(SUM(amount), 0) as total_amount')
+                ->groupBy('status')
+                ->get()
+                ->keyBy('status'),
+        ];
+
+        return response()->json([
+            'data' => $formattedOrders,
+            'meta' => [
+                'current_page' => $orders->currentPage(),
+                'last_page' => $orders->lastPage(),
+                'per_page' => $orders->perPage(),
+                'total' => $orders->total(),
+                'from' => $orders->firstItem(),
+                'to' => $orders->lastItem(),
+            ],
+            'summary' => $summary,
+        ]);
     }
 }
