@@ -286,6 +286,7 @@
                     <a href="{{ route('admin.how-introduced.index') }}" class="block px-4 py-2 rounded-lg text-sm {{ request()->routeIs('admin.how-introduced.*') ? 'bg-gray-700 text-white' : 'hover:bg-gray-700' }}">نحوه آشنایی</a>
                     <a href="{{ route('admin.professions.index') }}" class="block px-4 py-2 rounded-lg text-sm {{ request()->routeIs('admin.professions.*') ? 'bg-gray-700 text-white' : 'hover:bg-gray-700' }}">مشاغل</a>
                     <a href="{{ route('admin.customer-groups.index') }}" class="block px-4 py-2 rounded-lg text-sm {{ request()->routeIs('admin.customer-groups.*') ? 'bg-gray-700 text-white' : 'hover:bg-gray-700' }}">گروه‌های مشتریان</a>
+                     <a href="{{ route('card-setting.index') }}" class="block px-4 py-2 rounded-lg text-sm {{ request()->routeIs('card-setting.*') ? 'bg-gray-700 text-white' : 'hover:bg-gray-700' }}">تنظیمات کارت</a>
                 </div>
                 <div x-show="open && !sidebarOpen" @mouseleave="open = false" @click.away="open = false"
                      class="fixed top-0 right-20 w-52 bg-gray-800 border border-gray-700 rounded-lg shadow-xl py-2 z-[9999] space-y-1" 

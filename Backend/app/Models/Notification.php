@@ -11,4 +11,11 @@ class Notification extends Model
         'message',
         'is_important',
     ];
+
+    public function salons()
+    {
+        return $this->belongsToMany(Salon::class, 'notification_salon')
+            ->withPivot('is_read')
+            ->withTimestamps();
+    }
 }
