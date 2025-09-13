@@ -312,10 +312,10 @@ class AuthController extends Controller
                 'customers',
                 'appointments as total_appointments_count',
                 'appointments as active_appointments_count' => function ($query) {
-                    $query->whereIn('status', ['confirmed', 'pending_confirmation']);
+                    $query->whereIn('status', ['confirmed', 'pending_confirmation', 'pending']);
                 },
                 'appointments as canceled_appointments_count' => function ($query) {
-                    $query->where('status', 'canceled');
+                    $query->whereIn('status', ['canceled', 'cancelled']);
                 }
             ]);
         }
@@ -326,10 +326,10 @@ class AuthController extends Controller
                 'customers',
                 'appointments as total_appointments_count',
                 'appointments as active_appointments_count' => function ($query) {
-                    $query->whereIn('status', ['confirmed', 'pending_confirmation']);
+                    $query->whereIn('status', ['confirmed', 'pending_confirmation', 'pending']);
                 },
                 'appointments as canceled_appointments_count' => function ($query) {
-                    $query->where('status', 'canceled');
+                    $query->whereIn('status', ['canceled', 'cancelled']);
                 }
             ]);
         });
