@@ -37,7 +37,7 @@ class StaffController extends Controller
         $sortDirection = $request->input('sort_direction', 'asc');
 
         if ($sortBy === 'appointment_count') {
-            $sortBy = 'appointments_count';
+            $sortBy = 'total_appointments';
         } elseif ($sortBy === 'total_income') {
             $sortBy = 'total_income';
         }
@@ -60,7 +60,15 @@ class StaffController extends Controller
 
         $query = $salon->staff()
             ->with(['services:id,name', 'schedules'])
-            ->withCount('appointments')
+            ->withCount([
+                'appointments as total_appointments',
+                'appointments as completed_appointments' => function ($query) {
+                    $query->where('status', 'completed');
+                },
+                'appointments as canceled_appointments' => function ($query) {
+                    $query->where('status', 'canceled');
+                }
+            ])
             ->withSum('appointments as total_income', 'total_price');
 
         if ($request->filled('q')) {
@@ -72,7 +80,20 @@ class StaffController extends Controller
             });
         }
 
-        $staffMembers = $query->orderBy($request->input('sort_by', 'full_name'), $request->input('sort_direction', 'asc'))
+        if ($request->filled('is_active')) {
+            $query->where('is_active', $request->boolean('is_active'));
+        }
+
+        $sortBy = $request->input('sort_by', 'full_name');
+        $sortDirection = $request->input('sort_direction', 'asc');
+
+        if ($sortBy === 'appointment_count') {
+            $sortBy = 'total_appointments';
+        } elseif ($sortBy === 'total_income') {
+            $sortBy = 'total_income';
+        }
+
+        $staffMembers = $query->orderBy($sortBy, $sortDirection)
             ->paginate($request->input('per_page', 100));
 
         $staffMembers->getCollection()->transform(function ($staff) {
