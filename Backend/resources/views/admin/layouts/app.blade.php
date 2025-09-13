@@ -178,7 +178,7 @@
                          x-cloak>
                         <div class="py-1">
                             <div class="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
-                                {{ Auth::user()->name }}
+                                {{ Auth::user() ? Auth::user()->name : 'کاربر مهمان' }}
                             </div>
                             <form method="POST" action="{{ route('logout') }}">
                                 @csrf

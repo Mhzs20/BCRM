@@ -27,6 +27,14 @@ class Salon extends Model
 {
     use HasFactory;
 
+    public function notifications()
+    {
+        return $this->belongsToMany(Notification::class, 'notification_salon')
+            ->withPivot('is_read')
+            ->withTimestamps();
+    }
+    use HasFactory;
+
     protected $with = ['businessCategory', 'businessSubcategories', 'user', 'city', 'province'];
 
     protected $fillable = [

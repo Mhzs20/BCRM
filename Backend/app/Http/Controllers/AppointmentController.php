@@ -317,8 +317,16 @@ class AppointmentController extends Controller
 
         try {
             $query = Appointment::where('salon_id', $salon_id)
-                ->where('appointment_date', $validated['date'])
                 ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name']);
+
+            // فیلتر بازه تاریخی
+            if (!empty($validated['start_date']) && !empty($validated['end_date'])) {
+                $query->whereBetween('appointment_date', [$validated['start_date'], $validated['end_date']]);
+            } elseif (!empty($validated['start_date'])) {
+                $query->where('appointment_date', '>=', $validated['start_date']);
+            } elseif (!empty($validated['end_date'])) {
+                $query->where('appointment_date', '<=', $validated['end_date']);
+            }
 
             if ($validated['staff_id'] != -1) {
                 $query->where('staff_id', $validated['staff_id']);
@@ -330,7 +338,7 @@ class AppointmentController extends Controller
                 });
             }
 
-            $appointments = $query->orderBy('start_time')->get();
+            $appointments = $query->orderBy('appointment_date')->orderBy('start_time')->get();
 
             return response()->json(['data' => AppointmentResource::collection($appointments)]);
         } catch (\Exception $e) {
