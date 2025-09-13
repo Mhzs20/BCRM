@@ -21,13 +21,22 @@ class GetAvailableSlotsRequest extends FormRequest
      */
     protected function prepareForValidation()
     {
-        if ($this->has('date')) {
+        if ($this->has('start_date')) {
             try {
-                $jalaliDate = $this->input('date');
+                $jalaliDate = $this->input('start_date');
                 $gregorianDate = Jalalian::fromFormat('Y-m-d', $jalaliDate)->toCarbon();
-                $this->merge(['date' => $gregorianDate->format('Y-m-d')]);
+                $this->merge(['start_date' => $gregorianDate->format('Y-m-d')]);
             } catch (\Exception $e) {
-                $this->merge(['date' => null]);
+                $this->merge(['start_date' => null]);
+            }
+        }
+        if ($this->has('end_date')) {
+            try {
+                $jalaliDate = $this->input('end_date');
+                $gregorianDate = Jalalian::fromFormat('Y-m-d', $jalaliDate)->toCarbon();
+                $this->merge(['end_date' => $gregorianDate->format('Y-m-d')]);
+            } catch (\Exception $e) {
+                $this->merge(['end_date' => null]);
             }
         }
     }
@@ -42,7 +51,8 @@ class GetAvailableSlotsRequest extends FormRequest
         $salonId = $this->route('salon');
 
         return [
-            'date' => ['required', 'date', 'after_or_equal:today'],
+            'start_date' => ['nullable', 'date', 'after_or_equal:today'],
+            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'staff_id' => [
                 'required', 'integer',
                 function ($attribute, $value, $fail) use ($salonId) {
@@ -58,9 +68,9 @@ class GetAvailableSlotsRequest extends FormRequest
                     }
                 },
             ],
-            'service_ids' => ['nullable', 'array'], // Changed from required, removed min:1
+            'service_ids' => ['nullable', 'array'],
             'service_ids.*' => [
-                'integer', // Removed 'required'
+                'integer',
                 function ($attribute, $value, $fail) use ($salonId) {
                     if ($value != -1) {
                         $validator = validator(['service_id' => $value], [
@@ -83,13 +93,14 @@ class GetAvailableSlotsRequest extends FormRequest
     public function messages()
     {
         return [
-            'date.required' => 'وارد کردن تاریخ الزامی است.',
-            'date.date' => 'فرمت تاریخ معتبر نیست.',
-            'date.after_or_equal' => 'تاریخ نمی‌تواند در گذشته باشد.',
+            'start_date.date' => 'فرمت تاریخ شروع معتبر نیست.',
+            'start_date.after_or_equal' => 'تاریخ شروع نمی‌تواند در گذشته باشد.',
+            'end_date.date' => 'فرمت تاریخ پایان معتبر نیست.',
+            'end_date.after_or_equal' => 'تاریخ پایان باید بعد یا برابر با تاریخ شروع باشد.',
             'staff_id.required' => 'انتخاب پرسنل الزامی است.',
-            'service_ids.array' => 'سرویس‌ها باید به صورت آرایه باشند.', // Added message for array type
-            'staff_id.exists' => 'پرسنل انتخاب شده معتبر یا فعال نیست.', // This message is now handled by the custom rule
-            'service_ids.*.exists' => 'سرویس انتخاب شده معتبر یا فعال نیست.', // This message is now handled by the custom rule
+            'service_ids.array' => 'سرویس‌ها باید به صورت آرایه باشند.',
+            'staff_id.exists' => 'پرسنل انتخاب شده معتبر یا فعال نیست.',
+            'service_ids.*.exists' => 'سرویس انتخاب شده معتبر یا فعال نیست.',
         ];
     }
 }

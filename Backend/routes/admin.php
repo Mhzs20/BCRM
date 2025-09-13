@@ -13,9 +13,9 @@ use App\Http\Controllers\Admin\CustomerGroupController;
 use App\Http\Controllers\Admin\FileController;
 use App\Http\Controllers\Admin\BannerController;
 use App\Http\Controllers\Admin\AdminSalonController;
-use App\Http\Controllers\Admin\AdminBulkSmsGiftController; // New controller
-use App\Http\Controllers\Admin\AdminBulkSmsController; // Bulk SMS controller
-use App\Http\Controllers\Admin\AdminAppointmentController; // Appointments controller
+use App\Http\Controllers\Admin\AdminBulkSmsGiftController;  
+use App\Http\Controllers\Admin\AdminBulkSmsController;  
+use App\Http\Controllers\Admin\AdminAppointmentController;  
 use App\Http\Controllers\Admin\AdminTransactionController;
 use App\Http\Controllers\ManualSmsController;
 use App\Http\Controllers\SmsCampaignController;
@@ -113,3 +113,5 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
     Route::get('appointments/{appointment}', [AdminAppointmentController::class, 'show'])->name('appointments.show');
     Route::put('appointments/{appointment}/status', [AdminAppointmentController::class, 'updateStatus'])->name('appointments.update-status');
 });
+        // تنظیمات کارت
+        Route::resource('card-setting', \App\Http\Controllers\Admin\CardSettingController::class);

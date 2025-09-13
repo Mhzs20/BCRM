@@ -75,6 +75,9 @@ Route::middleware('auth:api')->group(function () {
         return $request->user();
     })->name('user.profile.default');
 
+    // کارت
+    Route::get('card-info', [\App\Http\Controllers\Api\CardSettingController::class, 'showCardInfo']);
+
 
     Route::prefix('salons')->name('salons.')->group(function () {
         Route::get('/', [SalonController::class, 'getUserSalons'])->name('user_index');
@@ -216,7 +219,8 @@ Route::middleware('auth:api')->post('manual-sms/{salon}/send', [ManualSmsControl
 Route::get('/app-history', [AppController::class, 'latestHistory']);
 Route::get('/staff/{staffId}/appointments', [AppController::class, 'getStaffAppointments'])->whereNumber('staffId');
 
-Route::get('/notifications', [NotificationController::class, 'index']);
+Route::get('/salons/{salonId}/notifications', [NotificationController::class, 'index'])->whereNumber('salonId');
+Route::patch('/salons/{salonId}/notifications/{id}/read', [NotificationController::class, 'updateReadStatus'])->whereNumber('salonId');
 
 Route::get('/banners', [ApiBannerController::class, 'index']);
 
