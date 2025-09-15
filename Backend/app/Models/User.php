@@ -5,13 +5,23 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Tymon\JWTAuth\Contracts\JWTSubject; // برای JWT
+use Tymon\JWTAuth\Contracts\JWTSubject;
 use Hekmatinasser\Verta\Verta;
 use Illuminate\Support\Facades\Log;
 
 class User extends Authenticatable implements JWTSubject
 {
     use HasFactory, Notifiable;
+    /**
+     * Validate that the password contains only digits.
+     *
+     * @param string $password
+     * @return bool
+     */
+    public static function isPasswordNumeric(string $password): bool
+    {
+        return preg_match('/^\d+$/', $password) === 1;
+    }
 
     /**
      * The attributes that are mass assignable.

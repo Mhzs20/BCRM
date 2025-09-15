@@ -130,7 +130,7 @@ class StoreCustomerRequest extends FormRequest
         if (isset($validatedData['birth_date']) && $validatedData['birth_date'] !== null) {
             try {
                 $jalaliDate = Jalalian::fromFormat('Y/m/d', $validatedData['birth_date']);
-                $validatedData['birth_date'] = $jalaliDate->toCarbon()->toDateString();
+                $validatedData['birth_date'] = $jalaliDate->toCarbon('Asia/Tehran')->toDateString();
             } catch (\Exception $e) {
                 $validatedData['birth_date'] = null;
             }

@@ -94,7 +94,7 @@ class UpdateCustomerRequest extends FormRequest
         if (array_key_exists('birth_date', $validatedData) && $validatedData['birth_date'] !== null) {
             try {
                 $jalaliDate = Jalalian::fromFormat('Y/m/d', $validatedData['birth_date']);
-                $validatedData['birth_date'] = $jalaliDate->toCarbon()->toDateString();
+                $validatedData['birth_date'] = $jalaliDate->toCarbon('Asia/Tehran')->toDateString();
             } catch (\Exception $e) {
                 unset($validatedData['birth_date']);
             }
