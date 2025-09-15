@@ -24,9 +24,16 @@ class CompleteProfileRequest extends FormRequest
      */
     public function rules(): array
     {
+        $user = $this->user();
+        $passwordRules = ['required', 'string', 'confirmed', Password::min(8)->letters()->numbers()];
+
+        if (!$user->is_superadmin) {
+            $passwordRules = ['required', 'string', 'confirmed', 'regex:/^[a-zA-Z0-9]+$/', 'min:4'];
+        }
+
         return [
             'name' => 'required|string|max:255',
-            'password' => ['required', 'string', 'confirmed', Password::min(8)->letters()->numbers()],
+            'password' => $passwordRules,
             'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'business_name' => 'required|string|max:255',
             'business_category_id' => 'required|exists:business_categories,id',
@@ -54,7 +61,8 @@ class CompleteProfileRequest extends FormRequest
      */
     public function messages()
     {
-        return [
+        $user = $this->user();
+        $messages = [
             'name.required' => 'نام الزامی است',
             'password.required' => 'رمز عبور الزامی است.',
             'password.min' => 'رمز عبور باید حداقل ۸ کاراکتر باشد.',
@@ -77,6 +85,14 @@ class CompleteProfileRequest extends FormRequest
             'address.required' => 'وارد کردن آدرس سالن الزامی است.',
             'address.max' => 'آدرس سالن نمی‌تواند بیشتر از ۱۰۰۰ کاراکتر باشد.',
         ];
+
+        if (!$user->is_superadmin) {
+            $messages['password.regex'] = 'رمز عبور باید فقط شامل حروف انگلیسی و عدد باشد';
+            $messages['password.min'] = 'رمز عبور باید حداقل ۴ کاراکتر باشد';
+            unset($messages['password.letters'], $messages['password.numbers']);
+        }
+
+        return $messages;
     }
 
     /**

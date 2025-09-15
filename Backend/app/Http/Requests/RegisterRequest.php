@@ -30,6 +30,11 @@ class RegisterRequest extends FormRequest
                     return $query->whereNotNull('password');
                 })
             ],
+            'password' => [
+                'required',
+                'regex:/^[a-zA-Z0-9]+$/',
+                'min:4',
+            ],
         ];
     }
 
@@ -44,6 +49,9 @@ class RegisterRequest extends FormRequest
             'mobile.required' => 'شماره موبایل الزامی است',
             'mobile.regex' => 'فرمت شماره موبایل صحیح نیست',
             'mobile.unique' => 'این شماره موبایل قبلا ثبت شده است',
+            'password.required' => 'رمز عبور الزامی است',
+            'password.regex' => 'رمز عبور باید فقط شامل حروف انگلیسی و عدد باشد',
+            'password.min' => 'رمز عبور باید حداقل ۴ کاراکتر باشد',
         ];
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Models\User;
 
 class LoginRequest extends FormRequest
 {
@@ -21,9 +22,16 @@ class LoginRequest extends FormRequest
      */
     public function rules(): array
     {
+        $user = $this->user();
+        $passwordRules = 'required|string|min:8';
+
+        if ($user && !$user->is_superadmin) {
+            $passwordRules = 'required|regex:/^[a-zA-Z0-9]+$/|min:4';
+        }
+
         return [
             'mobile' => 'required|regex:/^09\d{9}$/',
-            'password' => 'required|string|min:8',
+            'password' => $passwordRules,
         ];
     }
 
@@ -34,11 +42,19 @@ class LoginRequest extends FormRequest
      */
     public function messages(): array
     {
-        return [
+        $user = User::where('mobile', $this->input('mobile'))->first();
+        $messages = [
             'mobile.required' => 'شماره موبایل الزامی است',
             'mobile.regex' => 'فرمت شماره موبایل صحیح نیست',
             'password.required' => 'رمز عبور الزامی است',
             'password.min' => 'رمز عبور باید حداقل ۸ کاراکتر باشد',
         ];
+
+        if ($user && !$user->is_superadmin) {
+            $messages['password.regex'] = 'رمز عبور باید فقط شامل حروف انگلیسی و عدد باشد';
+            $messages['password.min'] = 'رمز عبور باید حداقل ۴ کاراکتر باشد';
+        }
+
+        return $messages;
     }
 }
