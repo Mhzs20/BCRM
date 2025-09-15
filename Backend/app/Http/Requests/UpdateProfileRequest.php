@@ -42,7 +42,9 @@ class UpdateProfileRequest extends FormRequest
             'user.name' => 'sometimes|string|max:255',
             'user.email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'user.current_password' => 'nullable|required_with:user.new_password|string',
-            'user.new_password' => ['nullable', 'string', 'confirmed', Password::min(8)->letters()->numbers()],
+            'user.new_password' => $this->user()->is_superadmin 
+                ? ['nullable', 'string', 'confirmed', Password::min(8)->letters()->numbers()]
+                : ['nullable', 'string', 'confirmed', 'regex:/^[a-zA-Z0-9]+$/', 'min:4'],
             'user.gender' => 'sometimes|nullable|in:male,female,other',
             'user.date_of_birth' => 'sometimes|nullable|string', // Will be parsed as Jalali date in controller
 
@@ -65,5 +67,68 @@ class UpdateProfileRequest extends FormRequest
             'salon.bio' => 'sometimes|nullable|string|max:1000',
             'salon.whatsapp' => 'sometimes|nullable|string|max:255',
         ];
+    }
+
+    public function messages(): array
+    {
+        $user = $this->user();
+        $messages = [
+            'user.name.string' => 'نام باید رشته باشد',
+            'user.name.max' => 'نام نمی‌تواند بیشتر از ۲۵۵ کاراکتر باشد',
+            'user.email.email' => 'ایمیل باید فرمت صحیح داشته باشد',
+            'user.email.max' => 'ایمیل نمی‌تواند بیشتر از ۲۵۵ کاراکتر باشد',
+            'user.email.unique' => 'این ایمیل قبلا ثبت شده است',
+            'user.current_password.required_with' => 'رمز عبور فعلی الزامی است',
+            'user.new_password.string' => 'رمز عبور جدید باید رشته باشد',
+            'user.new_password.confirmed' => 'تکرار رمز عبور جدید مطابقت ندارد',
+            'user.new_password.min' => 'رمز عبور جدید باید حداقل ۸ کاراکتر باشد',
+            'user.new_password.letters' => 'رمز عبور جدید باید حداقل شامل یک حرف انگلیسی باشد',
+            'user.new_password.numbers' => 'رمز عبور جدید باید حداقل شامل یک عدد باشد',
+            'user.gender.in' => 'جنسیت باید یکی از مقادیر male, female یا other باشد',
+            'user.date_of_birth.string' => 'تاریخ تولد باید رشته باشد',
+            // Salon messages
+            'salon.name.string' => 'نام سالن باید رشته باشد',
+            'salon.name.min' => 'نام سالن باید حداقل ۳ کاراکتر باشد',
+            'salon.name.max' => 'نام سالن نمی‌تواند بیشتر از ۲۵۵ کاراکتر باشد',
+            'salon.business_category_id.integer' => 'دسته‌بندی کسب و کار باید عدد صحیح باشد',
+            'salon.business_category_id.exists' => 'دسته‌بندی کسب و کار انتخاب شده معتبر نیست',
+            'salon.business_subcategory_ids.array' => 'زیر دسته‌بندی‌ها باید آرایه باشند',
+            'salon.business_subcategory_ids.*.integer' => 'هر زیر دسته‌بندی باید عدد صحیح باشد',
+            'salon.business_subcategory_ids.*.exists' => 'زیر دسته‌بندی انتخاب شده معتبر نیست',
+            'salon.province_id.integer' => 'استان باید عدد صحیح باشد',
+            'salon.province_id.exists' => 'استان انتخاب شده معتبر نیست',
+            'salon.city_id.integer' => 'شهر باید عدد صحیح باشد',
+            'salon.city_id.exists' => 'شهر انتخاب شده معتبر نیست',
+            'salon.address.string' => 'آدرس باید رشته باشد',
+            'salon.address.max' => 'آدرس نمی‌تواند بیشتر از ۱۰۰۰ کاراکتر باشد',
+            'salon.image.image' => 'تصویر سالن باید از نوع تصویر باشد',
+            'salon.image.mimes' => 'فرمت تصویر سالن باید jpeg, png, jpg, gif یا webp باشد',
+            'salon.image.max' => 'حداکثر حجم تصویر سالن می‌تواند ۲ مگابایت باشد',
+            'salon.remove_image.boolean' => 'حذف تصویر باید مقدار بولی باشد',
+            'salon.instagram.string' => 'اینستاگرام باید رشته باشد',
+            'salon.instagram.max' => 'اینستاگرام نمی‌تواند بیشتر از ۲۵۵ کاراکتر باشد',
+            'salon.telegram.string' => 'تلگرام باید رشته باشد',
+            'salon.telegram.max' => 'تلگرام نمی‌تواند بیشتر از ۲۵۵ کاراکتر باشد',
+            'salon.website.string' => 'وبسایت باید رشته باشد',
+            'salon.website.max' => 'وبسایت نمی‌تواند بیشتر از ۲۵۵ کاراکتر باشد',
+            'salon.latitude.numeric' => 'عرض جغرافیایی باید عدد باشد',
+            'salon.latitude.between' => 'عرض جغرافیایی باید بین -۹۰ و ۹۰ باشد',
+            'salon.longitude.numeric' => 'طول جغرافیایی باید عدد باشد',
+            'salon.longitude.between' => 'طول جغرافیایی باید بین -۱۸۰ و ۱۸۰ باشد',
+            'salon.support_phone_number.string' => 'شماره تلفن پشتیبانی باید رشته باشد',
+            'salon.support_phone_number.max' => 'شماره تلفن پشتیبانی نمی‌تواند بیشتر از ۲۰ کاراکتر باشد',
+            'salon.bio.string' => 'بیو باید رشته باشد',
+            'salon.bio.max' => 'بیو نمی‌تواند بیشتر از ۱۰۰۰ کاراکتر باشد',
+            'salon.whatsapp.string' => 'واتساپ باید رشته باشد',
+            'salon.whatsapp.max' => 'واتساپ نمی‌تواند بیشتر از ۲۵۵ کاراکتر باشد',
+        ];
+
+        if (!$user->is_superadmin) {
+            $messages['user.new_password.regex'] = 'رمز عبور جدید باید فقط شامل حروف انگلیسی و عدد باشد';
+            $messages['user.new_password.min'] = 'رمز عبور جدید باید حداقل ۴ کاراکتر باشد';
+            unset($messages['user.new_password.letters'], $messages['user.new_password.numbers']);
+        }
+
+        return $messages;
     }
 }

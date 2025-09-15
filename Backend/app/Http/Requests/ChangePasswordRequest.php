@@ -23,6 +23,13 @@ class ChangePasswordRequest extends FormRequest
      */
     public function rules(): array
     {
+        $user = $this->user();
+        $passwordRules = ['required', 'min:8', 'confirmed'];
+
+        if (!$user->is_superadmin) {
+            $passwordRules = ['required', 'regex:/^[a-zA-Z0-9]+$/', 'min:4', 'confirmed'];
+        }
+
         return [
             'current_password' => [
                 'required',
@@ -32,8 +39,32 @@ class ChangePasswordRequest extends FormRequest
                     }
                 },
             ],
-            'new_password' => 'required|min:8|confirmed',
+            'new_password' => $passwordRules,
             'new_password_confirmation' => 'required',
         ];
+    }
+
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array
+     */
+    public function messages(): array
+    {
+        $user = $this->user();
+        $messages = [
+            'current_password.required' => 'رمز عبور فعلی الزامی است',
+            'new_password.required' => 'رمز عبور جدید الزامی است',
+            'new_password.min' => 'رمز عبور جدید باید حداقل ۸ کاراکتر باشد',
+            'new_password.confirmed' => 'تکرار رمز عبور جدید مطابقت ندارد',
+            'new_password_confirmation.required' => 'تکرار رمز عبور جدید الزامی است',
+        ];
+
+        if (!$user->is_superadmin) {
+            $messages['new_password.regex'] = 'رمز عبور جدید باید فقط شامل حروف انگلیسی و عدد باشد';
+            $messages['new_password.min'] = 'رمز عبور جدید باید حداقل ۴ کاراکتر باشد';
+        }
+
+        return $messages;
     }
 }

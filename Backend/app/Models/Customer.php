@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Profession;
+use Morilog\Jalali\Jalalian;
+
 class Customer extends Model
 {
     use HasFactory, SoftDeletes;
@@ -38,7 +40,16 @@ class Customer extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'birth_date' => 'date',
+        'birth_date' => 'datetime',
+    ];
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array<int, string>
+     */
+    protected $appends = [
+        'jalali_birthdate',
     ];
 
     public function salon()
@@ -84,6 +95,49 @@ class Customer extends Model
     public function getProfileImageAttribute($value)
     {
         return $value ? asset('storage/' . $value) : null;
+    }
+
+    /**
+     * Get the customer's birth date with correct timezone.
+     *
+     * @param  mixed  $value
+     * @return \Carbon\Carbon|null
+     */
+    public function getBirthDateAttribute($value): ?\Carbon\Carbon
+    {
+        if ($value) {
+            if ($value instanceof \Carbon\Carbon) {
+                // Return as UTC for ISO format
+                return $value->setTimezone('UTC');
+            } else {
+                // Parse string and return as UTC
+                try {
+                    return \Carbon\Carbon::parse($value)->setTimezone('UTC');
+                } catch (\Exception $e) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get the customer's birth date in Jalali format.
+     *
+     * @return string|null
+     */
+    public function getJalaliBirthdateAttribute(): ?string
+    {
+        $birthDate = $this->attributes['birth_date'] ?? null;
+        if ($birthDate) {
+            try {
+                $carbon = \Carbon\Carbon::parse($birthDate)->setTimezone('Asia/Tehran');
+                return Jalalian::fromCarbon($carbon)->format('Y/m/d');
+            } catch (\Exception $e) {
+                return null;
+            }
+        }
+        return null;
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
+use App\Models\User;
 
 class ResetPasswordRequest extends FormRequest
 {
@@ -22,10 +23,17 @@ class ResetPasswordRequest extends FormRequest
      */
     public function rules(): array
     {
+        $user = $this->user();
+        $passwordRules = ['required', 'confirmed', Password::min(8)->letters()->numbers()];
+
+        if ($user && !$user->is_superadmin) {
+            $passwordRules = ['required', 'confirmed', 'regex:/^[a-zA-Z0-9]+$/', 'min:4'];
+        }
+
         return [
             'mobile' => 'required|regex:/^09\d{9}$/',
             'code' => 'required|digits:4',
-            'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
+            'password' => $passwordRules,
         ];
     }
 
@@ -36,7 +44,8 @@ class ResetPasswordRequest extends FormRequest
      */
     public function messages(): array
     {
-        return [
+        $user = User::where('mobile', $this->input('mobile'))->first();
+        $messages = [
             'mobile.required' => 'شماره موبایل الزامی است',
             'mobile.regex' => 'فرمت شماره موبایل صحیح نیست',
             'code.required' => 'کد تایید الزامی است',
@@ -47,5 +56,13 @@ class ResetPasswordRequest extends FormRequest
             'password.numbers' => 'رمز عبور باید حداقل شامل یک عدد باشد.',
             'password.confirmed' => 'تکرار رمز عبور مطابقت ندارد.',
         ];
+
+        if ($user && !$user->is_superadmin) {
+            $messages['password.regex'] = 'رمز عبور باید فقط شامل حروف انگلیسی و عدد باشد';
+            $messages['password.min'] = 'رمز عبور باید حداقل ۴ کاراکتر باشد';
+            unset($messages['password.letters'], $messages['password.numbers']);
+        }
+
+        return $messages;
     }
 }
