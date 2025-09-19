@@ -29,7 +29,7 @@ class AdminSalonController extends Controller
     {
         $query = Salon::with(['user', 'city', 'province', 'businessCategory', 'businessSubcategories', 'smsBalance'])
                       ->leftJoin('sms_transactions', 'salons.id', '=', 'sms_transactions.salon_id')
-                      ->selectRaw('salons.id, salons.user_id, salons.name, salons.business_category_id, salons.province_id, salons.city_id, salons.address, salons.mobile, salons.email, salons.phone, salons.website, salons.support_phone_number, salons.bio, salons.instagram, salons.telegram, salons.whatsapp, salons.lat, salons.lang, salons.location, salons.image, salons.description, salons.is_active, salons.credit_score, salons.created_at, salons.updated_at,
+                      ->selectRaw('salons.id, salons.user_id, salons.name, salons.business_category_id, salons.province_id, salons.city_id, salons.address, salons.mobile, salons.email, salons.website, salons.support_phone_number, salons.bio, salons.instagram, salons.telegram, salons.whatsapp, salons.lat, salons.lang, salons.image, salons.is_active, salons.credit_score, salons.created_at, salons.updated_at,
                                   SUM(CASE WHEN (sms_transactions.type IN ("send", "deduction", "manual_send") 
                                                OR sms_transactions.sms_type IN ("send", "deduction", "manual_send", "manual_sms", "manual_reminder", "appointment_cancellation", "appointment_confirmation", "satisfaction_survey", "appointment_modification", "bulk"))
                                                AND sms_transactions.amount IS NOT NULL 
@@ -37,7 +37,7 @@ class AdminSalonController extends Controller
                                                THEN ABS(COALESCE(sms_transactions.amount, 0)) ELSE 0 END) as total_consumed,
                                   MAX(CASE WHEN sms_transactions.type = "purchase" OR sms_transactions.sms_type = "purchase" 
                                            THEN sms_transactions.created_at END) as last_purchase_date')
-                      ->groupBy('salons.id', 'salons.user_id', 'salons.name', 'salons.business_category_id', 'salons.province_id', 'salons.city_id', 'salons.address', 'salons.mobile', 'salons.email', 'salons.phone', 'salons.website', 'salons.support_phone_number', 'salons.bio', 'salons.instagram', 'salons.telegram', 'salons.whatsapp', 'salons.lat', 'salons.lang', 'salons.location', 'salons.image', 'salons.description', 'salons.is_active', 'salons.credit_score', 'salons.created_at', 'salons.updated_at');        if ($request->filled('search')) {
+                      ->groupBy('salons.id', 'salons.user_id', 'salons.name', 'salons.business_category_id', 'salons.province_id', 'salons.city_id', 'salons.address', 'salons.mobile', 'salons.email', 'salons.website', 'salons.support_phone_number', 'salons.bio', 'salons.instagram', 'salons.telegram', 'salons.whatsapp', 'salons.lat', 'salons.lang', 'salons.image', 'salons.is_active', 'salons.credit_score', 'salons.created_at', 'salons.updated_at');        if ($request->filled('search')) {
             $query->whereSearch($request->input('search'));
         }
 
