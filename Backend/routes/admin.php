@@ -112,6 +112,12 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
     Route::get('appointments', [AdminAppointmentController::class, 'index'])->name('appointments.index');
     Route::get('appointments/{appointment}', [AdminAppointmentController::class, 'show'])->name('appointments.show');
     Route::put('appointments/{appointment}/status', [AdminAppointmentController::class, 'updateStatus'])->name('appointments.update-status');
+
+    // Export Routes
+    Route::get('export/salons', [\App\Http\Controllers\Admin\ExportController::class, 'exportSalons'])->name('export.salons');
+    Route::get('export/bulk-sms-users', [\App\Http\Controllers\Admin\ExportController::class, 'exportBulkSmsUsers'])->name('export.bulk-sms-users');
+    Route::get('export/bulk-sms-gift-users', [\App\Http\Controllers\Admin\ExportController::class, 'exportBulkSmsGiftUsers'])->name('export.bulk-sms-gift-users');
+    Route::get('export/discount-code-users', [\App\Http\Controllers\Admin\ExportController::class, 'exportDiscountCodeUsers'])->name('export.discount-code-users');
 });
         // تنظیمات کارت
         Route::resource('card-setting', \App\Http\Controllers\Admin\CardSettingController::class);

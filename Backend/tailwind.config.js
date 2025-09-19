@@ -23,8 +23,9 @@ export default {
             fontFamily: {
                 // Here we create the font families.
                 // You can name them anything you want.
-                'peyda': ['Peyda', 'sans-serif'],
-                'iranyekan': ['IRANYekanMobileFN', 'sans-serif'],
+                'iransans': ['IRANSansWeb', 'sans-serif'],
+                'iranyekan': ['iranyekanweb', 'sans-serif'],
+                'peyda': ['PeydaWeb', 'sans-serif'],
             },
         },
     },

@@ -355,7 +355,7 @@ class AppointmentReportController extends Controller
 
         // Data for today
         $newAppointmentsToday = Appointment::where('salon_id', $salon->id)
-            ->whereDate('created_at', $today)
+            ->whereDate('appointment_date', $today)
             ->count();
 
         $newCustomersToday = Customer::where('salon_id', $salon->id)
@@ -368,7 +368,7 @@ class AppointmentReportController extends Controller
 
         // Data for yesterday
         $newAppointmentsYesterday = Appointment::where('salon_id', $salon->id)
-            ->whereDate('created_at', $yesterday)
+            ->whereDate('appointment_date', $yesterday)
             ->count();
 
         $newCustomersYesterday = Customer::where('salon_id', $salon->id)

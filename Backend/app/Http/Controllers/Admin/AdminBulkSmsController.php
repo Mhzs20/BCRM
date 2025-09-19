@@ -70,6 +70,18 @@ class AdminBulkSmsController extends Controller
             }, '>=', 1);
         }
 
+        if ($request->filled('min_sms_balance') || $request->filled('max_sms_balance')) {
+            $query->whereHas('smsBalance', function ($q) use ($request) {
+                if ($request->filled('min_sms_balance') && $request->filled('max_sms_balance')) {
+                    $q->whereBetween('balance', [$request->min_sms_balance, $request->max_sms_balance]);
+                } elseif ($request->filled('min_sms_balance')) {
+                    $q->where('balance', '>=', $request->min_sms_balance);
+                } elseif ($request->filled('max_sms_balance')) {
+                    $q->where('balance', '<=', $request->max_sms_balance);
+                }
+            });
+        }
+
         if ($request->filled('last_sms_purchase')) {
             $now = Carbon::now();
             if ($request->last_sms_purchase == 'last_month') {
@@ -106,6 +118,24 @@ class AdminBulkSmsController extends Controller
             });
         }
 
+        if ($request->filled('gender')) {
+            $query->whereHas('owner', function ($q) use ($request) {
+                $q->where('gender', $request->gender);
+            });
+        }
+
+        if ($request->filled('min_age') || $request->filled('max_age')) {
+            $query->whereHas('owner', function ($q) use ($request) {
+                if ($request->filled('min_age') && $request->filled('max_age')) {
+                    $q->whereRaw("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN ? AND ?", [$request->min_age, $request->max_age]);
+                } elseif ($request->filled('min_age')) {
+                    $q->whereRaw("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) >= ?", [$request->min_age]);
+                } elseif ($request->filled('max_age')) {
+                    $q->whereRaw("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) <= ?", [$request->max_age]);
+                }
+            });
+        }
+
         $salons = $query->paginate(10);
 
         return view('admin.bulk_sms.index', compact('salons', 'provinces', 'cities', 'businessCategories', 'businessSubcategories'));
@@ -124,8 +154,13 @@ class AdminBulkSmsController extends Controller
             'business_category_id' => 'nullable|exists:business_categories,id',
             'business_subcategory_id' => 'nullable|exists:business_subcategories,id',
             'sms_balance_status' => 'nullable|string|in:less_than_50,less_than_200,zero',
+            'min_sms_balance' => 'nullable|integer|min:0',
+            'max_sms_balance' => 'nullable|integer|min:0',
             'last_sms_purchase' => 'nullable|string|in:last_month,last_3_months,last_6_months,more_than_6_months,never',
             'monthly_sms_consumption' => 'nullable|string|in:high,medium,low',
+            'gender' => 'nullable|in:male,female,other',
+            'min_age' => 'nullable|integer|min:18|max:120',
+            'max_age' => 'nullable|integer|min:18|max:120',
         ]);
 
         $query = Salon::with(['owner', 'city', 'smsBalance', 'smsTransactions']);
@@ -169,6 +204,18 @@ class AdminBulkSmsController extends Controller
             }, '>=', 1);
         }
 
+        if ($request->filled('min_sms_balance') || $request->filled('max_sms_balance')) {
+            $query->whereHas('smsBalance', function ($q) use ($request) {
+                if ($request->filled('min_sms_balance') && $request->filled('max_sms_balance')) {
+                    $q->whereBetween('balance', [$request->min_sms_balance, $request->max_sms_balance]);
+                } elseif ($request->filled('min_sms_balance')) {
+                    $q->where('balance', '>=', $request->min_sms_balance);
+                } elseif ($request->filled('max_sms_balance')) {
+                    $q->where('balance', '<=', $request->max_sms_balance);
+                }
+            });
+        }
+
         if ($request->filled('last_sms_purchase')) {
             $now = Carbon::now();
             if ($request->last_sms_purchase == 'last_month') {
@@ -200,6 +247,24 @@ class AdminBulkSmsController extends Controller
                         ->groupBy('salon_id')
                         ->havingRaw($this->getMonthlyConsumptionCondition($request->monthly_sms_consumption));
                 });
+            });
+        }
+
+        if ($request->filled('gender')) {
+            $query->whereHas('owner', function ($q) use ($request) {
+                $q->where('gender', $request->gender);
+            });
+        }
+
+        if ($request->filled('min_age') || $request->filled('max_age')) {
+            $query->whereHas('owner', function ($q) use ($request) {
+                if ($request->filled('min_age') && $request->filled('max_age')) {
+                    $q->whereRaw("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN ? AND ?", [$request->min_age, $request->max_age]);
+                } elseif ($request->filled('min_age')) {
+                    $q->whereRaw("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) >= ?", [$request->min_age]);
+                } elseif ($request->filled('max_age')) {
+                    $q->whereRaw("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) <= ?", [$request->max_age]);
+                }
             });
         }
 
@@ -282,6 +347,18 @@ class AdminBulkSmsController extends Controller
             'medium' => 'total_amount >= 100 AND total_amount <= 500',
             'low' => 'total_amount < 100',
             default => '',
+        };
+    }
+
+    private function getAgeRange(string $ageRange): array
+    {
+        return match ($ageRange) {
+            '18-25' => [18, 25],
+            '26-35' => [26, 35],
+            '36-45' => [36, 45],
+            '46-60' => [46, 60],
+            '60+' => [60, 150], // Assuming max age 150
+            default => [0, 150],
         };
     }
 

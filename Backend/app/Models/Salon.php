@@ -60,6 +60,7 @@ class Salon extends Model
         'description',
         'is_active',
         'credit_score',
+        'total_consumed', // Added for SMS consumption tracking
     ];
 
     protected $casts = [

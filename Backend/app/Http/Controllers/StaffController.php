@@ -17,17 +17,7 @@ class StaffController extends Controller
         $this->authorize('viewAny', [Staff::class, $salon]);
 
         $query = $salon->staff()
-            ->with(['services:id,name', 'schedules'])
-            ->withCount([
-                'appointments as total_appointments',
-                'appointments as completed_appointments' => function ($query) {
-                    $query->where('status', 'completed');
-                },
-                'appointments as canceled_appointments' => function ($query) {
-                    $query->where('status', 'canceled');
-                }
-            ])
-            ->withSum('appointments as total_income', 'total_price');
+            ->with(['services:id,name', 'schedules']);
 
         if ($request->filled('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
@@ -59,17 +49,7 @@ class StaffController extends Controller
         $this->authorize('viewAny', [Staff::class, $salon]);
 
         $query = $salon->staff()
-            ->with(['services:id,name', 'schedules'])
-            ->withCount([
-                'appointments as total_appointments',
-                'appointments as completed_appointments' => function ($query) {
-                    $query->where('status', 'completed');
-                },
-                'appointments as canceled_appointments' => function ($query) {
-                    $query->where('status', 'canceled');
-                }
-            ])
-            ->withSum('appointments as total_income', 'total_price');
+            ->with(['services:id,name', 'schedules']);
 
         if ($request->filled('q')) {
             $searchTerm = $request->input('q');
@@ -143,16 +123,8 @@ class StaffController extends Controller
         $this->authorize('view', $staff);
         $staff->load(['services:id,name', 'schedules']);
 
-        $appointments = $staff->appointments();
-        $totalAppointments = $appointments->count();
-        $completedAppointments = $appointments->where('status', 'completed')->count();
-        $canceledAppointments = $appointments->where('status', 'canceled')->count();
-
         $staffData = $staff->toArray();
-        $staffData['total_appointments'] = $totalAppointments;
-        $staffData['completed_appointments'] = $completedAppointments;
-        $staffData['canceled_appointments'] = $canceledAppointments;
-        $staffData['total_income'] = (float) $staff->appointments()->sum('total_price');
+        $staffData['total_income'] = (float) $staff->total_income;
 
         return response()->json($staffData);
     }

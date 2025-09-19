@@ -117,8 +117,8 @@
         });
     </script>
 </head>
-<body class="font-sans antialiased bg-gray-100 text-gray-900" 
-      :class="{ 'sidebar-open': sidebarOpen && window.innerWidth < 1024 }">
+<body class="font-sans antialiased bg-gray-100 text-gray-900" style="font-family: IRANSansWeb, sans-serif !important;" 
+    :class="{ 'sidebar-open': sidebarOpen && window.innerWidth < 1024 }">
     <div x-data="{ 
         sidebarOpen: window.innerWidth >= 1024 ? JSON.parse(localStorage.getItem('sidebarOpen') ?? 'true') : false,
         isMobile: window.innerWidth < 1024

@@ -5,7 +5,7 @@
 @section('content')
 <div class="container mx-auto px-4 py-6">
     <div class="flex justify-between items-center mb-8">
-        <h1 class="text-3xl font-extrabold text-gray-900 text-center">تاریخچه ارسال پیامک گروهی</h1>
+    <h1 class="text-3xl font-extrabold text-gray-900 text-center font-sans">تاریخچه ارسال پیامک گروهی</h1>
         <a href="{{ route('admin.bulk-sms.index') }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
             <i class="ri-arrow-right-line ml-2"></i> بازگشت به ارسال پیامک
         </a>

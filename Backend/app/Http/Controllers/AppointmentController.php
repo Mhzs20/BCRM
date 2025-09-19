@@ -292,7 +292,7 @@ class AppointmentController extends Controller
             return response()->json(['message' => 'نوبت یافت نشد.'], 404);
         }
 
-        if ($appointment->status === 'done') {
+        if ($appointment->status === 'completed') {
             return response()->json(['message' => 'امکان لغو نوبت انجام شده وجود ندارد.'], 403);
         }
 
@@ -532,7 +532,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
             return response()->json(['message' => 'نوبت یافت نشد.'], 404);
         }
 
-        if ($appointment->status === 'done') {
+        if ($appointment->status === 'completed') {
             return response()->json(['message' => 'برای نوبت انجام شده امکان ارسال پیامک یادآوری وجود ندارد.'], 403);
         }
 
