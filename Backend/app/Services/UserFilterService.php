@@ -50,7 +50,20 @@ class UserFilterService
             $query->where('business_subcategory_id', $filters['business_subcategory_id']);
         }
 
-        // Apply SMS balance status filter
+        // Apply SMS balance range filter
+        if (!empty($filters['min_sms_balance']) || !empty($filters['max_sms_balance'])) {
+            $query->whereHas('smsBalance', function ($q) use ($filters) {
+                if (!empty($filters['min_sms_balance']) && !empty($filters['max_sms_balance'])) {
+                    $q->whereBetween('balance', [$filters['min_sms_balance'], $filters['max_sms_balance']]);
+                } elseif (!empty($filters['min_sms_balance'])) {
+                    $q->where('balance', '>=', $filters['min_sms_balance']);
+                } elseif (!empty($filters['max_sms_balance'])) {
+                    $q->where('balance', '<=', $filters['max_sms_balance']);
+                }
+            });
+        }
+
+        // Apply SMS balance status filter (for backward compatibility)
         if (!empty($filters['sms_balance_status'])) {
             $query->whereHas('smsBalance', function ($q) use ($filters) {
                 switch ($filters['sms_balance_status']) {
@@ -99,6 +112,29 @@ class UserFilterService
             }
         }
 
+        // Apply last SMS purchase date range filter
+        if (!empty($filters['last_sms_purchase_start']) || !empty($filters['last_sms_purchase_end'])) {
+            $query->whereHas('smsTransactions', function ($q) use ($filters) {
+                if (!empty($filters['last_sms_purchase_start'])) {
+                    try {
+                        $startDate = Carbon::parse($filters['last_sms_purchase_start'])->startOfDay();
+                        $q->where('created_at', '>=', $startDate);
+                    } catch (\Exception $e) {
+                        \Log::error('Invalid last_sms_purchase_start date format: ' . $filters['last_sms_purchase_start']);
+                    }
+                }
+                if (!empty($filters['last_sms_purchase_end'])) {
+                    try {
+                        $endDate = Carbon::parse($filters['last_sms_purchase_end'])->endOfDay();
+                        $q->where('created_at', '<=', $endDate);
+                    } catch (\Exception $e) {
+                        \Log::error('Invalid last_sms_purchase_end date format: ' . $filters['last_sms_purchase_end']);
+                    }
+                }
+                $q->where('type', 'purchase'); // Only purchase transactions
+            });
+        }
+
         // Apply monthly SMS consumption filter
         if (!empty($filters['monthly_sms_consumption'])) {
             $query->where(function ($q) use ($filters) {
@@ -108,6 +144,45 @@ class UserFilterService
                         ->groupBy('salon_id')
                         ->havingRaw($this->getMonthlyConsumptionCondition($filters['monthly_sms_consumption']));
                 });
+            });
+        }
+
+        // Apply monthly SMS consumption range filter
+        if (!empty($filters['min_monthly_consumption']) || !empty($filters['max_monthly_consumption'])) {
+            $query->whereHas('smsTransactions', function ($q) use ($filters) {
+                $q->selectRaw('salon_id, SUM(amount) as total_consumption')
+                  ->whereBetween('created_at', [Carbon::now()->subMonth(), Carbon::now()])
+                  ->where('type', '!=', 'purchase') // Exclude purchase transactions for consumption calculation
+                  ->groupBy('salon_id')
+                  ->having(function ($havingQ) use ($filters) {
+                      if (!empty($filters['min_monthly_consumption']) && !empty($filters['max_monthly_consumption'])) {
+                          $havingQ->havingRaw('total_consumption BETWEEN ? AND ?', [$filters['min_monthly_consumption'], $filters['max_monthly_consumption']]);
+                      } elseif (!empty($filters['min_monthly_consumption'])) {
+                          $havingQ->havingRaw('total_consumption >= ?', [$filters['min_monthly_consumption']]);
+                      } elseif (!empty($filters['max_monthly_consumption'])) {
+                          $havingQ->havingRaw('total_consumption <= ?', [$filters['max_monthly_consumption']]);
+                      }
+                  });
+            });
+        }
+
+        // Apply gender filter
+        if (!empty($filters['gender'])) {
+            $query->whereHas('owner', function ($q) use ($filters) {
+                $q->where('gender', $filters['gender']);
+            });
+        }
+
+        // Apply age range filter
+        if (!empty($filters['min_age']) || !empty($filters['max_age'])) {
+            $query->whereHas('owner', function ($q) use ($filters) {
+                if (!empty($filters['min_age']) && !empty($filters['max_age'])) {
+                    $q->whereRaw("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN ? AND ?", [$filters['min_age'], $filters['max_age']]);
+                } elseif (!empty($filters['min_age'])) {
+                    $q->whereRaw("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) >= ?", [$filters['min_age']]);
+                } elseif (!empty($filters['max_age'])) {
+                    $q->whereRaw("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) <= ?", [$filters['max_age']]);
+                }
             });
         }
 
@@ -166,6 +241,18 @@ class UserFilterService
             $formatted['وضعیت'] = $filters['status'] ? 'فعال' : 'غیرفعال';
         }
 
+        if (!empty($filters['min_sms_balance']) || !empty($filters['max_sms_balance'])) {
+            $balanceText = '';
+            if (!empty($filters['min_sms_balance']) && !empty($filters['max_sms_balance'])) {
+                $balanceText = $filters['min_sms_balance'] . ' تا ' . $filters['max_sms_balance'];
+            } elseif (!empty($filters['min_sms_balance'])) {
+                $balanceText = 'بیشتر از ' . $filters['min_sms_balance'];
+            } elseif (!empty($filters['max_sms_balance'])) {
+                $balanceText = 'کمتر از ' . $filters['max_sms_balance'];
+            }
+            $formatted['محدوده اعتبار پیامک'] = $balanceText;
+        }
+
         if (!empty($filters['sms_balance_status'])) {
             $statusLabels = [
                 'less_than_50' => 'کمتر از ۵۰',
@@ -186,6 +273,18 @@ class UserFilterService
             $formatted['آخرین خرید پیامک'] = $purchaseLabels[$filters['last_sms_purchase']] ?? 'نامشخص';
         }
 
+        if (!empty($filters['last_sms_purchase_start']) || !empty($filters['last_sms_purchase_end'])) {
+            $dateText = '';
+            if (!empty($filters['last_sms_purchase_start']) && !empty($filters['last_sms_purchase_end'])) {
+                $dateText = $filters['last_sms_purchase_start'] . ' تا ' . $filters['last_sms_purchase_end'];
+            } elseif (!empty($filters['last_sms_purchase_start'])) {
+                $dateText = 'از ' . $filters['last_sms_purchase_start'];
+            } elseif (!empty($filters['last_sms_purchase_end'])) {
+                $dateText = 'تا ' . $filters['last_sms_purchase_end'];
+            }
+            $formatted['محدوده تاریخ آخرین خرید پیامک'] = $dateText;
+        }
+
         if (!empty($filters['monthly_sms_consumption'])) {
             $consumptionLabels = [
                 'high' => 'زیاد (بیشتر از ۵۰۰)',
@@ -193,6 +292,39 @@ class UserFilterService
                 'low' => 'کم (کمتر از ۱۰۰)'
             ];
             $formatted['مصرف ماهانه پیامک'] = $consumptionLabels[$filters['monthly_sms_consumption']] ?? 'نامشخص';
+        }
+
+        if (!empty($filters['min_monthly_consumption']) || !empty($filters['max_monthly_consumption'])) {
+            $consumptionText = '';
+            if (!empty($filters['min_monthly_consumption']) && !empty($filters['max_monthly_consumption'])) {
+                $consumptionText = $filters['min_monthly_consumption'] . ' تا ' . $filters['max_monthly_consumption'];
+            } elseif (!empty($filters['min_monthly_consumption'])) {
+                $consumptionText = 'بیشتر از ' . $filters['min_monthly_consumption'];
+            } elseif (!empty($filters['max_monthly_consumption'])) {
+                $consumptionText = 'کمتر از ' . $filters['max_monthly_consumption'];
+            }
+            $formatted['محدوده مصرف ماهانه پیامک'] = $consumptionText;
+        }
+
+        if (!empty($filters['gender'])) {
+            $genderLabels = [
+                'male' => 'مرد',
+                'female' => 'زن',
+                'other' => 'سایر'
+            ];
+            $formatted['جنسیت'] = $genderLabels[$filters['gender']] ?? 'نامشخص';
+        }
+
+        if (!empty($filters['min_age']) || !empty($filters['max_age'])) {
+            $ageText = '';
+            if (!empty($filters['min_age']) && !empty($filters['max_age'])) {
+                $ageText = $filters['min_age'] . ' تا ' . $filters['max_age'] . ' سال';
+            } elseif (!empty($filters['min_age'])) {
+                $ageText = 'بیشتر از ' . $filters['min_age'] . ' سال';
+            } elseif (!empty($filters['max_age'])) {
+                $ageText = 'کمتر از ' . $filters['max_age'] . ' سال';
+            }
+            $formatted['رنج سنی'] = $ageText;
         }
 
         return $formatted;
@@ -208,6 +340,21 @@ class UserFilterService
             'medium' => 'total_amount >= 100 AND total_amount <= 500',
             'low' => 'total_amount < 100',
             default => '',
+        };
+    }
+
+    /**
+     * Get age range for SQL query
+     */
+    private function getAgeRange(string $ageRange): array
+    {
+        return match ($ageRange) {
+            '18-25' => [18, 25],
+            '26-35' => [26, 35],
+            '36-45' => [36, 45],
+            '46-60' => [46, 60],
+            '60+' => [60, 150], // Assuming max age 150
+            default => [0, 150],
         };
     }
 }

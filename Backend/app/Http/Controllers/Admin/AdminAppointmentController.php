@@ -65,7 +65,7 @@ class AdminAppointmentController extends Controller
     public function updateStatus(Request $request, Appointment $appointment)
     {
         $request->validate([
-            'status' => 'required|string|in:pending,completed,cancelled,انجام شده,لغو شده,در انتظار'
+            'status' => 'required|string|in:pending,completed,cancelled,pending_confirmation,no_show'
         ]);
 
         $appointment->update([

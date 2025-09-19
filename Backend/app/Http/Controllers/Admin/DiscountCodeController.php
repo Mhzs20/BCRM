@@ -145,8 +145,13 @@ class DiscountCodeController extends Controller
                 'business_subcategory_id' => request('business_subcategory_id'),
                 'status' => request('status'),
                 'sms_balance_status' => request('sms_balance_status'),
+                'min_sms_balance' => request('min_sms_balance'),
+                'max_sms_balance' => request('max_sms_balance'),
                 'last_sms_purchase' => request('last_sms_purchase'),
                 'monthly_sms_consumption' => request('monthly_sms_consumption'),
+                'gender' => request('gender'),
+                'min_age' => request('min_age'),
+                'max_age' => request('max_age'),
             ];
 
             $filteredSalons = $filterService->getFilteredSalons($filters)->get();
@@ -235,8 +240,13 @@ class DiscountCodeController extends Controller
                 'filter_business_subcategory_id' => 'business_subcategory_id',
                 'filter_status' => 'status',
                 'filter_sms_balance_status' => 'sms_balance_status',
+                'filter_min_sms_balance' => 'min_sms_balance',
+                'filter_max_sms_balance' => 'max_sms_balance',
                 'filter_last_sms_purchase' => 'last_sms_purchase',
-                'filter_monthly_sms_consumption' => 'monthly_sms_consumption'
+                'filter_monthly_sms_consumption' => 'monthly_sms_consumption',
+                'filter_gender' => 'gender',
+                'filter_min_age' => 'min_age',
+                'filter_max_age' => 'max_age'
             ];
             
             foreach ($filterMapping as $formField => $dbField) {
@@ -277,7 +287,7 @@ class DiscountCodeController extends Controller
         $filteredSalons = null;
         if (request('filter_applied')) {
             $filters = [];
-            $filterFields = ['province_id', 'city_id', 'business_category_id', 'business_subcategory_id', 'status', 'sms_balance_status', 'last_sms_purchase', 'monthly_sms_consumption'];
+            $filterFields = ['province_id', 'city_id', 'business_category_id', 'business_subcategory_id', 'status', 'sms_balance_status', 'min_sms_balance', 'max_sms_balance', 'last_sms_purchase', 'monthly_sms_consumption', 'gender', 'min_age', 'max_age'];
             
             foreach ($filterFields as $field) {
                 if (request($field)) {
@@ -369,8 +379,13 @@ class DiscountCodeController extends Controller
                 'filter_business_subcategory_id' => 'business_subcategory_id',
                 'filter_status' => 'status',
                 'filter_sms_balance_status' => 'sms_balance_status',
+                'filter_min_sms_balance' => 'min_sms_balance',
+                'filter_max_sms_balance' => 'max_sms_balance',
                 'filter_last_sms_purchase' => 'last_sms_purchase',
-                'filter_monthly_sms_consumption' => 'monthly_sms_consumption'
+                'filter_monthly_sms_consumption' => 'monthly_sms_consumption',
+                'filter_gender' => 'gender',
+                'filter_min_age' => 'min_age',
+                'filter_max_age' => 'max_age'
             ];
             
             foreach ($filterMapping as $formField => $dbField) {
@@ -417,7 +432,7 @@ class DiscountCodeController extends Controller
         \Log::info('Request data:', $request->all());
         
         try {
-            $filters = $request->only(['province_id', 'city_id', 'business_category_id', 'business_subcategory_id', 'status', 'sms_balance_status', 'last_sms_purchase', 'monthly_sms_consumption']);
+            $filters = $request->only(['province_id', 'city_id', 'business_category_id', 'business_subcategory_id', 'status', 'sms_balance_status', 'min_sms_balance', 'max_sms_balance', 'last_sms_purchase', 'monthly_sms_consumption', 'gender', 'min_age', 'max_age']);
             
             \Log::info('Extracted filters:', $filters);
             

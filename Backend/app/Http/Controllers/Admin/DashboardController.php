@@ -38,9 +38,9 @@ class DashboardController extends Controller
                     $appointmentsToday = Appointment::whereDate('appointment_date', $today)->get();
 
                     $totalAppointmentsToday = $appointmentsToday->count();
-                    $completedAppointmentsToday = $appointmentsToday->whereIn('status', ['completed', 'انجام شده', 'تکمیل شده', 'تکمیل‌شده'])->count();
-                    $cancelledAppointmentsToday = $appointmentsToday->whereIn('status', ['cancelled', 'لغو شده', 'کنسل شده', 'لغوشده'])->count();
-                $pendingAppointmentsToday = $appointmentsToday->whereIn('status', ['pending', 'در انتظار', 'منتظر', 'درانتظار', 'pending_confirmation'])->count();
+                    $completedAppointmentsToday = $appointmentsToday->where('status', 'completed')->count();
+                    $cancelledAppointmentsToday = $appointmentsToday->where('status', 'canceled')->count();
+                $pendingAppointmentsToday = $appointmentsToday->whereIn('status', ['pending', 'pending_confirmation'])->count();
 
         // SMS stats
         $smsSentToday = SmsTransaction::whereHas('salon', function($query) {

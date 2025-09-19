@@ -30,6 +30,10 @@ class Staff extends Model
         'profile_image',
         'is_active',
         'hire_date',
+        'total_appointments',
+        'completed_appointments',
+        'canceled_appointments',
+        'total_income',
     ];
 
     /**
@@ -46,6 +50,10 @@ class Staff extends Model
      */
     protected $casts = [
         'is_active' => 'boolean',
+        'total_appointments' => 'integer',
+        'completed_appointments' => 'integer',
+        'canceled_appointments' => 'integer',
+        'total_income' => 'decimal:2',
     ];
 
     /**
@@ -89,5 +97,27 @@ class Staff extends Model
     public function schedules()
     {
         return $this->hasMany(StaffSchedule::class, 'staff_id');
+    }
+
+    /**
+     * Update staff statistics based on appointments.
+     */
+    public function updateStatistics()
+    {
+        $stats = $this->appointments()
+            ->selectRaw('
+                COUNT(*) as total_appointments,
+                SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed_appointments,
+                SUM(CASE WHEN status = "canceled" THEN 1 ELSE 0 END) as canceled_appointments,
+                SUM(total_price) as total_income
+            ')
+            ->first();
+
+        $this->update([
+            'total_appointments' => $stats->total_appointments ?? 0,
+            'completed_appointments' => $stats->completed_appointments ?? 0,
+            'canceled_appointments' => $stats->canceled_appointments ?? 0,
+            'total_income' => $stats->total_income ?? 0,
+        ]);
     }
 }

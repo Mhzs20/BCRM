@@ -1603,167 +1603,48 @@ video {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Peyda Font Faces */
+
+/* IranSans Font Faces */
 
 @font-face {
-  font-family: 'Peyda';
-
-  src: url('../peyda/Peyda-Thin.ttf') format('truetype');
-
+  font-family: 'IRANSansWeb';
+  src: url('../resources/iransans/ttf/IRANSansWeb_UltraLight.ttf') format('truetype');
   font-weight: 100;
-
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Peyda';
-
-  src: url('../peyda/peyda-extralight.ttf') format('truetype');
-
-  font-weight: 200;
-
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Peyda';
-
-  src: url('../peyda/peyda-light.ttf') format('truetype');
-
+  font-family: 'IRANSansWeb';
+  src: url('../resources/iransans/ttf/IRANSansWeb_Light.ttf') format('truetype');
   font-weight: 300;
-
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Peyda';
-
-  src: url('../peyda/Peyda-Regular.ttf') format('truetype');
-
+  font-family: 'IRANSansWeb';
+  src: url('../resources/iransans/ttf/IRANSansWeb.ttf') format('truetype');
   font-weight: 400;
-
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Peyda';
-
-  src: url('../peyda/Peyda-Medium.ttf') format('truetype');
-
+  font-family: 'IRANSansWeb';
+  src: url('../resources/iransans/ttf/IRANSansWeb_Medium.ttf') format('truetype');
   font-weight: 500;
-
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Peyda';
-
-  src: url('../peyda/Peyda-SemiBold.ttf') format('truetype');
-
-  font-weight: 600;
-
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Peyda';
-
-  src: url('../peyda/Peyda-Bold.ttf') format('truetype');
-
+  font-family: 'IRANSansWeb';
+  src: url('../resources/iransans/ttf/IRANSansWeb_Bold.ttf') format('truetype');
   font-weight: 700;
-
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Peyda';
-
-  src: url('../peyda/Peyda-ExtraBold.ttf') format('truetype');
-
-  font-weight: 800;
-
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Peyda';
-
-  src: url('../peyda/Peyda-Black.ttf') format('truetype');
-
+  font-family: 'IRANSansWeb';
+  src: url('../resources/iransans/ttf/IRANSansWeb_Black.ttf') format('truetype');
   font-weight: 900;
-
-  font-style: normal;
-}
-
-/* IRANYekan Font Faces */
-
-@font-face {
-  font-family: 'IRANYekanMobileFN';
-
-  src: url('../iranyekan/ttf/iranyekanwebthinfanum.ttf') format('truetype');
-
-  font-weight: 100;
-
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'IRANYekanMobileFN';
-
-  src: url('../iranyekan/ttf/iranyekanweblightfanum.ttf') format('truetype');
-
-  font-weight: 300;
-
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'IRANYekanMobileFN';
-
-  src: url('../iranyekan/ttf/iranyekanwebregularfanum.ttf') format('truetype');
-
-  font-weight: 400;
-
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'IRANYekanMobileFN';
-
-  src: url('../iranyekan/ttf/iranyekanwebmediumfanum.ttf') format('truetype');
-
-  font-weight: 500;
-
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'IRANYekanMobileFN';
-
-  src: url('../iranyekan/ttf/iranyekanwebboldfanum.ttf') format('truetype');
-
-  font-weight: 700;
-
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'IRANYekanMobileFN';
-
-  src: url('../iranyekan/ttf/iranyekanwebextrablackfanum.ttf') format('truetype');
-
-  font-weight: 800;
-
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'IRANYekanMobileFN';
-
-  src: url('../iranyekan/ttf/iranyekanwebblackfanum.ttf') format('truetype');
-
-  font-weight: 900;
-
   font-style: normal;
 }
 
@@ -1771,12 +1652,8 @@ body {
   background-color: #f3f4f6;
 }
 
-.font-peyda {
-  font-family: 'Peyda', sans-serif;
-}
-
-.font-iranyekan {
-  font-family: 'IRANYekanMobileFN', sans-serif;
+.font-iransans {
+  font-family: 'IRANSansWeb', sans-serif;
 }
 
 .before\:absolute::before {

@@ -50,10 +50,18 @@
                                     <p class="text-gray-900 whitespace-no-wrap">{{ $campaign->user->name ?? 'نامشخص' }}</p>
                                 </td>
                                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                    <button onclick='openViewModal(@json($campaign))' class="inline-flex items-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                        <i class="ri-eye-line ml-1"></i>
-                                        مشاهده
-                                    </button>
+                                    <div class="space-y-2">
+                                        <div>
+                                            <span class="text-xs font-bold text-gray-700">متن اصلی:</span>
+                                            <p class="text-xs text-gray-800 bg-gray-100 rounded-md p-2 mt-1 whitespace-pre-wrap">{{ $campaign->original_message ?? $campaign->message }}</p>
+                                        </div>
+                                        @if(!empty($campaign->edited_message) && $campaign->edited_message !== $campaign->original_message)
+                                        <div>
+                                            <span class="text-xs font-bold text-blue-700">متن ویرایش‌شده:</span>
+                                            <p class="text-xs text-blue-800 bg-blue-50 rounded-md p-2 mt-1 whitespace-pre-wrap">{{ $campaign->edited_message }}</p>
+                                        </div>
+                                        @endif
+                                    </div>
                                 </td>
                                 <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                                     <p class="text-gray-900 whitespace-no-wrap">{{ $campaign->customer_count }}</p>
@@ -143,76 +151,7 @@
                         {{ $campaigns->links() }}
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- View Message Modal -->
-<div id="viewMessageModal" class="fixed z-10 inset-0 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="closeViewModal()"></div>
-        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex">
-                <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 sm:mx-0 sm:h-10 sm:w-10">
-                    <i class="ri-file-text-line text-2xl text-indigo-600"></i>
-                </div>
-                <div class="mt-3 text-center sm:mt-0 sm:mr-4 sm:text-right w-full">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900">
-                        جزئیات کمپین پیامکی
-                    </h3>
-                </div>
-            </div>
-            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div class="sm:flex sm:items-start">
-                    <div class="w-full">
-                        <div class="space-y-4">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <p class="text-sm font-bold text-gray-700">سالن:</p>
-                                    <p id="viewSalonName" class="text-sm text-gray-600 mt-1"></p>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-bold text-gray-700">فرستنده:</p>
-                                    <p id="viewUserName" class="text-sm text-gray-600 mt-1"></p>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-bold text-gray-700">تعداد مشتریان:</p>
-                                    <p id="viewCustomerCount" class="text-sm text-gray-600 mt-1"></p>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-bold text-gray-700">هزینه کل:</p>
-                                    <p id="viewTotalCost" class="text-sm text-gray-600 mt-1"></p>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-bold text-gray-700">نوع:</p>
-                                    <p id="viewType" class="text-sm text-gray-600 mt-1"></p>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-bold text-gray-700">وضعیت تایید:</p>
-                                    <p id="viewApprovalStatus" class="text-sm text-gray-600 mt-1"></p>
-                                </div>
-                            </div>
-                            <div>
-                                <p class="text-sm font-bold text-gray-700">متن پیام:</p>
-                                <p id="viewMessageContent" class="text-sm text-gray-600 mt-1 p-3 bg-gray-100 rounded-md whitespace-pre-wrap"></p>
-                            </div>
-                            <div>
-                                <p class="text-sm font-bold text-gray-700">فیلترهای اعمال شده:</p>
-                                <div id="viewFilters" class="text-sm text-gray-600 mt-1 p-3 bg-gray-100 rounded-md"></div>
-                            </div>
-                            <div id="rejectionReasonContainer" class="hidden">
-                                <p class="text-sm font-bold text-red-700">دلیل رد:</p>
-                                <p id="viewRejectionReason" class="text-sm text-red-600 mt-1 p-3 bg-red-50 rounded-md"></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button onclick="closeViewModal()" type="button" class="btn-secondary w-full sm:w-auto">
-                    بستن
+                                            <!-- حذف مودال مشاهده پیام -->
                 </button>
             </div>
         </div>
