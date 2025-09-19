@@ -501,6 +501,10 @@ class AuthController extends Controller
             Log::info('Password check successful for mobile: ' . $request->mobile);
             
             if ($user->is_superadmin) {
+                // Update last login time
+                $user->last_login_at = now();
+                $user->save();
+                
                 Auth::guard('web')->login($user);
                 $request->session()->regenerate();
                 Log::info('User is superadmin. Logged in and redirecting to admin dashboard.');

@@ -180,6 +180,7 @@ class AuthService
             'province_id' => $data['province_id'],
             'city_id' => $data['city_id'],
             'address' => $data['address'],
+            'mobile' => $user->mobile, // Copy mobile from user
             'credit_score' => 0,
         ];
 

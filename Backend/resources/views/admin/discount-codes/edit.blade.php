@@ -217,7 +217,7 @@
                                        id="starts_at"
                                        value="{{ old('starts_at', request('form_starts_at', $discountCode->starts_at ? \Morilog\Jalali\Jalalian::forge($discountCode->starts_at)->format('Y/m/d') : '')) }}"
                                        placeholder="انتخاب تاریخ..."
-                                       class="persian-date-picker w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 @error('starts_at') border-red-500 @enderror">
+                                       class="jalali-datepicker w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 @error('starts_at') border-red-500 @enderror">
                                 @error('starts_at')
                                     <p class="mt-2 text-sm text-red-600 flex items-center">
                                         <i class="ri-error-warning-line ml-1"></i>
@@ -237,7 +237,7 @@
                                        id="expires_at"
                                        value="{{ old('expires_at', request('form_expires_at', $discountCode->expires_at ? \Morilog\Jalali\Jalalian::forge($discountCode->expires_at)->format('Y/m/d') : '')) }}"
                                        placeholder="انتخاب تاریخ..."
-                                       class="persian-date-picker w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 @error('expires_at') border-red-500 @enderror">
+                                       class="jalali-datepicker w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 @error('expires_at') border-red-500 @enderror">
                                 @error('expires_at')
                                     <p class="mt-2 text-sm text-red-600 flex items-center">
                                         <i class="ri-error-warning-line ml-1"></i>
@@ -328,8 +328,13 @@
                             <input type="hidden" name="filter_business_subcategory_id" value="{{ request('business_subcategory_id', $discountCode->target_users['business_subcategory_id'] ?? '') }}">
                             <input type="hidden" name="filter_status" value="{{ request('status', $discountCode->target_users['status'] ?? '') }}">
                             <input type="hidden" name="filter_sms_balance_status" value="{{ request('sms_balance_status', $discountCode->target_users['sms_balance_status'] ?? '') }}">
+                            <input type="hidden" name="filter_min_sms_balance" value="{{ request('min_sms_balance', $discountCode->target_users['min_sms_balance'] ?? '') }}">
+                            <input type="hidden" name="filter_max_sms_balance" value="{{ request('max_sms_balance', $discountCode->target_users['max_sms_balance'] ?? '') }}">
                             <input type="hidden" name="filter_last_sms_purchase" value="{{ request('last_sms_purchase', $discountCode->target_users['last_sms_purchase'] ?? '') }}">
                             <input type="hidden" name="filter_monthly_sms_consumption" value="{{ request('monthly_sms_consumption', $discountCode->target_users['monthly_sms_consumption'] ?? '') }}">
+                            <input type="hidden" name="filter_gender" value="{{ request('gender', $discountCode->target_users['gender'] ?? '') }}">
+                            <input type="hidden" name="filter_min_age" value="{{ request('min_age', $discountCode->target_users['min_age'] ?? '') }}">
+                            <input type="hidden" name="filter_max_age" value="{{ request('max_age', $discountCode->target_users['max_age'] ?? '') }}">
                         </div>
                     </div>
 
@@ -367,17 +372,21 @@
                     </div>
 
                     <!-- Submit Buttons -->
-                    <div class="flex items-center justify-between pt-8 border-t border-gray-200">
-                        <a href="{{ route('admin.discount-codes.index') }}"
-                           class="inline-flex items-center px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200">
-                            <i class="ri-arrow-right-line text-lg ml-2"></i>
-                            انصراف
-                        </a>
-                        <button type="submit" 
-                                class="inline-flex items-center px-8 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200 transform hover:scale-105">
-                            <i class="ri-save-line text-lg ml-2"></i>
-                            ویرایش کد تخفیف
-                        </button>
+                    <div class="flex justify-center items-center gap-4 pt-6 border-t border-gray-200 mt-6">
+                        <div class="flex justify-center items-center gap-4 w-full">
+                            <button type="submit" class="flex items-center gap-2 px-5 py-2 border border-blue-600 text-sm font-semibold rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 transform hover:scale-105">
+                                <i class="ri-search-line text-lg"></i>
+                                <span>اعمال فیلتر</span>
+                            </button>
+                            <a href="{{ route('admin.export.discount-codes', request()->query()) }}" class="flex items-center gap-2 px-5 py-2 border border-green-600 text-sm font-semibold rounded-lg shadow-sm text-white bg-gradient-to-r from-green-600 to-lime-500 hover:from-green-700 hover:to-lime-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-200 transform hover:scale-105">
+                                <i class="ri-file-excel-line text-lg"></i>
+                                <span>خروجی اکسل</span>
+                            </a>
+                            <a href="{{ route('admin.discount-codes.edit', $discountCode->id) }}" class="flex items-center gap-2 px-5 py-2 border border-gray-300 text-sm font-semibold rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 transform hover:scale-105">
+                                <i class="ri-close-line text-lg"></i>
+                                <span>پاک کردن فیلترها</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </form>
@@ -481,16 +490,29 @@
                 </div>
 
                 <div>
-                    <label for="filter_sms_balance_status" class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
                         <i class="ri-message-line text-gray-400 ml-1"></i>
-                        موجودی پیامک
+                        محدوده اعتبار پیامک
                     </label>
-                    <select id="filter_sms_balance_status" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
-                        <option value="">همه</option>
-                        <option value="less_than_50" {{ request('sms_balance_status', $discountCode->target_users['sms_balance_status'] ?? '') === 'less_than_50' ? 'selected' : '' }}>کمتر از ۵۰</option>
-                        <option value="less_than_200" {{ request('sms_balance_status', $discountCode->target_users['sms_balance_status'] ?? '') === 'less_than_200' ? 'selected' : '' }}>کمتر از ۲۰۰</option>
-                        <option value="zero" {{ request('sms_balance_status', $discountCode->target_users['sms_balance_status'] ?? '') === 'zero' ? 'selected' : '' }}>صفر</option>
-                    </select>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <input type="number"
+                                   id="filter_min_sms_balance"
+                                   placeholder="حداقل اعتبار"
+                                   min="0"
+                                   value="{{ request('min_sms_balance', $discountCode->target_users['min_sms_balance'] ?? '') }}"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                        </div>
+                        <div>
+                            <input type="number"
+                                   id="filter_max_sms_balance"
+                                   placeholder="حداکثر اعتبار"
+                                   min="0"
+                                   value="{{ request('max_sms_balance', $discountCode->target_users['max_sms_balance'] ?? '') }}"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                        </div>
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500">اعتبار را به عدد وارد کنید (مثال: ۱۰۰ تا ۵۰۰)</p>
                 </div>
 
                 <div>
@@ -520,17 +542,63 @@
                         <option value="low" {{ request('monthly_sms_consumption', $discountCode->target_users['monthly_sms_consumption'] ?? '') === 'low' ? 'selected' : '' }}>کم (کمتر از ۱۰۰)</option>
                     </select>
                 </div>
+
+                <div>
+                    <label for="filter_gender" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="ri-user-line text-gray-400 ml-1"></i>
+                        جنسیت سالن‌دار
+                    </label>
+                    <select id="filter_gender" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                        <option value="">همه</option>
+                        <option value="male" {{ request('gender', $discountCode->target_users['gender'] ?? '') === 'male' ? 'selected' : '' }}>مرد</option>
+                        <option value="female" {{ request('gender', $discountCode->target_users['gender'] ?? '') === 'female' ? 'selected' : '' }}>زن</option>
+                        <option value="other" {{ request('gender', $discountCode->target_users['gender'] ?? '') === 'other' ? 'selected' : '' }}>سایر</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="filter_min_age" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="ri-calendar-line text-gray-400 ml-1"></i>
+                        حداقل سن سالن‌دار
+                    </label>
+                    <input type="number" 
+                           id="filter_min_age" 
+                           placeholder="برای مثال: ۲۵"
+                           min="18" 
+                           max="120"
+                           value="{{ request('min_age', $discountCode->target_users['min_age'] ?? '') }}"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                </div>
+                <div>
+                    <label for="filter_max_age" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="ri-calendar-line text-gray-400 ml-1"></i>
+                        حداکثر سن سالن‌دار
+                    </label>
+                    <input type="number" 
+                           id="filter_max_age" 
+                           placeholder="برای مثال: ۴۰"
+                           min="18" 
+                           max="120"
+                           value="{{ request('max_age', $discountCode->target_users['max_age'] ?? '') }}"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                </div>
             </div>
 
-            <div class="flex gap-4">
-                <button type="button" id="apply-filter-btn" class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 transform hover:scale-105">
-                    <i class="ri-search-line text-lg ml-2"></i>
-                    اعمال فیلتر
-                </button>
-                <a href="{{ route('admin.discount-codes.edit', $discountCode) }}" class="inline-flex items-center px-6 py-3 border border-gray-300 text-sm font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200">
-                    <i class="ri-close-line text-lg ml-2"></i>
-                    پاک کردن فیلترها
-                </a>
+            <div class="flex justify-center items-center gap-4 pt-6 border-t border-gray-200 mt-6">
+                <div class="flex justify-center items-center gap-4 w-full">
+                    <button type="submit" class="flex items-center gap-2 px-5 py-2 border border-blue-600 text-sm font-semibold rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 transform hover:scale-105">
+                        <i class="ri-search-line text-lg"></i>
+                        <span>اعمال فیلتر</span>
+                    </button>
+                    <a href="{{ route('admin.export.discount-codes', request()->query()) }}" class="flex items-center gap-2 px-5 py-2 border border-green-600 text-sm font-semibold rounded-lg shadow-sm text-white bg-gradient-to-r from-green-600 to-lime-500 hover:from-green-700 hover:to-lime-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-200 transform hover:scale-105">
+                        <i class="ri-file-excel-line text-lg"></i>
+                        <span>خروجی اکسل</span>
+                    </a>
+                    <a href="{{ route('admin.discount-codes.edit', $discountCode->id) }}" class="flex items-center gap-2 px-5 py-2 border border-gray-300 text-sm font-semibold rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 transform hover:scale-105">
+                        <i class="ri-close-line text-lg"></i>
+                        <span>پاک کردن فیلترها</span>
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -713,8 +781,13 @@
                     'filter_business_subcategory_id',
                     'filter_status',
                     'filter_sms_balance_status',
+                    'filter_min_sms_balance',
+                    'filter_max_sms_balance',
                     'filter_last_sms_purchase',
-                    'filter_monthly_sms_consumption'
+                    'filter_monthly_sms_consumption',
+                    'filter_gender',
+                    'filter_min_age',
+                    'filter_max_age'
                 ];
                 
                 filterFields.forEach(fieldId => {
@@ -779,7 +852,7 @@
 
         // Initialize Persian Date Pickers if jQuery is available
         if (typeof $ !== 'undefined') {
-            $('.persian-date-picker').each(function() {
+            $('.jalali-datepicker').each(function() {
                 $(this).persianDatepicker({
                     format: 'YYYY/MM/DD',
                     autoClose: true,
@@ -795,7 +868,7 @@
 </script>
 
 <!-- Persian Date Picker CSS and JS -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.css">
-<script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.js"></script>
+<link rel="stylesheet" href="{{ asset('vendor/persian-datepicker/css/persian-datepicker.min.css') }}">
+<script src="{{ asset('vendor/persian-date/js/persian-date.min.js') }}"></script>
+<script src="{{ asset('vendor/persian-datepicker/js/persian-datepicker.min.js') }}"></script>
 @endpush

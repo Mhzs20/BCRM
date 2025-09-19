@@ -246,7 +246,7 @@
         <!-- Pagination -->
         @if($salons->hasPages())
             <div class="p-4 border-t border-gray-200">
-                {{ $salons->links() }}
+                {{ $salons->appends(request()->query())->links() }}
             </div>
         @endif
     </div>
@@ -254,4 +254,9 @@
 
 @push('scripts')
 <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+<!-- Persian Date Picker CSS and JS -->
+<link rel="stylesheet" href="{{ asset('vendor/persian-datepicker/css/persian-datepicker.min.css') }}">
+<script src="{{ asset('vendor/persian-date/js/persian-date.min.js') }}"></script>
+<script src="{{ asset('vendor/persian-datepicker/js/persian-datepicker.min.js') }}"></script>
 @endpush

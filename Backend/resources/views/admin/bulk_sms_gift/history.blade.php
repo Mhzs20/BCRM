@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="container mx-auto px-4 py-6">
-    <h1 class="text-3xl font-extrabold text-gray-900 mb-8 text-center">تاریخچه شارژ گروهی پیامک هدیه</h1>
+    <h1 class="text-3xl font-extrabold text-gray-900 mb-8 text-center font-sans">تاریخچه شارژ گروهی پیامک هدیه</h1>
 
     <div class="bg-white shadow-xl rounded-lg overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200">

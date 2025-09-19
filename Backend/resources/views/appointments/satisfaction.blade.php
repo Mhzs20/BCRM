@@ -88,7 +88,7 @@
     @endif
 
     <footer class="mt-8 flex justify-between items-center">
-        <div class="text-zinc-400 text-sm font-medium border  rounded-lg py-2 px-4">
+        <div class="text-zinc-400 text-sm font-medium border  rounded-lg py-2 px-4 font-['Peyda']">
             نســخــه {{ str_replace($englishDigits, $persianDigits, '1.0.1') }}</div>
         <div class="flex flex-col justify-end">
 <div class="w-28 h-12 relative">

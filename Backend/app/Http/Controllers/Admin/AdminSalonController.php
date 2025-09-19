@@ -27,9 +27,17 @@ class AdminSalonController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Salon::with(['user', 'city', 'province', 'businessCategory', 'businessSubcategories']);
-
-        if ($request->filled('search')) {
+        $query = Salon::with(['user', 'city', 'province', 'businessCategory', 'businessSubcategories', 'smsBalance'])
+                      ->leftJoin('sms_transactions', 'salons.id', '=', 'sms_transactions.salon_id')
+                      ->selectRaw('salons.*,
+                                  SUM(CASE WHEN (sms_transactions.type IN ("send", "deduction", "manual_send") 
+                                               OR sms_transactions.sms_type IN ("send", "deduction", "manual_send", "manual_sms", "manual_reminder", "appointment_cancellation", "appointment_confirmation", "satisfaction_survey", "appointment_modification", "bulk"))
+                                               AND sms_transactions.amount IS NOT NULL 
+                                               AND sms_transactions.amount != ""
+                                               THEN ABS(COALESCE(sms_transactions.amount, 0)) ELSE 0 END) as total_consumed,
+                                  MAX(CASE WHEN sms_transactions.type = "purchase" OR sms_transactions.sms_type = "purchase" 
+                                           THEN sms_transactions.created_at END) as last_purchase_date')
+                      ->groupBy('salons.id');        if ($request->filled('search')) {
             $query->whereSearch($request->input('search'));
         }
 
@@ -56,6 +64,25 @@ class AdminSalonController extends Controller
             });
         }
 
+        // New filters for owner gender and age range
+        if ($request->filled('owner_gender')) {
+            $query->whereHas('user', function ($q) use ($request) {
+                $q->where('gender', $request->input('owner_gender'));
+            });
+        }
+
+        if ($request->filled('owner_min_age') || $request->filled('owner_max_age')) {
+            $query->whereHas('user', function ($q) use ($request) {
+                if ($request->filled('owner_min_age') && $request->filled('owner_max_age')) {
+                    $q->whereRaw('TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN ? AND ?', [$request->owner_min_age, $request->owner_max_age]);
+                } elseif ($request->filled('owner_min_age')) {
+                    $q->whereRaw('TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) >= ?', [$request->owner_min_age]);
+                } elseif ($request->filled('owner_max_age')) {
+                    $q->whereRaw('TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) <= ?', [$request->owner_max_age]);
+                }
+            });
+        }
+
         if ($request->filled('created_at_start')) {
             try {
                 $jalaliDate = $request->input('created_at_start');
@@ -74,6 +101,61 @@ class AdminSalonController extends Controller
             } catch (\Exception $e) {
                 \Log::error('Invalid end date format: ' . $request->input('created_at_end'));
             }
+        }
+
+        // Apply SMS balance range filter
+        if ($request->filled('min_sms_balance') || $request->filled('max_sms_balance')) {
+            $query->whereHas('smsBalance', function ($q) use ($request) {
+                if ($request->filled('min_sms_balance') && $request->filled('max_sms_balance')) {
+                    $q->whereBetween('balance', [$request->min_sms_balance, $request->max_sms_balance]);
+                } elseif ($request->filled('min_sms_balance')) {
+                    $q->where('balance', '>=', $request->min_sms_balance);
+                } elseif ($request->filled('max_sms_balance')) {
+                    $q->where('balance', '<=', $request->max_sms_balance);
+                }
+            });
+        }
+
+        // Apply last SMS purchase date range filter
+        if ($request->filled('last_sms_purchase_start') || $request->filled('last_sms_purchase_end')) {
+            $query->whereHas('smsTransactions', function ($q) use ($request) {
+                if ($request->filled('last_sms_purchase_start')) {
+                    try {
+                        $startDate = Verta::parse($request->last_sms_purchase_start)->toCarbon()->startOfDay();
+                        $q->where('created_at', '>=', $startDate);
+                    } catch (\Exception $e) {
+                        \Log::error('Invalid last_sms_purchase_start date format: ' . $request->last_sms_purchase_start);
+                    }
+                }
+                if ($request->filled('last_sms_purchase_end')) {
+                    try {
+                        $endDate = Verta::parse($request->last_sms_purchase_end)->toCarbon()->endOfDay();
+                        $q->where('created_at', '<=', $endDate);
+                    } catch (\Exception $e) {
+                        \Log::error('Invalid last_sms_purchase_end date format: ' . $request->last_sms_purchase_end);
+                    }
+                }
+                $q->where('type', 'purchase'); // Only purchase transactions
+            });
+        }
+
+        // Apply monthly SMS consumption range filter
+        if ($request->filled('min_monthly_consumption') || $request->filled('max_monthly_consumption')) {
+            $query->whereHas('smsTransactions', function ($q) use ($request) {
+                $q->selectRaw('salon_id, SUM(amount) as total_consumption')
+                  ->whereBetween('created_at', [Carbon::now()->subMonth(), Carbon::now()])
+                  ->where('type', '!=', 'purchase') // Exclude purchase transactions for consumption calculation
+                  ->groupBy('salon_id')
+                  ->having(function ($havingQ) use ($request) {
+                      if ($request->filled('min_monthly_consumption') && $request->filled('max_monthly_consumption')) {
+                          $havingQ->havingRaw('total_consumption BETWEEN ? AND ?', [$request->min_monthly_consumption, $request->max_monthly_consumption]);
+                      } elseif ($request->filled('min_monthly_consumption')) {
+                          $havingQ->havingRaw('total_consumption >= ?', [$request->min_monthly_consumption]);
+                      } elseif ($request->filled('max_monthly_consumption')) {
+                          $havingQ->havingRaw('total_consumption <= ?', [$request->max_monthly_consumption]);
+                      }
+                  });
+            });
         }
 
         $salons = $query->paginate(10);
@@ -108,7 +190,7 @@ class AdminSalonController extends Controller
     {
         $validator = \Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'mobile' => ['required', 'string', 'max:15', Rule::unique('salons')->ignore($salon->id)],
+            'mobile' => ['required', 'string', 'max:15'],
             'email' => ['nullable', 'string', 'email', 'max:255', Rule::unique('salons')->ignore($salon->id)],
             'business_category_id' => 'required|exists:business_categories,id',
             'business_subcategory_ids' => 'nullable|array',
@@ -230,6 +312,9 @@ class AdminSalonController extends Controller
             'filter_status' => 'nullable|boolean',
             'filter_city_id' => 'nullable|exists:cities,id',
             'filter_salon_id' => 'nullable|exists:salons,id',
+            'filter_owner_gender' => 'nullable|in:male,female,other',
+            'filter_owner_min_age' => 'nullable|integer|min:18|max:120',
+            'filter_owner_max_age' => 'nullable|integer|min:18|max:120',
         ]);
 
         $query = Salon::query();
@@ -242,6 +327,22 @@ class AdminSalonController extends Controller
             }
             if ($request->filled('filter_city_id')) {
                 $query->where('city_id', $request->filter_city_id);
+            }
+            if ($request->filled('filter_owner_gender')) {
+                $query->whereHas('user', function ($q) use ($request) {
+                    $q->where('gender', $request->filter_owner_gender);
+                });
+            }
+            if ($request->filled('filter_owner_min_age') || $request->filled('filter_owner_max_age')) {
+                $query->whereHas('user', function ($q) use ($request) {
+                    if ($request->filled('filter_owner_min_age') && $request->filled('filter_owner_max_age')) {
+                        $q->whereRaw('TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN ? AND ?', [$request->filter_owner_min_age, $request->filter_owner_max_age]);
+                    } elseif ($request->filled('filter_owner_min_age')) {
+                        $q->whereRaw('TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) >= ?', [$request->filter_owner_min_age]);
+                    } elseif ($request->filled('filter_owner_max_age')) {
+                        $q->whereRaw('TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) <= ?', [$request->filter_owner_max_age]);
+                    }
+                });
             }
         }
 
@@ -459,5 +560,22 @@ class AdminSalonController extends Controller
                 'details' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Get age range from string value
+     */
+    private function getAgeRange($range)
+    {
+        $ranges = [
+            '18-25' => ['min' => 18, 'max' => 25],
+            '26-35' => ['min' => 26, 'max' => 35],
+            '36-45' => ['min' => 36, 'max' => 45],
+            '46-55' => ['min' => 46, 'max' => 55],
+            '56-65' => ['min' => 56, 'max' => 65],
+            '66+' => ['min' => 66, 'max' => 120],
+        ];
+
+        return $ranges[$range] ?? null;
     }
 }

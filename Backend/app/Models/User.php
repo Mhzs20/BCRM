@@ -43,6 +43,7 @@ class User extends Authenticatable implements JWTSubject
         'profile_completed',
         'gender',
         'date_of_birth',
+        'last_login_at',
     ];
     /**
      * The attributes that should be hidden for serialization.
@@ -76,6 +77,7 @@ class User extends Authenticatable implements JWTSubject
         'profile_completed' => 'boolean',
         'active_salon_id' => 'integer',
         'business_category_id' => 'integer',
+        'last_login_at' => 'datetime',
         // Do NOT cast date_of_birth here, let the accessor handle it
     ];
 

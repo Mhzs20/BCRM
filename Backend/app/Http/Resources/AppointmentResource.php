@@ -72,7 +72,7 @@ class AppointmentResource extends JsonResource
         return match ($status) {
             'pending_confirmation' => 'در انتظار تایید',
             'confirmed' => 'تایید شده',
-            'done' => 'انجام شده',
+            'completed' => 'انجام شده',
             'cancelled' => 'لغو شده',
             'no_show' => 'عدم حضور',
             default => 'نامشخص',
