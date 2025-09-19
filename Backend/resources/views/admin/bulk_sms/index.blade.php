@@ -124,8 +124,8 @@
                     <label for="max_monthly_consumption" class="block text-sm font-medium text-gray-700 mb-1">حداکثر مصرف ماهانه پیامک</label>
                     <input type="number" name="max_monthly_consumption" id="max_monthly_consumption" placeholder="برای مثال: 500" class="form-input w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 p-2.5 text-gray-900 bg-gray-50 hover:bg-gray-100 transition duration-150 ease-in-out" value="{{ request('max_monthly_consumption') }}" min="0">
                 </div>
-            
-            <!-- Action Buttons -->
+            </div>
+                <!-- Action Buttons -->
             <div class="flex justify-center items-center gap-4 pt-6 border-t border-gray-200 mt-6">
                 <div class="flex justify-center items-center gap-4 w-full">
                     <button type="submit" class="flex items-center gap-2 px-5 py-2 border border-blue-600 text-sm font-semibold rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 transform hover:scale-105">
@@ -142,6 +142,7 @@
                     </a>
                 </div>
             </div>
+        
         </form>
     </div>
 
