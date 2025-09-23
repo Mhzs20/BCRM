@@ -219,8 +219,10 @@ Route::middleware('auth:api')->post('manual-sms/{salon}/send', [ManualSmsControl
 Route::get('/app-history', [AppController::class, 'latestHistory']);
 Route::get('/staff/{staffId}/appointments', [AppController::class, 'getStaffAppointments'])->whereNumber('staffId');
 
-Route::get('/salons/{salonId}/notifications', [NotificationController::class, 'index'])->whereNumber('salonId');
-Route::patch('/salons/{salonId}/notifications/{id}/read', [NotificationController::class, 'updateReadStatus'])->whereNumber('salonId');
+Route::middleware('auth:api')->group(function () {
+    Route::get('/salons/{salonId}/notifications', [NotificationController::class, 'index'])->whereNumber('salonId');
+    Route::patch('/salons/{salonId}/notifications/{id}/read', [NotificationController::class, 'updateReadStatus'])->whereNumber('salonId');
+});
 
 Route::get('/banners', [ApiBannerController::class, 'index']);
 
