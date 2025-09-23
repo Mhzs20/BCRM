@@ -12,6 +12,12 @@ class NotificationController extends Controller
     public function index(Request $request, $salonId)
     {
         $salon = Salon::findOrFail($salonId);
+
+        // Check if the authenticated user owns the salon
+        if (auth()->user()->id !== $salon->user_id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         $isRead = $request->query('is_read');
         $notifications = Notification::with(['salons' => function ($q) use ($salonId) {
             $q->where('salon_id', $salonId);
@@ -38,6 +44,13 @@ class NotificationController extends Controller
 
     public function updateReadStatus(Request $request, $salonId, $id)
     {
+        $salon = Salon::findOrFail($salonId);
+
+        // Check if the authenticated user owns the salon
+        if (auth()->user()->id !== $salon->user_id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         $isRead = $request->boolean('is_read', true);
         $notification = Notification::findOrFail($id);
         $notification->salons()->syncWithoutDetaching([$salonId => ['is_read' => $isRead]]);
