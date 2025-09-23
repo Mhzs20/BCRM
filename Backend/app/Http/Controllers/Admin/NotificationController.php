@@ -2,9 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
-use App\Models\Notification;
-use Illuminate\Http\Request;
+use App\Models\Salon;
 
 class NotificationController extends Controller
 {
@@ -26,11 +24,17 @@ class NotificationController extends Controller
             'message' => 'required|string',
         ]);
 
-        Notification::create([
+        $notification = Notification::create([
             'title' => $request->title,
             'message' => $request->message,
             'is_important' => $request->has('is_important'),
         ]);
+
+        // Attach notification to all salons
+        $salons = Salon::all();
+        foreach ($salons as $salon) {
+            $notification->salons()->attach($salon->id, ['is_read' => false]);
+        }
 
         return redirect()->route('admin.notifications.index')
             ->with('success', 'اعلان با موفقیت ایجاد شد.');
