@@ -19,9 +19,7 @@ class NotificationController extends Controller
         }
 
         $isRead = $request->query('is_read');
-        $notifications = Notification::whereHas('salons', function ($q) use ($salonId) {
-            $q->where('salon_id', $salonId);
-        })->with(['salons' => function ($q) use ($salonId) {
+        $notifications = Notification::with(['salons' => function ($q) use ($salonId) {
             $q->where('salon_id', $salonId);
         }])->latest()->get();
 
