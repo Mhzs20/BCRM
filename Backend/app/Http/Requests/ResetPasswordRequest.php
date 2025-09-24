@@ -23,7 +23,7 @@ class ResetPasswordRequest extends FormRequest
      */
     public function rules(): array
     {
-        $user = $this->user();
+        $user = User::where('mobile', $this->input('mobile'))->first();
         $passwordRules = ['required', 'confirmed', Password::min(8)->letters()->numbers()];
 
         if ($user && !$user->is_superadmin) {
