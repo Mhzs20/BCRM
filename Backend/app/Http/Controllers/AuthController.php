@@ -370,7 +370,8 @@ class AuthController extends Controller
                     if (!isset($userData['current_password']) || !Hash::check($userData['current_password'], $user->password)) {
                         return response()->json(['status' => 'error', 'message' => 'رمز عبور فعلی اشتباه است. لطفاً رمز فعلی خود را به‌درستی وارد کنید.'], 422);
                     }
-                    if (!isset($userData['new_password_confirmation']) || $userData['new_password'] !== $userData['new_password_confirmation']) {
+                    $confirmation = $request->input('user.new_password_confirmation');
+                    if (!$confirmation || $userData['new_password'] !== $confirmation) {
                         return response()->json(['status' => 'error', 'message' => 'تکرار رمز عبور جدید با رمز جدید مطابقت ندارد. لطفاً رمز جدید را به‌درستی تکرار کنید.'], 422);
                     }
                     if ($user->is_superadmin) {
