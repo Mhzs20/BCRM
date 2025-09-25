@@ -365,13 +365,25 @@ class AuthController extends Controller
 
             // Update User
             if (!empty($userData)) {
+                // منطق تغییر رمز عبور با پیام‌های فارسی و مناسب
                 if (isset($userData['new_password'])) {
                     if (!isset($userData['current_password']) || !Hash::check($userData['current_password'], $user->password)) {
-                        return response()->json(['status' => 'error', 'message' => 'رمز عبور فعلی صحیح نیست.'], 422);
+                        return response()->json(['status' => 'error', 'message' => 'رمز عبور فعلی اشتباه است. لطفاً رمز فعلی خود را به‌درستی وارد کنید.'], 422);
+                    }
+                    if ($userData['new_password'] !== $userData['new_password_confirmation']) {
+                        return response()->json(['status' => 'error', 'message' => 'تکرار رمز عبور جدید با رمز جدید مطابقت ندارد. لطفاً رمز جدید را به‌درستی تکرار کنید.'], 422);
+                    }
+                    if ($user->is_superadmin) {
+                        if (strlen($userData['new_password']) < 8 || !preg_match('/[a-zA-Z]/', $userData['new_password']) || !preg_match('/[0-9]/', $userData['new_password'])) {
+                            return response()->json(['status' => 'error', 'message' => 'رمز عبور جدید باید حداقل ۸ کاراکتر و شامل حداقل یک حرف انگلیسی و یک عدد باشد.'], 422);
+                        }
+                    } else {
+                        if (strlen($userData['new_password']) < 4 || !preg_match('/^[a-zA-Z0-9]+$/', $userData['new_password'])) {
+                            return response()->json(['status' => 'error', 'message' => 'رمز عبور جدید باید فقط شامل حروف انگلیسی و عدد و حداقل ۴ کاراکتر باشد.'], 422);
+                        }
                     }
                     $userData['password'] = Hash::make($userData['new_password']);
                 }
-                // Unset password confirmation fields
                 unset($userData['current_password'], $userData['new_password'], $userData['new_password_confirmation']);
 
                 // Handle email field: if it's an empty string, set it to null for nullable database column

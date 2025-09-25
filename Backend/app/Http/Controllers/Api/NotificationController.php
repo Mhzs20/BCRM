@@ -35,7 +35,7 @@ class NotificationController extends Controller
         if (!is_null($isRead)) {
             $isReadBool = filter_var($isRead, FILTER_VALIDATE_BOOLEAN);
             $notifications = $notifications->filter(function ($notification) use ($isReadBool) {
-                return $notification->is_read === $isReadBool;
+                return (bool)$notification->is_read === $isReadBool;
             })->values();
         }
 
