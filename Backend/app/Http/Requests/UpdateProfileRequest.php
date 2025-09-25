@@ -15,6 +15,18 @@ class UpdateProfileRequest extends FormRequest
 
     protected function prepareForValidation()
     {
+        // If user fields are sent flat, nest them under 'user'
+        if (!$this->has('user') && ($this->has('current_password') || $this->has('new_password') || $this->has('name') || $this->has('email') || $this->has('gender') || $this->has('date_of_birth'))) {
+            $userData = [];
+            $userFields = ['name', 'email', 'current_password', 'new_password', 'new_password_confirmation', 'gender', 'date_of_birth'];
+            foreach ($userFields as $field) {
+                if ($this->has($field)) {
+                    $userData[$field] = $this->input($field);
+                }
+            }
+            $this->merge(['user' => $userData]);
+        }
+
         // Ensure business_subcategory_ids are correctly merged into the salon array
         // This handles cases where it's sent as salon[business_subcategory_ids][]
         // For PUT/PATCH requests with form-data, input() might be empty.
