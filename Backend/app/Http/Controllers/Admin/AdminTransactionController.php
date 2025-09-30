@@ -16,7 +16,13 @@ class AdminTransactionController extends Controller
     public function index(Request $request)
     {
         $query = Order::query()
-            ->with(['salon:id,name','user:id,name','smsPackage:id,name','transactions' => function($q){ $q->latest(); }])
+            ->with([
+                'salon:id,name,mobile,user_id',
+                'salon.user:id,mobile',
+                'user:id,name',
+                'smsPackage:id,name',
+                'transactions' => function($q){ $q->latest(); }
+            ])
             ->latest();
 
         // Filters

@@ -87,6 +87,7 @@
                 <tr class="text-right">
                     <th class="px-4 py-2">سفارش</th>
                     <th class="px-4 py-2">سالن</th>
+                    <th class="px-4 py-2">شماره تلفن مالک سالن</th>
                     <th class="px-4 py-2">بسته</th>
                     <th class="px-4 py-2">تعداد پیامک</th>
                     <th class="px-4 py-2">مبلغ (تومان)</th>
@@ -104,7 +105,20 @@
                     @php $tx = $order->transactions->first(); @endphp
                     <tr class="border-b last:border-0 hover:bg-gray-50">
                         <td class="px-4 py-2 font-medium">#{{ $order->id }}</td>
-                        <td class="px-4 py-2">{{ $order->salon->name ?? '-' }}</td>
+                        <td class="px-4 py-2">
+                            @if($order->salon)
+                                <a href="{{ url('admin/salons/'.$order->salon->id) }}" class="text-indigo-600 hover:underline">{{ $order->salon->name }}</a>
+                            @else
+                                -
+                            @endif
+                        </td>
+                        <td class="px-4 py-2">
+                            @if($order->salon && $order->salon->user)
+                                {{ $order->salon->user->mobile ?? '-' }}
+                            @else
+                                -
+                            @endif
+                        </td>
                         <td class="px-4 py-2">{{ $order->smsPackage->name ?? '-' }}</td>
                         <td class="px-4 py-2">{{ number_format($order->sms_count) }}</td>
                         <td class="px-4 py-2">{{ number_format($order->amount) }}</td>
