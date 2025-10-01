@@ -118,6 +118,13 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
     Route::get('export/bulk-sms-users', [\App\Http\Controllers\Admin\ExportController::class, 'exportBulkSmsUsers'])->name('export.bulk-sms-users');
     Route::get('export/bulk-sms-gift-users', [\App\Http\Controllers\Admin\ExportController::class, 'exportBulkSmsGiftUsers'])->name('export.bulk-sms-gift-users');
     Route::get('export/discount-code-users', [\App\Http\Controllers\Admin\ExportController::class, 'exportDiscountCodeUsers'])->name('export.discount-code-users');
+
+    // Packages Management
+    Route::resource('packages', \App\Http\Controllers\Admin\PackageController::class);
+    
+    // Options Management (only list and toggle)
+    Route::get('options', [\App\Http\Controllers\Admin\OptionController::class, 'index'])->name('options.index');
+    Route::post('options/{option}/toggle-status', [\App\Http\Controllers\Admin\OptionController::class, 'toggleStatus'])->name('options.toggle-status');
 });
         // تنظیمات کارت
         Route::resource('card-setting', \App\Http\Controllers\Admin\CardSettingController::class);
