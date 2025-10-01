@@ -40,6 +40,8 @@ class ImportOldUsersSeeder extends Seeder
                     'name' => $name ?? 'کاربر ' . $mobile,
                     'mobile' => $mobile,
                     'password' => Hash::make($mobile),
+                    'business_category_id' => 12,
+                    'business_subcategory_ids' => json_encode([81]),
                 ]);
                 $newUsers++;
                 $newUsersList[] = $mobile . ($name ? " ($name)" : "");
@@ -52,6 +54,10 @@ class ImportOldUsersSeeder extends Seeder
                 $salon = new Salon([
                     'name' => $name ?? 'سالن کاربر ' . $mobile,
                     'user_id' => $user->id,
+                    'province_id' => 8,
+                    'city_id' => 301,
+                    'business_category_id' => 12,
+                    'business_subcategory_id' => 81,
                 ]);
                 $salon->save();
                 $newSalons++;

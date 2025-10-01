@@ -139,6 +139,22 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasOne(Salon::class, 'user_id');
     }
 
+    /**
+     * Get the user's purchased packages
+     */
+    public function userPackages()
+    {
+        return $this->hasMany(UserPackage::class);
+    }
+
+    /**
+     * Get the user's active package
+     */
+    public function activePackage()
+    {
+        return $this->hasOne(UserPackage::class)->where('status', 'active');
+    }
+
 
     /**
      * Helper method to check if the user has a specific role.

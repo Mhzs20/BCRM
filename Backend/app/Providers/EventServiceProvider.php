@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use App\Events\PaymentSuccessful;
+use App\Events\FeaturePackagePurchased;
 use App\Listeners\UpdateOrderAndBalance;
+use App\Listeners\ActivateFeaturePackage;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -16,6 +18,9 @@ class EventServiceProvider extends ServiceProvider
     protected $listen = [
         PaymentSuccessful::class => [
             UpdateOrderAndBalance::class,
+        ],
+        FeaturePackagePurchased::class => [
+            ActivateFeaturePackage::class,
         ],
     ];
 

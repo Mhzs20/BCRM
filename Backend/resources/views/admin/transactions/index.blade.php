@@ -25,13 +25,18 @@
         </div>
     </div>
 
-    <form method="GET" class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6 bg-white p-4 rounded-lg shadow">
+    <form method="GET" class="grid grid-cols-1 md:grid-cols-7 gap-4 mb-6 bg-white p-4 rounded-lg shadow">
         <input name="salon" value="{{ $filters['salon'] ?? '' }}" placeholder="نام سالن" class="border rounded px-3 py-2 text-sm" />
         <input name="ref" value="{{ $filters['ref'] ?? '' }}" placeholder="کد مرجع/Authority" class="border rounded px-3 py-2 text-sm" />
+        <select name="type" class="border rounded px-3 py-2 text-sm">
+            <option value="">نوع سفارش</option>
+            <option value="sms" @selected(($filters['type'] ?? '')==='sms')>پکیج پیامک</option>
+            <option value="feature" @selected(($filters['type'] ?? '')==='feature')>پکیج امکانات</option>
+        </select>
         <select name="status" class="border rounded px-3 py-2 text-sm">
             <option value="">وضعیت سفارش</option>
             <option value="pending" @selected(($filters['status'] ?? '')==='pending')>در انتظار</option>
-            <option value="paid" @selected(($filters['status'] ?? '')==='paid')>پرداخت شده</option>
+            <option value="completed" @selected(($filters['status'] ?? '')==='completed')>پرداخت شده</option>
             <option value="failed" @selected(($filters['status'] ?? '')==='failed')>ناموفق</option>
         </select>
         <select name="gateway" class="border rounded px-3 py-2 text-sm">
@@ -86,6 +91,7 @@
             <thead class="bg-gray-100">
                 <tr class="text-right">
                     <th class="px-4 py-2">سفارش</th>
+                    <th class="px-4 py-2">نوع</th>
                     <th class="px-4 py-2">سالن</th>
                     <th class="px-4 py-2">شماره تلفن مالک سالن</th>
                     <th class="px-4 py-2">بسته</th>
@@ -106,6 +112,13 @@
                     <tr class="border-b last:border-0 hover:bg-gray-50">
                         <td class="px-4 py-2 font-medium">#{{ $order->id }}</td>
                         <td class="px-4 py-2">
+                            @if($order->type === 'feature')
+                                <span class="px-2 py-1 rounded text-xs bg-purple-100 text-purple-700">پکیج امکانات</span>
+                            @else
+                                <span class="px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">پکیج پیامک</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-2">
                             @if($order->salon)
                                 <a href="{{ url('admin/salons/'.$order->salon->id) }}" class="text-indigo-600 hover:underline">{{ $order->salon->name }}</a>
                             @else
@@ -119,14 +132,28 @@
                                 -
                             @endif
                         </td>
-                        <td class="px-4 py-2">{{ $order->smsPackage->name ?? '-' }}</td>
-                        <td class="px-4 py-2">{{ number_format($order->sms_count) }}</td>
+                        <td class="px-4 py-2">
+                            @if($order->type === 'feature')
+                                {{ $order->package->name ?? '-' }}
+                            @else
+                                {{ $order->smsPackage->name ?? '-' }}
+                            @endif
+                        </td>
+                        <td class="px-4 py-2">{{ $order->sms_count ? number_format($order->sms_count) : '-' }}</td>
                         <td class="px-4 py-2">{{ number_format($order->amount) }}</td>
                         <td class="px-4 py-2">{{ $order->discount_code ? ($order->discount_code.' ('.$order->discount_percentage.'%)') : '-' }}</td>
                         <td class="px-4 py-2">{{ $tx->gateway ?? '-' }}</td>
-                        <td class="px-4 py-2 ltr text-xs">{{ $tx->reference_id ?? $tx->transaction_id ?? '-' }}</td>
+                        <td class="px-4 py-2 ltr text-xs">{{ $tx->reference_id ?? $tx->transaction_id ?? $order->payment_ref_id ?? $order->payment_authority ?? '-' }}</td>
                         <td class="px-4 py-2">
-                            <span class="px-2 py-1 rounded text-xs {{ $order->status==='paid' ? 'bg-green-100 text-green-700' : ($order->status==='pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-600') }}">{{ $order->status }}</span>
+                            <span class="px-2 py-1 rounded text-xs {{ $order->status==='completed' ? 'bg-green-100 text-green-700' : ($order->status==='pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-600') }}">
+                                @if($order->status === 'completed')
+                                    پرداخت شده
+                                @elseif($order->status === 'pending')
+                                    در انتظار
+                                @else
+                                    ناموفق
+                                @endif
+                            </span>
                         </td>
                         <td class="px-4 py-2">
                             <span class="px-2 py-1 rounded text-xs {{ ($tx->status ?? '')==='completed' ? 'bg-green-100 text-green-700' : (($tx->status ?? '')==='pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-600') }}">{{ $tx->status ?? '-' }}</span>
@@ -137,7 +164,7 @@
                                 <!-- تغییر وضعیت سفارش -->
                                 <select class="border rounded px-2 py-1 text-xs order-status-select" data-order-id="{{ $order->id }}" data-current-status="{{ $order->status }}">
                                     <option value="pending" @selected($order->status === 'pending')>در انتظار</option>
-                                    <option value="paid" @selected($order->status === 'paid')>پرداخت شده</option>
+                                    <option value="completed" @selected($order->status === 'completed')>پرداخت شده</option>
                                     <option value="failed" @selected($order->status === 'failed')>ناموفق</option>
                                 </select>
                                 
@@ -155,7 +182,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="12" class="px-4 py-6 text-center text-gray-500">هیچ تراکنشی یافت نشد.</td>
+                        <td colspan="14" class="px-4 py-6 text-center text-gray-500">هیچ تراکنشی یافت نشد.</td>
                     </tr>
                 @endforelse
             </tbody>
