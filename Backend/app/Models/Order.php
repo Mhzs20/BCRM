@@ -10,12 +10,16 @@ class Order extends Model
         'user_id',
         'salon_id',
         'sms_package_id',
+        'package_id',
+        'type',
         'amount',
         'sms_count',
         'status',
         'discount_code',
         'discount_percentage',
         'original_amount',
+        'payment_authority',
+        'payment_ref_id',
     ];
 
     /**
@@ -40,6 +44,14 @@ class Order extends Model
     public function smsPackage()
     {
         return $this->belongsTo(SmsPackage::class);
+    }
+
+    /**
+     * Get the feature package associated with the order.
+     */
+    public function package()
+    {
+        return $this->belongsTo(Package::class);
     }
 
     /**

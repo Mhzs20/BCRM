@@ -270,6 +270,74 @@
                 <span class="mr-4 font-medium" x-show="sidebarOpen" x-cloak>تراکنش‌ها</span>
             </a>
 
+            <!-- Packages Management Dropdown -->
+            <div x-data="{ 
+                    open: false,
+                    hovered: false,
+                    init() {
+                        this.open = {{ request()->routeIs('admin.packages.*', 'admin.options.*') ? 'true' : 'false' }} && this.sidebarOpen && window.innerWidth >= 1024;
+                    }
+                 }" 
+                 class="relative"
+                 @click.outside="open = false; hovered = false"
+                 @keydown.escape.window="open = false; hovered = false"
+                 @close-all-dropdowns.document="open = false; hovered = false"
+                 x-effect="
+                    if (!sidebarOpen && window.innerWidth >= 1024) { 
+                        open = false; 
+                        hovered = false; 
+                    }
+                    if (window.innerWidth < 1024 && sidebarOpen) {
+                        open = false;
+                        hovered = false;
+                    }
+                 "
+                 @mouseenter="if (!sidebarOpen && window.innerWidth >= 1024) hovered = true"
+                 @mouseleave="if (!sidebarOpen && window.innerWidth >= 1024) hovered = false">
+                <button @click="
+                    if (window.innerWidth >= 1024 || sidebarOpen) {
+                        open = !open;
+                    }
+                "
+                        class="w-full flex items-center px-4 py-3 rounded-lg transition-all duration-200 ease-in-out hover:bg-gray-800 hover:text-white"
+                        :class="sidebarOpen ? 'justify-between' : 'justify-center'">
+                    <div class="flex items-center">
+                        <i class="ri-inbox-line text-xl"></i>
+                        <span class="mr-4 font-medium" x-show="sidebarOpen" x-cloak>مدیریت پکیج‌ها</span>
+                    </div>
+                    <i class="ri-arrow-down-s-line transition-transform duration-300" :class="{'rotate-180': open}" x-show="sidebarOpen" x-cloak></i>
+                </button>
+                <div x-show="open && sidebarOpen" 
+                     x-transition:enter="transition ease-out duration-200" 
+                     x-transition:enter-start="opacity-0 transform -translate-y-2" 
+                     x-transition:enter-end="opacity-100 transform translate-y-0" 
+                     x-transition:leave="transition ease-in duration-150" 
+                     x-transition:leave-start="opacity-100 transform translate-y-0" 
+                     x-transition:leave-end="opacity-0 transform -translate-y-2"
+                     class="mt-1 mr-4 pl-4 border-r-2 border-gray-700 space-y-1" 
+                     x-cloak>
+                    <a href="{{ route('admin.packages.index') }}" 
+                       class="block px-4 py-2 rounded-lg text-sm {{ request()->routeIs('admin.packages.*') ? 'bg-gray-700 text-white' : 'hover:bg-gray-700' }}"
+                       @click="open = false">پکیج‌ها</a>
+                    <a href="{{ route('admin.options.index') }}" 
+                       class="block px-4 py-2 rounded-lg text-sm {{ request()->routeIs('admin.options.*') ? 'bg-gray-700 text-white' : 'hover:bg-gray-700' }}"
+                       @click="open = false">آپشن‌ها</a>
+                </div>
+                <div x-show="hovered && !sidebarOpen && window.innerWidth >= 1024" 
+                     @mouseleave="hovered = false" 
+                     @click.away="hovered = false"
+                     class="fixed top-0 right-20 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-xl py-2 z-[9999]" 
+                     x-cloak
+                     :style="'top: ' + $el.parentElement.getBoundingClientRect().top + 'px'">
+                    <a href="{{ route('admin.packages.index') }}" 
+                       class="block px-4 py-2 text-sm hover:bg-gray-700 rounded-md {{ request()->routeIs('admin.packages.*') ? 'bg-gray-700 text-white' : '' }}"
+                       @click="hovered = false">پکیج‌ها</a>
+                    <a href="{{ route('admin.options.index') }}" 
+                       class="block px-4 py-2 text-sm hover:bg-gray-700 rounded-md {{ request()->routeIs('admin.options.*') ? 'bg-gray-700 text-white' : '' }}"
+                       @click="hovered = false">آپشن‌ها</a>
+                </div>
+            </div>
+
             <!-- General Settings Dropdown -->
             <div x-data="{ open: {{ request()->routeIs('admin.how-introduced.*', 'admin.professions.*', 'admin.customer-groups.*') ? 'true' : 'false' }} }" class="relative">
                 <button @click="open = !open"

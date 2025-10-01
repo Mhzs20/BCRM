@@ -21,6 +21,7 @@ class AdminTransactionController extends Controller
                 'salon.user:id,mobile',
                 'user:id,name',
                 'smsPackage:id,name',
+                'package:id,name',
                 'transactions' => function($q){ $q->latest(); }
             ])
             ->latest();
@@ -28,6 +29,9 @@ class AdminTransactionController extends Controller
         // Filters
         if ($request->filled('status')) {
             $query->where('status', $request->status);
+        }
+        if ($request->filled('type')) {
+            $query->where('type', $request->type);
         }
         if ($request->filled('gateway')) {
             $query->whereHas('transactions', function($q) use ($request){
@@ -48,8 +52,8 @@ class AdminTransactionController extends Controller
 
         $orders = $query->paginate(20)->appends($request->query());
 
-        // Aggregations
-        $baseAggQuery = Order::where('status','paid');
+        // Aggregations - جداگانه برای SMS و Feature
+        $baseAggQuery = Order::where('status','completed');  // تغییر از 'paid' به 'completed'
         $now = now();
 
         $daily = (clone $baseAggQuery)
@@ -100,7 +104,7 @@ class AdminTransactionController extends Controller
 
         return view('admin.transactions.index', [
             'orders' => $orders,
-            'filters' => $request->only(['status','gateway','salon','ref','period']),
+            'filters' => $request->only(['status','type','gateway','salon','ref','period']),
             'period' => $period,
             'stats' => [
                 'daily' => $daily,
@@ -117,7 +121,7 @@ class AdminTransactionController extends Controller
     public function updateOrderStatus(Request $request, Order $order)
     {
         $request->validate([
-            'status' => 'required|in:pending,paid,failed'
+            'status' => 'required|in:pending,completed,failed'  // تغییر 'paid' به 'completed'
         ]);
 
         $order->status = $request->status;

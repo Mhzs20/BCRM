@@ -78,7 +78,6 @@ Route::middleware('auth:api')->group(function () {
     // کارت
     Route::get('card-info', [\App\Http\Controllers\Api\CardSettingController::class, 'showCardInfo']);
 
-
     Route::prefix('salons')->name('salons.')->group(function () {
         Route::get('/', [SalonController::class, 'getUserSalons'])->name('user_index');
         Route::post('/', [SalonController::class, 'createSalon'])->name('store');
@@ -161,6 +160,16 @@ Route::middleware('auth:api')->group(function () {
                 Route::post('prepare', [SmsCampaignController::class, 'prepareCampaign'])->name('prepare');
                 Route::post('{campaign}/send', [SmsCampaignController::class, 'sendCampaign'])->name('send');
                 Route::get('{campaign}/status', [SmsCampaignController::class, 'getCampaignStatus'])->name('status');
+            });
+
+            // Feature Packages API
+            Route::prefix('feature-packages')->name('feature_packages.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Api\PackageController::class, 'index'])->name('index');
+                Route::get('/active', [\App\Http\Controllers\Api\PackageController::class, 'myPackage'])->name('active');
+                Route::get('/history', [\App\Http\Controllers\Api\PackageController::class, 'myPackages'])->name('history');
+                Route::get('/{id}', [\App\Http\Controllers\Api\PackageController::class, 'show'])->name('show');
+                Route::post('/{id}/purchase', [\App\Http\Controllers\Api\PackageController::class, 'purchase'])->name('purchase');
+                Route::post('/verify', [\App\Http\Controllers\Api\PackageController::class, 'verify'])->name('verify');
             });
         });
     });
