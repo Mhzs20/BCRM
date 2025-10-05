@@ -323,4 +323,184 @@ class SmsTransactionController extends Controller
             'summary' => $summary,
         ]);
     }
+
+    /**
+     * Display sent messages that resulted in cost deductions for a salon
+     */
+    public function salonSentMessages(Request $request, Salon $salon)
+    {
+        $user = Auth::user();
+        
+        // Verify user has access to this salon
+        if (!$user->salons()->where('id', $salon->id)->exists()) {
+            return response()->json(['error' => 'Unauthorized access to salon'], 403);
+        }
+
+        $query = SmsTransaction::query()
+            ->with([
+                'smsPackage', 
+                'customer:id,name,phone_number', 
+                'appointment:id,appointment_date,start_time,end_time',
+                'salon:id,name'
+            ])
+            ->where('status', 'delivered') // Only delivered messages
+            ->where('amount', '>', 0) // Only transactions with cost
+            ->where('salon_id', $salon->id) // Only for this specific salon
+            ->latest();
+
+        // Filter by SMS type if provided
+        if ($request->filled('sms_type')) {
+            $query->where('sms_type', $request->sms_type);
+        }
+
+        // Filter by date range if provided
+        if ($request->filled('from_date')) {
+            $query->whereDate('sent_at', '>=', $request->from_date);
+        }
+        if ($request->filled('to_date')) {
+            $query->whereDate('sent_at', '<=', $request->to_date);
+        }
+
+        // Filter by amount range if provided
+        if ($request->filled('min_amount')) {
+            $query->where('amount', '>=', $request->min_amount);
+        }
+        if ($request->filled('max_amount')) {
+            $query->where('amount', '<=', $request->max_amount);
+        }
+
+        // Search in content or recipient
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('content', 'like', "%{$search}%")
+                  ->orWhere('receptor', 'like', "%{$search}%")
+                  ->orWhereHas('customer', function($customerQuery) use ($search) {
+                      $customerQuery->where('name', 'like', "%{$search}%")
+                                  ->orWhere('phone_number', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $transactions = $query->paginate($request->get('per_page', 20));
+
+        $formattedTransactions = $transactions->getCollection()->map(function ($transaction) {
+            $data = [
+                'id' => $transaction->id,
+                'sms_type' => $transaction->sms_type,
+                'amount' => $transaction->amount,
+                'sms_count' => $transaction->sms_count,
+                'sms_parts' => $transaction->sms_parts,
+                'receptor' => $transaction->receptor,
+                'content' => $transaction->content,
+                'description' => $transaction->description,
+                'reference_id' => $transaction->reference_id,
+                'transaction_id' => $transaction->transaction_id,
+                'sent_date' => $transaction->sent_at ? Jalalian::fromDateTime($transaction->sent_at)->format('Y/m/d') : null,
+                'sent_time' => $transaction->sent_at ? Jalalian::fromDateTime($transaction->sent_at)->format('H:i:s') : null,
+                'sent_at' => $transaction->sent_at ? Jalalian::fromDateTime($transaction->sent_at)->format('Y/m/d H:i:s') : null,
+                'batch_id' => $transaction->batch_id,
+                'recipients_type' => $transaction->recipients_type,
+                'recipients_count' => $transaction->recipients_count,
+            ];
+
+            // Add salon info
+            if ($transaction->salon) {
+                $data['salon'] = [
+                    'id' => $transaction->salon->id,
+                    'name' => $transaction->salon->name,
+                ];
+            }
+
+            // Add SMS package info if exists
+            if ($transaction->smsPackage) {
+                $data['package'] = [
+                    'id' => $transaction->smsPackage->id,
+                    'name' => $transaction->smsPackage->name,
+                    'sms_count' => $transaction->smsPackage->sms_count,
+                    'price' => $transaction->smsPackage->price,
+                    'discount_price' => $transaction->smsPackage->discount_price,
+                ];
+            }
+
+            // Add customer info if exists
+            if ($transaction->customer) {
+                $data['customer'] = [
+                    'id' => $transaction->customer->id,
+                    'name' => $transaction->customer->name,
+                    'phone' => $transaction->customer->phone_number,
+                ];
+            }
+
+            // Add appointment info if exists
+            if ($transaction->appointment) {
+                // Combine appointment_date and start_time to create a datetime
+                $appointmentDateTime = $transaction->appointment->appointment_date->format('Y-m-d') . ' ' . $transaction->appointment->start_time;
+                
+                $data['appointment'] = [
+                    'id' => $transaction->appointment->id,
+                    'appointment_date' => Jalalian::fromDateTime($transaction->appointment->appointment_date)->format('Y/m/d'),
+                    'start_time' => $transaction->appointment->start_time,
+                    'end_time' => $transaction->appointment->end_time,
+                    'scheduled_at' => Jalalian::fromDateTime($appointmentDateTime)->format('Y/m/d H:i:s'),
+                ];
+            }
+
+            return $data;
+        });
+
+        // Calculate summary statistics
+        $summaryQuery = SmsTransaction::query()
+            ->where('status', 'delivered')
+            ->where('amount', '>', 0)
+            ->where('salon_id', $salon->id);
+
+        // Apply same filters to summary
+        if ($request->filled('sms_type')) {
+            $summaryQuery->where('sms_type', $request->sms_type);
+        }
+        if ($request->filled('from_date')) {
+            $summaryQuery->whereDate('sent_at', '>=', $request->from_date);
+        }
+        if ($request->filled('to_date')) {
+            $summaryQuery->whereDate('sent_at', '<=', $request->to_date);
+        }
+        if ($request->filled('min_amount')) {
+            $summaryQuery->where('amount', '>=', $request->min_amount);
+        }
+        if ($request->filled('max_amount')) {
+            $summaryQuery->where('amount', '<=', $request->max_amount);
+        }
+
+        $summary = [
+            'total_sent_messages' => (clone $summaryQuery)->count(),
+            'total_cost_deducted' => (clone $summaryQuery)->sum('amount'),
+            'total_sms_parts_sent' => (clone $summaryQuery)->sum('sms_parts'),
+            'total_sms_count' => (clone $summaryQuery)->sum('sms_count'),
+            'messages_by_type' => (clone $summaryQuery)->selectRaw('sms_type, COUNT(*) as count, COALESCE(SUM(amount), 0) as total_amount, COALESCE(SUM(sms_count), 0) as total_sms')
+                ->groupBy('sms_type')
+                ->get()
+                ->keyBy('sms_type'),
+            'average_cost_per_message' => (clone $summaryQuery)->avg('amount'),
+            'messages_by_date' => (clone $summaryQuery)->selectRaw('DATE(sent_at) as sent_date, COUNT(*) as count, COALESCE(SUM(amount), 0) as total_amount')
+                ->whereNotNull('sent_at')
+                ->groupBy('sent_date')
+                ->orderBy('sent_date', 'desc')
+                ->limit(30)
+                ->get(),
+        ];
+
+        return response()->json([
+            'data' => $formattedTransactions,
+            'meta' => [
+                'current_page' => $transactions->currentPage(),
+                'last_page' => $transactions->lastPage(),
+                'per_page' => $transactions->perPage(),
+                'total' => $transactions->total(),
+                'from' => $transactions->firstItem(),
+                'to' => $transactions->lastItem(),
+            ],
+            'summary' => $summary,
+        ]);
+    }
 }
