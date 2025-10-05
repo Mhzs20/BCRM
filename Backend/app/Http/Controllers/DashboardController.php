@@ -109,6 +109,14 @@ class DashboardController extends Controller
             ->whereIn('status', ['confirmed', 'pending_confirmation'])
             ->count();
 
+        // Total appointments stats for this salon
+        $totalAppointmentsCount = Appointment::where('salon_id', $salon_id)->count();
+        $completedAppointmentsCount = Appointment::where('salon_id', $salon_id)->where('status', 'completed')->count();
+        $cancelledAppointmentsCount = Appointment::where('salon_id', $salon_id)->where('status', 'canceled')->count();
+        $pendingAppointmentsCount = Appointment::where('salon_id', $salon_id)
+            ->whereIn('status', ['pending', 'pending_confirmation', 'notconfirmed', 'confirmed'])
+            ->count();
+
         $totalActiveCustomersCount = Customer::where('salon_id', $salon_id)
             ->whereNull('deleted_at')
             ->count();
@@ -142,6 +150,10 @@ class DashboardController extends Controller
             'total_active_customers_count' => $totalActiveCustomersCount,
             'new_customers_today_count' => $newCustomersTodayCount,
             'upcoming_appointments' => $upcomingAppointments,
+            'total_appointments_count' => $totalAppointmentsCount,
+            'completed_appointments_count' => $completedAppointmentsCount,
+            'cancelled_appointments_count' => $cancelledAppointmentsCount,
+            'pending_appointments_count' => $pendingAppointmentsCount,
             // 'today_revenue' => $todayRevenue,
         ];
 
@@ -164,6 +176,11 @@ class DashboardController extends Controller
          $data = [
             'total_customers' => Customer::where('salon_id', $salon->id)->count(),
             'total_appointments' => Appointment::where('salon_id', $salon->id)->count(),
+            'completed_appointments' => Appointment::where('salon_id', $salon->id)->where('status', 'completed')->count(),
+            'cancelled_appointments' => Appointment::where('salon_id', $salon->id)->where('status', 'canceled')->count(),
+            'pending_appointments' => Appointment::where('salon_id', $salon->id)
+                ->whereIn('status', ['pending', 'pending_confirmation', 'notconfirmed', 'confirmed'])
+                ->count(),
             'upcoming_appointments_count' => Appointment::where('salon_id', $salon->id)
                 ->where('appointment_date', '>=', Carbon::today()->toDateString())
                 ->whereIn('status', ['confirmed', 'pending_confirmation'])

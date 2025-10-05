@@ -75,9 +75,8 @@ class AppointmentObserver
             }
         }
 
-        if ($appointment->isDirty('status') && $appointment->status === 'completed') {
-            SendSatisfactionSurveySms::dispatch($appointment, $appointment->salon);
-        } elseif (($appointment->isDirty('status') && $appointment->status !== 'canceled') || $appointment->isDirty('appointment_date') || $appointment->isDirty('start_time')) {
+        // Send modification SMS only when date or time changes
+        if ($appointment->isDirty('appointment_date') || $appointment->isDirty('start_time')) {
             SendAppointmentModificationSms::dispatch($appointment->customer, $appointment, $appointment->salon);
         }
     }
