@@ -427,11 +427,15 @@ class SmsService
     public function sendAppointmentConfirmation(Customer $customer, Appointment $appointment, Salon $salon, ?string $detailsUrl = null): array
     {
         $detailsUrl = url('a/' . $appointment->hash);
+        
+        // Combine appointment_date and start_time correctly
+        $appointmentDateTime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time, 'Asia/Tehran');
+        
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon($appointment->appointment_date)->format('Y/m/d'),
-            'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'),
+            'appointment_date' => Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d'),
+            'appointment_time' => $appointmentDateTime->format('H:i'),
             'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
             'services_list' => $appointment->services->pluck('name')->implode('، '),
             'appointment_cost' => number_format($appointment->total_price ?: 0) . ' تومان',
@@ -452,11 +456,15 @@ class SmsService
         $detailsUrl = url('a/' . $appointment->hash);
         // Add a unique timestamp to the message to prevent deduplication
         $timestamp = now()->format('H:i:s');
+        
+        // Combine appointment_date and start_time correctly
+        $appointmentDateTime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time, 'Asia/Tehran');
+        
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->start_time))->format('Y/m/d'),
-            'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'), // Correctly format the time
+            'appointment_date' => Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d'),
+            'appointment_time' => $appointmentDateTime->format('H:i'),
             'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
             'services_list' => $appointment->services->pluck('name')->implode('، '),
             'details_url' => $detailsUrl,
@@ -481,11 +489,14 @@ class SmsService
 
     public function sendAppointmentCancellation(Customer $customer, Appointment $appointment, Salon $salon): array
     {
+        // Combine appointment_date and start_time correctly
+        $appointmentDateTime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time, 'Asia/Tehran');
+        
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->start_time))->format('Y/m/d'),
-            'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'),
+            'appointment_date' => Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d'),
+            'appointment_time' => $appointmentDateTime->format('H:i'),
         ];
         return $this->sendMessageUsingTemplate(
             $salon,
@@ -501,7 +512,10 @@ class SmsService
     {
         $detailsUrl = url('a/' . $appointment->hash);
 
+        // Combine appointment_date and start_time correctly
+        $appointmentDateTime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time, 'Asia/Tehran');
         $appointmentDate = Carbon::parse($appointment->appointment_date);
+        
         $today = Carbon::today();
         $reminderTimeText = '';
         if ($appointmentDate->isSameDay($today->clone()->addDay())) {
@@ -509,14 +523,14 @@ class SmsService
         } elseif ($appointmentDate->isSameDay($today)) {
             $reminderTimeText = 'امروز';
         } else {
-            $reminderTimeText = 'در تاریخ ' . Jalalian::fromCarbon($appointmentDate)->format('Y/m/d');
+            $reminderTimeText = 'در تاریخ ' . Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d');
         }
 
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon($appointmentDate)->format('Y/m/d'),
-            'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'),
+            'appointment_date' => Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d'),
+            'appointment_time' => $appointmentDateTime->format('H:i'),
             'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
             'reminder_time_text' => $reminderTimeText,
             'details_url' => $detailsUrl,
@@ -535,11 +549,14 @@ class SmsService
     {
         $detailsUrl = url('a/' . $appointment->hash);
 
+        // Combine appointment_date and start_time correctly
+        $appointmentDateTime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time, 'Asia/Tehran');
+
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->start_time))->format('Y/m/d'),
-            'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'),
+            'appointment_date' => Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d'),
+            'appointment_time' => $appointmentDateTime->format('H:i'),
             'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
             'details_url' => $detailsUrl,
         ];
@@ -571,11 +588,15 @@ class SmsService
     public function sendSatisfactionSurvey(Customer $customer, Appointment $appointment, Salon $salon): array
     {
         $surveyUrl = route('satisfaction.show.hash', ['hash' => $appointment->hash]);
+        
+        // Combine appointment_date and start_time correctly
+        $appointmentDateTime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time, 'Asia/Tehran');
+        
         $dataForTemplate = [
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon(Carbon::parse($appointment->start_time))->format('Y/m/d'),
-            'appointment_time' => Carbon::parse($appointment->start_time)->format('H:i'),
+            'appointment_date' => Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d'),
+            'appointment_time' => $appointmentDateTime->format('H:i'),
             'survey_url' => $surveyUrl,
         ];
         return $this->sendMessageUsingTemplate(
