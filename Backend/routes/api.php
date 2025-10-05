@@ -154,6 +154,7 @@ Route::middleware('auth:api')->group(function () {
                 Route::post('purchase-package', [UserSmsBalanceController::class, 'purchasePackage'])->name('packages.purchase');
                 Route::get('transactions', [SmsTransactionController::class, 'index'])->name('transactions.index');
                 Route::get('financial-transactions', [SmsTransactionController::class, 'financialTransactions'])->name('financial_transactions.index');
+                Route::get('sent-messages', [SmsTransactionController::class, 'salonSentMessages'])->name('sent_messages.index');
             });
 
             Route::prefix('sms-campaign')->name('sms_campaign.')->group(function () {

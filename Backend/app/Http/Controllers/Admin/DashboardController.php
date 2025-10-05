@@ -33,14 +33,20 @@ class DashboardController extends Controller
                 $query->whereNotNull('active_salon_id');
             })->count();
 
-                    // Appointments for today (filtered by appointment_date)
-                    $today = Carbon::today();
-                    $appointmentsToday = Appointment::whereDate('appointment_date', $today)->get();
+        // Appointments for today (filtered by appointment_date)
+        $today = Carbon::today();
+        $appointmentsToday = Appointment::whereDate('appointment_date', $today)->get();
 
-                    $totalAppointmentsToday = $appointmentsToday->count();
-                    $completedAppointmentsToday = $appointmentsToday->where('status', 'completed')->count();
-                    $cancelledAppointmentsToday = $appointmentsToday->where('status', 'canceled')->count();
-                $pendingAppointmentsToday = $appointmentsToday->whereIn('status', ['pending', 'pending_confirmation'])->count();
+        $totalAppointmentsToday = $appointmentsToday->count();
+        $completedAppointmentsToday = $appointmentsToday->where('status', 'completed')->count();
+        $cancelledAppointmentsToday = $appointmentsToday->where('status', 'canceled')->count();
+        $pendingAppointmentsToday = $appointmentsToday->whereIn('status', ['pending', 'pending_confirmation'])->count();
+
+        // Total appointments stats (all time)
+        $totalAppointments = Appointment::count();
+        $totalCompletedAppointments = Appointment::where('status', 'completed')->count();
+        $totalCancelledAppointments = Appointment::where('status', 'canceled')->count();
+        $totalPendingAppointments = Appointment::whereIn('status', ['pending', 'pending_confirmation', 'notconfirmed'])->count();
 
         // SMS stats
         $smsSentToday = SmsTransaction::whereHas('salon', function($query) {
@@ -228,6 +234,10 @@ class DashboardController extends Controller
             'completedAppointmentsToday',
             'cancelledAppointmentsToday',
             'pendingAppointmentsToday',
+            'totalAppointments',
+            'totalCompletedAppointments',
+            'totalCancelledAppointments',
+            'totalPendingAppointments',
             'smsSentToday',
             'smsSentThisMonth',
             'totalSmsBalance',

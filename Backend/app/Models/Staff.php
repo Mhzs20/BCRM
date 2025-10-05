@@ -108,8 +108,8 @@ class Staff extends Model
             ->selectRaw('
                 COUNT(*) as total_appointments,
                 SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed_appointments,
-                SUM(CASE WHEN status = "canceled" THEN 1 ELSE 0 END) as canceled_appointments,
-                SUM(total_price) as total_income
+                SUM(CASE WHEN status IN ("canceled", "cancelled") THEN 1 ELSE 0 END) as canceled_appointments,
+                SUM(CASE WHEN status = "completed" THEN total_price ELSE 0 END) as total_income
             ')
             ->first();
 

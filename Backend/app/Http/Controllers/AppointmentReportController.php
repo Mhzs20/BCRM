@@ -61,7 +61,6 @@ class AppointmentReportController extends Controller
                     $report[] = [
                         'unit' => 'ساعت ' . $hour,
                         'total_appointments' => $total,
-                        // ...existing code...
                         'cancelled_appointments' => $cancelled,
                         'cancellation_rate' => round($rate, 2),
                     ];
@@ -92,7 +91,6 @@ class AppointmentReportController extends Controller
                     $report[] = [
                         'unit' => $day,
                         'total_appointments' => $total,
-                        // ...existing code...
                         'cancelled_appointments' => $cancelled,
                         'cancellation_rate' => round($rate, 2),
                     ];
@@ -124,7 +122,6 @@ class AppointmentReportController extends Controller
                     $report[] = [
                         'unit' => $week,
                         'total_appointments' => $total,
-                        // ...existing code...
                         'cancelled_appointments' => $cancelled,
                         'cancellation_rate' => round($rate, 2),
                     ];
@@ -154,7 +151,6 @@ class AppointmentReportController extends Controller
                     $report[] = [
                         'unit' => $month,
                         'total_appointments' => $total,
-                        // ...existing code...
                         'cancelled_appointments' => $cancelled,
                         'cancellation_rate' => round($rate, 2),
                     ];
@@ -189,7 +185,7 @@ class AppointmentReportController extends Controller
         $baseQuery = Appointment::where('salon_id', $salon->id)->where('start_time', '>=', $startDate);
 
         $totalAppointments = (clone $baseQuery)->count();
-        $cancelledAppointments = (clone $baseQuery)->where('status', 'canceled')->count();
+        $cancelledAppointments = (clone $baseQuery)->whereIn('status', ['canceled', 'cancelled'])->count();
         $completedAppointments = (clone $baseQuery)->where('status', 'completed')->count();
         $cancellationPercentage = $totalAppointments > 0 ? ($cancelledAppointments / $totalAppointments) * 100 : 0;
 

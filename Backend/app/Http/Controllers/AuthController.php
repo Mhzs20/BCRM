@@ -311,6 +311,9 @@ class AuthController extends Controller
             $user->activeSalon->loadCount([
                 'customers',
                 'appointments as total_appointments_count',
+                'appointments as completed_appointments_count' => function ($query) {
+                    $query->where('status', 'completed');
+                },
                 'appointments as active_appointments_count' => function ($query) {
                     $query->whereIn('status', ['confirmed', 'pending_confirmation', 'pending']);
                 },
@@ -325,6 +328,9 @@ class AuthController extends Controller
             $salon->loadCount([
                 'customers',
                 'appointments as total_appointments_count',
+                'appointments as completed_appointments_count' => function ($query) {
+                    $query->where('status', 'completed');
+                },
                 'appointments as active_appointments_count' => function ($query) {
                     $query->whereIn('status', ['confirmed', 'pending_confirmation', 'pending']);
                 },

@@ -56,6 +56,28 @@
                     </div>
                 </div>
 
+                <!-- Total Appointments Stats -->
+                <div class="bg-white overflow-hidden shadow-md sm:rounded-lg p-4 sm:p-6 col-span-1 sm:col-span-2 lg:col-span-2">
+                    <div class="flex items-center mb-4">
+                        <div class="flex-shrink-0 bg-indigo-500 rounded-md p-3">
+                            <i class="ri-calendar-line text-xl sm:text-2xl text-white"></i>
+                        </div>
+                        <div class="mr-4">
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-700">کل نوبت‌ها (مجموع: {{ $totalAppointments }})</h3>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                        <div class="h-48 sm:h-auto">
+                            <canvas id="totalAppointmentStatusChart"></canvas>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center text-sm sm:text-base"><span class="flex items-center"><span class="w-3 h-3 rounded-full bg-green-500 mr-2"></span>انجام شده:</span><span class="font-semibold">{{ $totalCompletedAppointments }}</span></div>
+                            <div class="flex justify-between items-center text-sm sm:text-base"><span class="flex items-center"><span class="w-3 h-3 rounded-full bg-red-500 mr-2"></span>لغو شده:</span><span class="font-semibold">{{ $totalCancelledAppointments }}</span></div>
+                            <div class="flex justify-between items-center text-sm sm:text-base"><span class="flex items-center"><span class="w-3 h-3 rounded-full bg-yellow-500 mr-2"></span>در انتظار:</span><span class="font-semibold">{{ $totalPendingAppointments }}</span></div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Salons and Clinics -->
                 <div class="bg-white overflow-hidden shadow-md sm:rounded-lg p-4 sm:p-6 flex flex-col">
                     <div class="flex items-center">
@@ -293,7 +315,7 @@
             }
         });
 
-        // Appointment Status Doughnut Chart
+        // Appointment Status Doughnut Chart (Today)
         const appointmentStatusCtx = document.getElementById('appointmentStatusChart').getContext('2d');
         new Chart(appointmentStatusCtx, {
             type: 'doughnut',
@@ -301,6 +323,28 @@
                 labels: ['تکمیل شده', 'لغو شده', 'در انتظار'],
                 datasets: [{
                     data: [{{ $completedAppointmentsToday }}, {{ $cancelledAppointmentsToday }}, {{ $pendingAppointmentsToday }}],
+                    backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+
+        // Total Appointment Status Doughnut Chart (All Time)
+        const totalAppointmentStatusCtx = document.getElementById('totalAppointmentStatusChart').getContext('2d');
+        new Chart(totalAppointmentStatusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['انجام شده', 'لغو شده', 'در انتظار'],
+                datasets: [{
+                    data: [{{ $totalCompletedAppointments }}, {{ $totalCancelledAppointments }}, {{ $totalPendingAppointments }}],
                     backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
                 }]
             },

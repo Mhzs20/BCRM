@@ -138,8 +138,14 @@ class ServiceController extends Controller
             ->where('is_active', true)
             ->withCount([
                 'appointments as total_bookings_count',
+                'appointments as completed_bookings_count' => function ($query) {
+                    $query->where('status', 'completed');
+                },
                 'appointments as active_bookings_count' => function ($query) {
-                    $query->whereIn('status', ['confirmed', 'pending']);
+                    $query->whereIn('status', ['confirmed', 'pending_confirmation', 'pending']);
+                },
+                'appointments as cancelled_bookings_count' => function ($query) {
+                    $query->whereIn('status', ['canceled', 'cancelled']);
                 }
             ])
             ->orderBy('name', 'asc')
