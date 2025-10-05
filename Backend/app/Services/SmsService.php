@@ -343,6 +343,21 @@ class SmsService
     }
 
     /**
+     * محاسبه تاریخ و زمان صحیح از appointment
+     */
+    private function getCorrectAppointmentDateTime(Appointment $appointment): array
+    {
+        // ترکیب صحیح appointment_date و start_time
+        $appointmentDateTime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time, 'Asia/Tehran');
+        
+        return [
+            'appointment_date' => Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d'),
+            'appointment_time' => $appointmentDateTime->format('H:i'),
+            'appointment_datetime' => $appointmentDateTime
+        ];
+    }
+
+    /**
      * جایگزینی placeholder ها در متن قالب
      * مثال: {customer_name} یا {{customer_name}}
      */
@@ -420,6 +435,37 @@ class SmsService
         ]);
     }
 
+    /**
+     * Get the correct appointment datetime by combining date and time
+     * This ensures consistent behavior across all SMS methods
+     */
+    private function getAppointmentDateTime(Appointment $appointment): Carbon
+    {
+        // Always combine appointment_date (date) with start_time (time) correctly
+        return Carbon::parse(
+            $appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time, 
+            'Asia/Tehran'
+        );
+    }
+
+    /**
+     * Get standardized appointment data for templates
+     */
+    private function getAppointmentTemplateData(Appointment $appointment, array $additionalData = []): array
+    {
+        $appointmentDateTime = $this->getAppointmentDateTime($appointment);
+        
+        $baseData = [
+            'appointment_date' => Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d'),
+            'appointment_time' => $appointmentDateTime->format('H:i'),
+            'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
+            'services_list' => $appointment->services->pluck('name')->implode('، '),
+            'appointment_cost' => number_format($appointment->total_price ?: 0) . ' تومان',
+        ];
+        
+        return array_merge($baseData, $additionalData);
+    }
+
     // Removed sendOtp and sendCustomMessage as per plan
     // public function sendOtp(...) { ... }
     // public function sendCustomMessage(...) { ... }
@@ -428,19 +474,12 @@ class SmsService
     {
         $detailsUrl = url('a/' . $appointment->hash);
         
-        // Combine appointment_date and start_time correctly
-        $appointmentDateTime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time, 'Asia/Tehran');
-        
-        $dataForTemplate = [
+        $dataForTemplate = array_merge([
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d'),
-            'appointment_time' => $appointmentDateTime->format('H:i'),
-            'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
-            'services_list' => $appointment->services->pluck('name')->implode('، '),
-            'appointment_cost' => number_format($appointment->total_price ?: 0) . ' تومان',
-            'details_url' => $detailsUrl, // Add the URL to the template data
-        ];
+            'details_url' => $detailsUrl,
+        ], $this->getAppointmentTemplateData($appointment));
+        
         return $this->sendMessageUsingTemplate(
             $salon,
             'appointment_confirmation',
@@ -457,19 +496,12 @@ class SmsService
         // Add a unique timestamp to the message to prevent deduplication
         $timestamp = now()->format('H:i:s');
         
-        // Combine appointment_date and start_time correctly
-        $appointmentDateTime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time, 'Asia/Tehran');
-        
-        $dataForTemplate = [
+        $dataForTemplate = array_merge([
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d'),
-            'appointment_time' => $appointmentDateTime->format('H:i'),
-            'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
-            'services_list' => $appointment->services->pluck('name')->implode('، '),
             'details_url' => $detailsUrl,
-            'timestamp' => $timestamp, // Add timestamp to template data
-        ];
+            'timestamp' => $timestamp,
+        ], $this->getAppointmentTemplateData($appointment));
 
         // Generate a unique localid for each modification SMS to avoid caching issues
         // Kavenegar's localid is an integer, so we'll use a combination of timestamp and appointment ID
@@ -489,15 +521,11 @@ class SmsService
 
     public function sendAppointmentCancellation(Customer $customer, Appointment $appointment, Salon $salon): array
     {
-        // Combine appointment_date and start_time correctly
-        $appointmentDateTime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time, 'Asia/Tehran');
-        
-        $dataForTemplate = [
+        $dataForTemplate = array_merge([
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d'),
-            'appointment_time' => $appointmentDateTime->format('H:i'),
-        ];
+        ], $this->getAppointmentTemplateData($appointment));
+        
         return $this->sendMessageUsingTemplate(
             $salon,
             'appointment_cancellation',
@@ -511,9 +539,7 @@ class SmsService
     public function sendAppointmentReminder(Customer $customer, Appointment $appointment, Salon $salon): array
     {
         $detailsUrl = url('a/' . $appointment->hash);
-
-        // Combine appointment_date and start_time correctly
-        $appointmentDateTime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time, 'Asia/Tehran');
+        $appointmentDateTime = $this->getAppointmentDateTime($appointment);
         $appointmentDate = Carbon::parse($appointment->appointment_date);
         
         $today = Carbon::today();
@@ -526,15 +552,13 @@ class SmsService
             $reminderTimeText = 'در تاریخ ' . Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d');
         }
 
-        $dataForTemplate = [
+        $dataForTemplate = array_merge([
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d'),
-            'appointment_time' => $appointmentDateTime->format('H:i'),
-            'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
             'reminder_time_text' => $reminderTimeText,
             'details_url' => $detailsUrl,
-        ];
+        ], $this->getAppointmentTemplateData($appointment));
+        
         return $this->sendMessageUsingTemplate(
             $salon,
             'appointment_reminder',
@@ -549,17 +573,12 @@ class SmsService
     {
         $detailsUrl = url('a/' . $appointment->hash);
 
-        // Combine appointment_date and start_time correctly
-        $appointmentDateTime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time, 'Asia/Tehran');
-
-        $dataForTemplate = [
+        $dataForTemplate = array_merge([
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d'),
-            'appointment_time' => $appointmentDateTime->format('H:i'),
-            'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
             'details_url' => $detailsUrl,
-        ];
+        ], $this->getAppointmentTemplateData($appointment));
+        
         return $this->sendMessageUsingTemplate(
             $salon,
             'manual_reminder', // Using a new event type for manual reminders
@@ -589,16 +608,12 @@ class SmsService
     {
         $surveyUrl = route('satisfaction.show.hash', ['hash' => $appointment->hash]);
         
-        // Combine appointment_date and start_time correctly
-        $appointmentDateTime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time, 'Asia/Tehran');
-        
-        $dataForTemplate = [
+        $dataForTemplate = array_merge([
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
-            'appointment_date' => Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d'),
-            'appointment_time' => $appointmentDateTime->format('H:i'),
             'survey_url' => $surveyUrl,
-        ];
+        ], $this->getAppointmentTemplateData($appointment));
+        
         return $this->sendMessageUsingTemplate(
             $salon,
             'satisfaction_survey',
