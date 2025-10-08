@@ -48,4 +48,12 @@ class Service extends Model
         // این رابطه برای شمارش رزروها ضروری است.
         return $this->belongsToMany(Appointment::class, 'appointment_service');
     }
+
+    /**
+     * Get the renewal reminder setting for this service.
+     */
+    public function renewalSetting()
+    {
+        return $this->hasOne(ServiceRenewalSetting::class);
+    }
 }

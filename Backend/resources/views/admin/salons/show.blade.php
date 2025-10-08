@@ -24,6 +24,7 @@
                 <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b-2 border-indigo-500 pb-2">اطلاعات عمومی</h2>
                 <div class="space-y-3 text-gray-700">
                     <p><strong>نام سالن:</strong> {{ $salon->name }}</p>
+                    <p><strong>نام مالک سالن:</strong> {{ $salon->user->name ?? 'ثبت نشده' }}</p>
                         <p><strong>شماره تلفن مالک سالن:</strong> {{ $salon->user->mobile ?? 'ثبت نشده' }}</p>
                     <p><strong>ایمیل:</strong> {{ $salon->email ?? 'ثبت نشده' }}</p>
                     <p><strong>وضعیت:</strong>

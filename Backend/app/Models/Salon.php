@@ -221,6 +221,22 @@ class Salon extends Model
     }
 
     /**
+     * Get the renewal reminder settings for the salon.
+     */
+    public function renewalReminderSetting()
+    {
+        return $this->hasOne(RenewalReminderSetting::class);
+    }
+
+    /**
+     * Get the renewal reminder logs for the salon.
+     */
+    public function renewalReminderLogs()
+    {
+        return $this->hasMany(RenewalReminderLog::class);
+    }
+
+    /**
      * Get the current SMS balance attribute for the salon.
      *
      * @return int
