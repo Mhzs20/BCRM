@@ -25,6 +25,9 @@ class Kernel extends ConsoleKernel
 
         // Update reminder SMS status every 5 minutes
         $schedule->command('sms:update-reminder-status')->everyFiveMinutes();
+
+        // Send renewal reminders daily at 10:00 AM
+        $schedule->command('reminders:send-renewal')->dailyAt('10:00');
     }
 
     /**
