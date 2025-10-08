@@ -20,6 +20,7 @@ class Appointment extends Model
         'customer_id',
         'staff_id',
         'appointment_date',
+        'repair_date',
         'start_time',
         'end_time',
         'total_price',
@@ -47,6 +48,7 @@ class Appointment extends Model
 
     protected $casts = [
         'appointment_date' => 'date',
+        'repair_date' => 'date',
         'start_time' => 'string',
         'end_time' => 'string', // Ensure end_time is also cast as string
         'deposit_required' => 'boolean',
@@ -99,6 +101,11 @@ class Appointment extends Model
         return $this->belongsToMany(Service::class, 'appointment_service')
             ->withPivot('price_at_booking') // Removed duration_at_booking
             ->withTimestamps();
+    }
+
+    public function renewalLogs()
+    {
+        return $this->hasMany(RenewalReminderLog::class);
     }
 
     // Accessors

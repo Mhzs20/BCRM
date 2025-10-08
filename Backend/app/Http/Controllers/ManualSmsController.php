@@ -62,7 +62,10 @@ class ManualSmsController extends Controller
                                   ->pluck('phone_number')
                                   ->toArray();
         } elseif ($request->recipients_type === 'phone_contacts') {
-            $recipients = $request->phone_numbers;
+            // Clean phone numbers by removing spaces, dashes, and parentheses
+            $recipients = array_map(function($phone) {
+                return preg_replace('/[\s\-\(\)]/', '', $phone);
+            }, $request->phone_numbers);
         }
 
         if (empty($recipients)) {
