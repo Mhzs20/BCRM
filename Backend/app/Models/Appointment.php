@@ -40,6 +40,9 @@ class Appointment extends Model
         'send_satisfaction_sms',
         'satisfaction_sms_status',
         'satisfaction_sms_message_id',
+        'send_confirmation_sms',
+        'confirmation_sms_template_id',
+        'reminder_sms_template_id',
         'deposit_amount',
         'deposit_payment_method',
     ];
@@ -135,5 +138,15 @@ class Appointment extends Model
     public function feedback()
     {
         return $this->hasOne(CustomerFeedback::class);
+    }
+
+    public function confirmationSmsTemplate()
+    {
+        return $this->belongsTo(SalonSmsTemplate::class, 'confirmation_sms_template_id');
+    }
+
+    public function reminderSmsTemplate()
+    {
+        return $this->belongsTo(SalonSmsTemplate::class, 'reminder_sms_template_id');
     }
 }

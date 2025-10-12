@@ -45,6 +45,9 @@ class UpdateAppointmentRequest extends FormRequest
             'reminder_time' => ['sometimes', 'integer', Rule::in([2, 4, 6, 8, 12, 24, 48])],
             'send_reminder_sms' => ['sometimes', 'boolean'],
             'send_satisfaction_sms' => ['sometimes', 'boolean'],
+            'send_confirmation_sms' => ['sometimes', 'boolean'],
+            'confirmation_sms_template_id' => ['sometimes', 'nullable', 'integer', 'exists:salon_sms_templates,id'],
+            'reminder_sms_template_id' => ['sometimes', 'nullable', 'integer', 'exists:salon_sms_templates,id'],
             'total_price' => ['sometimes', 'numeric', 'min:0'],
         ];
     }
@@ -79,6 +82,11 @@ class UpdateAppointmentRequest extends FormRequest
             'reminder_time.in' => 'زمان یادآوری انتخاب شده معتبر نیست.',
             'send_reminder_sms.boolean' => 'مقدار ارسال پیامک یادآوری باید صحیح یا غلط باشد.',
             'send_satisfaction_sms.boolean' => 'مقدار ارسال پیامک نظرسنجی باید صحیح یا غلط باشد.',
+            'send_confirmation_sms.boolean' => 'مقدار ارسال پیامک ثبت نوبت باید صحیح یا غلط باشد.',
+            'confirmation_sms_template_id.integer' => 'شناسه تمپلیت پیامک ثبت نوبت باید عددی باشد.',
+            'confirmation_sms_template_id.exists' => 'تمپلیت پیامک ثبت نوبت انتخاب شده معتبر نیست.',
+            'reminder_sms_template_id.integer' => 'شناسه تمپلیت پیامک یادآوری باید عددی باشد.',
+            'reminder_sms_template_id.exists' => 'تمپلیت پیامک یادآوری انتخاب شده معتبر نیست.',
             'total_price.numeric' => 'مبلغ کل باید به صورت عددی وارد شود.',
             'total_price.min' => 'مبلغ کل نمی‌تواند منفی باشد.',
         ];
