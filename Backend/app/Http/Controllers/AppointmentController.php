@@ -134,6 +134,9 @@ class AppointmentController extends Controller
                     'reminder_time' => $validatedData['reminder_time'] ?? null,
                     'send_reminder_sms' => $validatedData['send_reminder_sms'] ?? filter_var($salonSettings->get('enable_reminder_sms_globally', true), FILTER_VALIDATE_BOOLEAN),
                     'send_satisfaction_sms' => $validatedData['send_satisfaction_sms'] ?? filter_var($salonSettings->get('enable_satisfaction_sms_globally', true), FILTER_VALIDATE_BOOLEAN),
+                    'send_confirmation_sms' => $validatedData['send_confirmation_sms'] ?? filter_var($salonSettings->get('enable_confirmation_sms_globally', true), FILTER_VALIDATE_BOOLEAN),
+                    'confirmation_sms_template_id' => $validatedData['confirmation_sms_template_id'] ?? null,
+                    'reminder_sms_template_id' => $validatedData['reminder_sms_template_id'] ?? null,
                 ]
             );
             if (!$this->appointmentBookingService->isSlotStillAvailable(
@@ -158,12 +161,16 @@ class AppointmentController extends Controller
             
             DB::commit();
 
+            // Load relationships before dispatching the job
+            $appointment->load(['customer', 'staff', 'services']);
+
+            // Get template ID for SMS
+            $templateId = $finalAppointmentData['confirmation_sms_template_id'] ?? null;
+
             // Dispatch the job to send SMS in the background
-            SendAppointmentConfirmationSms::dispatch($customer, $appointment, $appointment->salon);
+            SendAppointmentConfirmationSms::dispatch($customer, $appointment, $appointment->salon, $templateId);
             
             $message = 'نوبت با موفقیت ثبت شد. پیامک تایید به زودی ارسال خواهد شد.';
-
-            $appointment->load(['customer', 'staff', 'services']);
 
             return response()->json(['message' => $message, 'data' => $appointment], 201);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -579,5 +586,32 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
             Log::error('Error sending modification SMS for appointment ' . $appointment->id . ': ' . $e->getMessage());
             return response()->json(['message' => 'خطای سیستمی در ارسال پیامک اصلاح نوبت رخ داد.'], 500);
         }
+    }
+
+    /**
+     * Get SMS templates for appointments
+     */
+    public function smsTemplates(Request $request, $salon_id)
+    {
+        $eventType = $request->query('event_type');
+        
+        $query = \App\Models\SalonSmsTemplate::where(function($q) use ($salon_id) {
+            $q->where('salon_id', $salon_id)
+              ->orWhereNull('salon_id'); // Include global templates
+        })
+        ->where('is_active', true);
+        
+        if ($eventType) {
+            $query->where('event_type', $eventType);
+        }
+        
+        $templates = $query->orderBy('salon_id', 'asc') // Global templates first
+                          ->orderBy('event_type')
+                          ->get();
+        
+        return response()->json([
+            'templates' => $templates,
+            'message' => 'تمپلیت‌های SMS با موفقیت دریافت شدند'
+        ]);
     }
 }

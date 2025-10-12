@@ -19,6 +19,8 @@ class DatabaseSeeder extends Seeder
             HowIntroducedSeeder::class,
             ProfessionSeeder::class,
             CustomerGroupSeeder::class,
+            SmsTemplateSeeder::class,
+            GlobalSmsTemplateSeeder::class, // Global SMS templates for all salons
         ]);
     }
 }

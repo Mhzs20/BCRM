@@ -39,18 +39,27 @@ class SendAppointmentConfirmationSms implements ShouldQueue
     public $salon;
 
     /**
+     * The template ID for SMS.
+     *
+     * @var int|null
+     */
+    public $templateId;
+
+    /**
      * Create a new job instance.
      *
      * @param  \App\Models\Customer  $customer
      * @param  \App\Models\Appointment  $appointment
      * @param  \App\Models\Salon  $salon
+     * @param  int|null  $templateId
      * @return void
      */
-    public function __construct(Customer $customer, Appointment $appointment, Salon $salon)
+    public function __construct(Customer $customer, Appointment $appointment, Salon $salon, ?int $templateId = null)
     {
         $this->customer = $customer;
         $this->appointment = $appointment;
         $this->salon = $salon;
+        $this->templateId = $templateId;
     }
 
     /**
@@ -62,8 +71,19 @@ class SendAppointmentConfirmationSms implements ShouldQueue
     public function handle(SmsService $smsService)
     {
         try {
-            Log::info("Executing SendAppointmentConfirmationSms job for Appointment ID: {$this->appointment->id}");
-            $smsService->sendAppointmentConfirmation($this->customer, $this->appointment, $this->salon);
+            Log::info("Executing SendAppointmentConfirmationSms job for Appointment ID: {$this->appointment->id} with template ID: " . ($this->templateId ?? 'default'));
+            
+            // Reload appointment with services and staff to ensure relations are available
+            $appointment = $this->appointment->load(['services', 'staff']);
+            
+            if ($this->templateId) {
+                // Use template-based SMS sending
+                $smsService->sendAppointmentConfirmationWithTemplate($this->customer, $appointment, $this->salon, $this->templateId);
+            } else {
+                // Use default SMS sending
+                $smsService->sendAppointmentConfirmation($this->customer, $appointment, $this->salon);
+            }
+            
             Log::info("Successfully executed SendAppointmentConfirmationSms job for Appointment ID: {$this->appointment->id}");
         } catch (\Exception $e) {
             Log::error("Error in SendAppointmentConfirmationSms job for Appointment ID: {$this->appointment->id}. Error: " . $e->getMessage());

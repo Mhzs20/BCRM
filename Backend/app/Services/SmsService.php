@@ -217,9 +217,20 @@ class SmsService
         array $dataForTemplate,
         ?int $customerId = null,
         ?int $appointmentId = null, // This is the actual appointment ID for DB
-        ?int $kavenegarLocalId = null // This is the local ID for Kavenegar API
+        ?int $kavenegarLocalId = null, // This is the local ID for Kavenegar API
+        ?int $templateId = null // شناسه تمپلیت انتخاب شده برای این نوبت
     ): array {
-        $smsTemplate = $salon->getSmsTemplate($eventType);
+        $smsTemplate = null;
+        
+        // اگر تمپلیت خاصی انتخاب شده، از آن استفاده کن
+        if ($templateId) {
+            $smsTemplate = SalonSmsTemplate::find($templateId);
+        }
+        
+        // اگر تمپلیت خاص وجود نداشت، از تمپلیت پیش‌فرض سالن استفاده کن
+        if (!$smsTemplate) {
+            $smsTemplate = $salon->getSmsTemplate($eventType);
+        }
 
         $templateText = null;
         if ($smsTemplate && $smsTemplate->is_active) {
@@ -301,7 +312,7 @@ class SmsService
                         $appointment->save();
                     }
                 }
-                $this->logTransaction($salon->user_id, $receptor, $message, $internalStatus, $eventType, $salon->id, $customerId, $appointmentId, json_encode($smsEntries)); // Pass actual appointmentId
+                $this->logTransaction($salon->user_id, $receptor, $message, $internalStatus, $eventType, $salon->id, $customerId, $appointmentId, json_encode($smsEntries), $smsTemplate?->id); // Pass actual appointmentId and template_id
                 return ['status' => 'success', 'message' => 'پیامک با موفقیت ارسال شد.'];
             } else {
                 Log::error("Kavenegar sendSms returned no entries or failed for '{$eventType}' to {$receptor}.");
@@ -317,7 +328,7 @@ class SmsService
                         $appointment->save();
                     }
                 }
-                $this->logTransaction($salon->user_id, $receptor, $message, 'not_sent', $eventType, $salon->id, $customerId, $appointmentId, 'Kavenegar API call failed or returned empty.'); // Pass actual appointmentId
+                $this->logTransaction($salon->user_id, $receptor, $message, 'not_sent', $eventType, $salon->id, $customerId, $appointmentId, 'Kavenegar API call failed or returned empty.', $smsTemplate?->id); // Pass actual appointmentId and template_id
                 return ['status' => 'error', 'message' => 'خطا در ارسال پیامک.'];
             }
 
@@ -337,7 +348,7 @@ class SmsService
                 }
             }
             
-            $this->logTransaction($salon->user_id, $receptor, $message, 'not_sent', $eventType, $salon->id, $customerId, $appointmentId, $e->getMessage()); // Pass actual appointmentId
+            $this->logTransaction($salon->user_id, $receptor, $message, 'not_sent', $eventType, $salon->id, $customerId, $appointmentId, $e->getMessage(), $smsTemplate?->id); // Pass actual appointmentId and template_id
             return ['status' => 'error', 'message' => 'خطای سیستمی در ارسال پیامک.'];
         }
     }
@@ -382,6 +393,19 @@ class SmsService
     }
 
     /**
+     * Public method to compile template message for testing
+     * 
+     * @param string $template
+     * @param Appointment $appointment
+     * @return string
+     */
+    public function compileTemplateMessage(string $template, Appointment $appointment): string
+    {
+        $templateData = $this->getAppointmentTemplateData($appointment);
+        return $this->compileTemplate($template, $templateData);
+    }
+
+    /**
      * متون پیش‌فرض برای زمانی که سالن‌دار قالبی تنظیم نکرده است.
      * این متون باید با متون پیش‌فرض در SalonSmsTemplateController هماهنگ باشند.
      */
@@ -418,7 +442,8 @@ class SmsService
         ?int $salonId,
         ?int $customerId,
         ?int $appointmentId,
-        ?string $externalResponse = null
+        ?string $externalResponse = null,
+        ?int $templateId = null
     ): void
     {
         SmsTransaction::create([
@@ -431,7 +456,8 @@ class SmsService
             'content' => $message,
             'sent_at' => now(),
             'status' => $status,
-            'external_response' => $externalResponse
+            'external_response' => $externalResponse,
+            'template_id' => $templateId
         ]);
     }
 
@@ -441,9 +467,27 @@ class SmsService
      */
     private function getAppointmentDateTime(Appointment $appointment): Carbon
     {
-        // Always combine appointment_date (date) with start_time (time) correctly
+        // Get the raw appointment date to handle Jalali dates properly
+        $rawDate = $appointment->getRawOriginal('appointment_date') ?? $appointment->appointment_date;
+        
+        // If it looks like a Jalali date (14xx-xx-xx), convert it to Gregorian
+        if (is_string($rawDate) && preg_match('/^14\d{2}-\d{2}-\d{2}/', $rawDate)) {
+            try {
+                $jalalian = Jalalian::fromFormat('Y-m-d', $rawDate);
+                $georgianDate = $jalalian->toCarbon();
+            } catch (Exception $e) {
+                // Fallback to today if date conversion fails
+                $georgianDate = now('Asia/Tehran');
+            }
+        } else {
+            // Handle regular dates
+            $georgianDate = $appointment->appointment_date instanceof Carbon ? 
+                $appointment->appointment_date : 
+                Carbon::parse($rawDate ?? now());
+        }
+        
         return Carbon::parse(
-            $appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time, 
+            $georgianDate->format('Y-m-d') . ' ' . $appointment->start_time, 
             'Asia/Tehran'
         );
     }
@@ -454,12 +498,16 @@ class SmsService
     private function getAppointmentTemplateData(Appointment $appointment, array $additionalData = []): array
     {
         $appointmentDateTime = $this->getAppointmentDateTime($appointment);
+        $serviceNames = $appointment->services->pluck('name')->implode('، ');
+        $startTime = $appointmentDateTime->format('H:i');
         
         $baseData = [
             'appointment_date' => Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d'),
-            'appointment_time' => $appointmentDateTime->format('H:i'),
+            'appointment_time' => $startTime, // برای compatibility با قالب‌های قدیمی
+            'start_time' => $startTime, // برای استفاده در قالب‌های جدید
             'staff_name' => $appointment->staff ? $appointment->staff->full_name : 'پرسنل محترم',
-            'services_list' => $appointment->services->pluck('name')->implode('، '),
+            'services_list' => $serviceNames, // برای compatibility با قالب‌های قدیمی
+            'service_names' => $serviceNames, // برای استفاده در قالب‌های جدید
             'appointment_cost' => number_format($appointment->total_price ?: 0) . ' تومان',
         ];
         
@@ -472,12 +520,18 @@ class SmsService
 
     public function sendAppointmentConfirmation(Customer $customer, Appointment $appointment, Salon $salon, ?string $detailsUrl = null): array
     {
+        // بررسی اینکه آیا ارسال پیامک تایید فعال است
+        if (!$appointment->send_confirmation_sms) {
+            return ['status' => 'success', 'message' => 'ارسال پیامک تایید نوبت غیرفعال است.'];
+        }
+        
         $detailsUrl = url('a/' . $appointment->hash);
         
         $dataForTemplate = array_merge([
             'customer_name' => $customer->name,
             'salon_name' => $salon->name,
             'details_url' => $detailsUrl,
+            'appointment_hash' => $appointment->hash, // اضافه کردن hash نوبت
         ], $this->getAppointmentTemplateData($appointment));
         
         return $this->sendMessageUsingTemplate(
@@ -486,7 +540,9 @@ class SmsService
             $customer->phone_number,
             $dataForTemplate,
             $customer->id,
-            $appointment->id
+            $appointment->id,
+            null, // kavenegarLocalId
+            $appointment->confirmation_sms_template_id // استفاده از تمپلیت انتخاب شده
         );
     }
 
@@ -565,7 +621,9 @@ class SmsService
             $customer->phone_number,
             $dataForTemplate,
             $customer->id,
-            $appointment->id
+            $appointment->id,
+            null, // kavenegarLocalId
+            $appointment->reminder_sms_template_id // استفاده از تمپلیت انتخاب شده
         );
     }
 
