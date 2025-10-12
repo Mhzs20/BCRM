@@ -100,7 +100,8 @@ class SmsTemplateController extends Controller
 
     public function edit(SalonSmsTemplate $smsTemplate)
     {
-        if ($smsTemplate->template_type !== 'custom' || !is_null($smsTemplate->salon_id) === false) {
+        // فقط custom template های سیستمی قابل ویرایش هستند (نه مربوط به سالن خاص)
+        if ($smsTemplate->template_type !== 'custom' || $smsTemplate->salon_id !== null) {
             return redirect()->route('admin.sms-templates.index')->with('error', 'ویرایش این قالب مجاز نیست.');
         }
         $categories = SmsTemplateCategory::whereNull('salon_id')->orderBy('name')->get();

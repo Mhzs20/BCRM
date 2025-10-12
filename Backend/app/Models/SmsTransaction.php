@@ -15,6 +15,7 @@ class SmsTransaction extends Model
         'sms_package_id',
         'customer_id',
         'appointment_id',
+        'template_id',
         'receptor',
         'sms_type',
         'content',
@@ -63,6 +64,11 @@ class SmsTransaction extends Model
     public function appointment()
     {
         return $this->belongsTo(Appointment::class);
+    }
+
+    public function template()
+    {
+        return $this->belongsTo(SalonSmsTemplate::class, 'template_id');
     }
 
     public function approver()

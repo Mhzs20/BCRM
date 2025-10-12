@@ -50,6 +50,9 @@ class AppointmentResource extends JsonResource
             'send_satisfaction_sms' => $this->send_satisfaction_sms,
             'satisfaction_sms_status' => $this->satisfaction_sms_status,
             'satisfaction_sms_message_id' => $this->satisfaction_sms_message_id,
+            'send_confirmation_sms' => $this->send_confirmation_sms,
+            'confirmation_sms_template_id' => $this->confirmation_sms_template_id,
+            'reminder_sms_template_id' => $this->reminder_sms_template_id,
             'jalalidate' => Jalalian::fromCarbon($this->appointment_date)->format('Y/m/d'),
             'customer' => [
                 'id' => optional($this->customer)->id,
