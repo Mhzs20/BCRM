@@ -107,25 +107,27 @@ Route::middleware('auth:api')->group(function () {
                 Route::get('import-history', [ContactPickerController::class, 'getImportHistory'])->name('import_history');
             });
 
-            // Renewal Reminder Routes
-            Route::prefix('renewal-reminders')->name('renewal_reminders.')->group(function () {
-                Route::get('templates', [RenewalReminderController::class, 'getTemplates'])->name('templates');
-                Route::get('settings', [RenewalReminderController::class, 'getSettings'])->name('settings');
-                Route::put('settings', [RenewalReminderController::class, 'updateSettings'])->name('update_settings');
-                Route::post('preview-template', [RenewalReminderController::class, 'previewTemplate'])->name('preview_template');
-                
-                // Service-based renewal management
-                Route::get('services', [ServiceRenewalController::class, 'getServicesWithRenewalSettings'])->name('services');
-                Route::get('stats', [ServiceRenewalController::class, 'getRenewalStats'])->name('stats');
-                Route::post('global-toggle', [ServiceRenewalController::class, 'toggleGlobalReminder'])->name('global_toggle');
-                
-                Route::prefix('services/{service}')->group(function () {
-                    Route::get('settings', [ServiceRenewalController::class, 'getServiceRenewalSetting'])->name('service_settings');
-                    Route::put('settings', [ServiceRenewalController::class, 'updateServiceRenewalSetting'])->name('update_service_settings');
-                    Route::post('toggle', [ServiceRenewalController::class, 'toggleServiceReminder'])->name('toggle_service');
-                    Route::delete('settings', [ServiceRenewalController::class, 'deleteServiceRenewalSetting'])->name('delete_service_settings');
+            // Renewal Reminder Routes - Protected by Feature Package
+            Route::prefix('renewal-reminders')->name('renewal_reminders.')
+                ->middleware('feature:پیامک یادآوری ترمیم و تولد')
+                ->group(function () {
+                    Route::get('templates', [RenewalReminderController::class, 'getTemplates'])->name('templates');
+                    Route::get('settings', [RenewalReminderController::class, 'getSettings'])->name('settings');
+                    Route::put('settings', [RenewalReminderController::class, 'updateSettings'])->name('update_settings');
+                    Route::post('preview-template', [RenewalReminderController::class, 'previewTemplate'])->name('preview_template');
+                    
+                    // Service-based renewal management
+                    Route::get('services', [ServiceRenewalController::class, 'getServicesWithRenewalSettings'])->name('services');
+                    Route::get('stats', [ServiceRenewalController::class, 'getRenewalStats'])->name('stats');
+                    Route::post('global-toggle', [ServiceRenewalController::class, 'toggleGlobalReminder'])->name('global_toggle');
+                    
+                    Route::prefix('services/{service}')->group(function () {
+                        Route::get('settings', [ServiceRenewalController::class, 'getServiceRenewalSetting'])->name('service_settings');
+                        Route::put('settings', [ServiceRenewalController::class, 'updateServiceRenewalSetting'])->name('update_service_settings');
+                        Route::post('toggle', [ServiceRenewalController::class, 'toggleServiceReminder'])->name('toggle_service');
+                        Route::delete('settings', [ServiceRenewalController::class, 'deleteServiceRenewalSetting'])->name('delete_service_settings');
+                    });
                 });
-            });
 
             Route::get('staff/booking-list', [StaffController::class, 'getBookingList'])->name('staff.bookingList');
             Route::get('staff/search', [StaffController::class, 'search'])->name('staff.search');

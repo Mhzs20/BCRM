@@ -23,7 +23,6 @@ class UpdateAppointmentRequest extends FormRequest
             'service_ids' => ['sometimes', 'array', 'min:1'],
             'service_ids.*' => [
                 'integer',
-                // Use the correctly extracted $salonId
                 Rule::exists('services', 'id')->where('salon_id', $salonId)->where('is_active', true)
             ],
             'staff_id' => [
@@ -36,13 +35,12 @@ class UpdateAppointmentRequest extends FormRequest
             'status' => ['sometimes', 'string', Rule::in(['pending_confirmation', 'confirmed', 'cancelled', 'completed', 'no_show'])],
             'deposit_required' => ['sometimes', 'boolean'],
             'deposit_paid' => ['sometimes', 'boolean'],
-            // Add other fields from Store request if they are updatable
             'internal_notes' => ['nullable', 'string', 'max:1000'],
             'send_sms_reminder' => ['sometimes', 'boolean'],
             'is_walk_in' => ['sometimes', 'boolean'],
             'deposit_amount' => ['sometimes', 'numeric', 'min:0'],
             'deposit_payment_method' => ['sometimes', 'string', Rule::in(['cash', 'card', 'online', 'other'])],
-            'reminder_time' => ['sometimes', 'integer', Rule::in([2, 4, 6, 8, 12, 24, 48])],
+            'reminder_time' => ['sometimes', 'integer', Rule::in([1, 2, 4, 6, 8, 12, 24, 48, 72])],
             'send_reminder_sms' => ['sometimes', 'boolean'],
             'send_satisfaction_sms' => ['sometimes', 'boolean'],
             'send_confirmation_sms' => ['sometimes', 'boolean'],

@@ -46,7 +46,7 @@ class StoreAppointmentRequest extends FormRequest
             'is_walk_in' => ['nullable', 'boolean'],
             'deposit_amount' => ['nullable', 'numeric', 'min:0'],
             'deposit_payment_method' => ['nullable', 'string', Rule::in(['cash', 'card', 'online', 'other'])],
-            'reminder_time' => ['nullable', 'integer', Rule::in([2, 4, 6, 8, 12, 24, 48])],
+            'reminder_time' => ['nullable', 'integer', Rule::in([1, 2, 4, 6, 8, 12, 24, 48, 72])],
             'send_reminder_sms' => ['nullable', 'boolean'],
             'send_satisfaction_sms' => ['nullable', 'boolean'],
             'send_confirmation_sms' => ['nullable', 'boolean'],
