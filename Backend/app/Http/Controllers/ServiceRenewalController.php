@@ -10,6 +10,7 @@ use App\Models\SmsTemplateCategory;
 use App\Models\Salon;
 use App\Models\Customer;
 use App\Models\Appointment;
+use App\Traits\ChecksPackageFeature;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -18,12 +19,17 @@ use Illuminate\Support\Facades\Log;
 
 class ServiceRenewalController extends Controller
 {
+    use ChecksPackageFeature;
+
     /**
-     * دریافت لیست سرویس‌ها با تنظیمات یادآوری و تعداد مشتریان
      */
     public function getServicesWithRenewalSettings(Request $request, Salon $salon): JsonResponse
     {
         $this->authorize('manageResources', $salon);
+        
+        if (!$this->checkRenewalReminderAccess($salon->id)) {
+            return $this->renewalReminderAccessDeniedResponse();
+        }
         
         try {
             $query = Service::where('salon_id', $salon->id)
@@ -36,13 +42,11 @@ class ServiceRenewalController extends Controller
                     }
                 ]);
 
-            // جستجو در نام سرویس
             if ($request->filled('search')) {
                 $searchTerm = $request->input('search');
                 $query->where('name', 'like', "%{$searchTerm}%");
             }
 
-            // فیلتر بر اساس وضعیت یادآوری
             if ($request->filled('reminder_status')) {
                 $reminderStatus = $request->input('reminder_status');
                 if ($reminderStatus === 'active') {
@@ -56,7 +60,6 @@ class ServiceRenewalController extends Controller
                 }
             }
 
-            // مرتب‌سازی
             $sortBy = $request->input('sort_by', 'name');
             $sortDirection = $request->input('sort_direction', 'asc');
             
@@ -68,7 +71,6 @@ class ServiceRenewalController extends Controller
 
             $services = $query->paginate($request->input('per_page', 15));
 
-            // تنظیمات کلی یادآوری سالن
             $globalSetting = RenewalReminderSetting::where('salon_id', $salon->id)->first();
 
             return response()->json([
@@ -90,11 +92,14 @@ class ServiceRenewalController extends Controller
     }
 
     /**
-     * دریافت تنظیمات یادآوری یک سرویس خاص
      */
     public function getServiceRenewalSetting(Request $request, Salon $salon, Service $service): JsonResponse
     {
         $this->authorize('manageResources', $salon);
+        
+        if (!$this->checkRenewalReminderAccess($salon->id)) {
+            return $this->renewalReminderAccessDeniedResponse();
+        }
         
         try {
             if ($service->salon_id !== $salon->id) {
@@ -107,7 +112,6 @@ class ServiceRenewalController extends Controller
                 ->first();
 
             if (!$setting) {
-                // ایجاد تنظیمات پیش‌فرض
                 $setting = ServiceRenewalSetting::create([
                     'salon_id' => $salon->id,
                     'service_id' => $service->id,
@@ -134,11 +138,14 @@ class ServiceRenewalController extends Controller
     }
 
     /**
-     * به‌روزرسانی تنظیمات یادآوری یک سرویس
      */
     public function updateServiceRenewalSetting(Request $request, Salon $salon, Service $service): JsonResponse
     {
         $this->authorize('manageResources', $salon);
+        
+        if (!$this->checkRenewalReminderAccess($salon->id)) {
+            return $this->renewalReminderAccessDeniedResponse();
+        }
         
         try {
             if ($service->salon_id !== $salon->id) {
@@ -160,7 +167,6 @@ class ServiceRenewalController extends Controller
                 ], 422);
             }
 
-            // بررسی معتبر بودن قالب
             if ($request->is_active && $request->template_id) {
                 $template = SalonSmsTemplate::find($request->template_id);
                 if (!$template || ($template->salon_id !== null && $template->salon_id !== $salon->id)) {
@@ -205,6 +211,10 @@ class ServiceRenewalController extends Controller
     {
         $this->authorize('manageResources', $salon);
         
+        if (!$this->checkRenewalReminderAccess($salon->id)) {
+            return $this->renewalReminderAccessDeniedResponse();
+        }
+        
         try {
             if ($service->salon_id !== $salon->id) {
                 return response()->json(['message' => 'سرویس متعلق به این سالن نیست.'], 403);
@@ -226,7 +236,6 @@ class ServiceRenewalController extends Controller
                 ->first();
 
             if (!$setting) {
-                // ایجاد تنظیمات با مقادیر پیش‌فرض
                 $setting = ServiceRenewalSetting::create([
                     'salon_id' => $salon->id,
                     'service_id' => $service->id,
@@ -255,11 +264,14 @@ class ServiceRenewalController extends Controller
     }
 
     /**
-     * حذف تنظیمات یادآوری یک سرویس
      */
     public function deleteServiceRenewalSetting(Request $request, Salon $salon, Service $service): JsonResponse
     {
         $this->authorize('manageResources', $salon);
+        
+        if (!$this->checkRenewalReminderAccess($salon->id)) {
+            return $this->renewalReminderAccessDeniedResponse();
+        }
         
         try {
             if ($service->salon_id !== $salon->id) {
@@ -291,11 +303,14 @@ class ServiceRenewalController extends Controller
     }
 
     /**
-     * فعال/غیرفعال کردن کلی سیستم یادآوری سالن
      */
     public function toggleGlobalReminder(Request $request, Salon $salon): JsonResponse
     {
         $this->authorize('manageResources', $salon);
+        
+        if (!$this->checkRenewalReminderAccess($salon->id)) {
+            return $this->renewalReminderAccessDeniedResponse();
+        }
         
         try {
             $validator = Validator::make($request->all(), [
@@ -329,11 +344,14 @@ class ServiceRenewalController extends Controller
     }
 
     /**
-     * دریافت آمار کلی یادآوری ترمیم
      */
     public function getRenewalStats(Request $request, Salon $salon): JsonResponse
     {
         $this->authorize('manageResources', $salon);
+        
+        if (!$this->checkRenewalReminderAccess($salon->id)) {
+            return $this->renewalReminderAccessDeniedResponse();
+        }
         
         try {
             $totalServices = Service::where('salon_id', $salon->id)

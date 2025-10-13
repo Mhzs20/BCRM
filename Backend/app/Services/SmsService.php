@@ -546,6 +546,43 @@ class SmsService
         );
     }
 
+    /**
+     * Send appointment confirmation SMS with a specific template
+     *
+     * @param Customer $customer
+     * @param Appointment $appointment
+     * @param Salon $salon
+     * @param int $templateId
+     * @return array
+     */
+    public function sendAppointmentConfirmationWithTemplate(Customer $customer, Appointment $appointment, Salon $salon, int $templateId): array
+    {
+        // بررسی اینکه آیا ارسال پیامک تایید فعال است
+        if (!$appointment->send_confirmation_sms) {
+            return ['status' => 'success', 'message' => 'ارسال پیامک تایید نوبت غیرفعال است.'];
+        }
+        
+        $detailsUrl = url('a/' . $appointment->hash);
+        
+        $dataForTemplate = array_merge([
+            'customer_name' => $customer->name,
+            'salon_name' => $salon->name,
+            'details_url' => $detailsUrl,
+            'appointment_hash' => $appointment->hash, // اضافه کردن hash نوبت
+        ], $this->getAppointmentTemplateData($appointment));
+        
+        return $this->sendMessageUsingTemplate(
+            $salon,
+            'appointment_confirmation',
+            $customer->phone_number,
+            $dataForTemplate,
+            $customer->id,
+            $appointment->id,
+            null, // kavenegarLocalId
+            $templateId // استفاده از تمپلیت انتخاب شده
+        );
+    }
+
     public function sendAppointmentModification(Customer $customer, Appointment $appointment, Salon $salon): array
     {
         $detailsUrl = url('a/' . $appointment->hash);
