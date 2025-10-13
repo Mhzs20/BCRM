@@ -7,6 +7,7 @@ use App\Models\RenewalReminderSetting;
 use App\Models\SalonSmsTemplate;
 use App\Models\SmsTemplateCategory;
 use App\Models\Salon;
+use App\Traits\ChecksPackageFeature;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +16,8 @@ use Illuminate\Support\Facades\Log;
 
 class RenewalReminderController extends Controller
 {
+    use ChecksPackageFeature;
+
     /**
      * دریافت لیست قالب‌های یادآوری ترمیم
      */
@@ -59,6 +62,11 @@ class RenewalReminderController extends Controller
     public function getSettings(Request $request, Salon $salon): JsonResponse
     {
         $this->authorize('manageResources', $salon);
+        
+        // بررسی دسترسی به فیچر یادآوری ترمیم
+        if (!$this->checkRenewalReminderAccess($salon->id)) {
+            return $this->renewalReminderAccessDeniedResponse();
+        }
         
         try {
             $setting = RenewalReminderSetting::where('salon_id', $salon->id)->first();
@@ -113,6 +121,11 @@ class RenewalReminderController extends Controller
     public function updateSettings(Request $request, Salon $salon): JsonResponse
     {
         $this->authorize('manageResources', $salon);
+        
+        // بررسی دسترسی به فیچر یادآوری ترمیم
+        if (!$this->checkRenewalReminderAccess($salon->id)) {
+            return $this->renewalReminderAccessDeniedResponse();
+        }
         
         try {
             $validator = Validator::make($request->all(), [
