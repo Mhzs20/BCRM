@@ -17,6 +17,9 @@ use App\Http\Controllers\Admin\AdminBulkSmsGiftController;
 use App\Http\Controllers\Admin\AdminBulkSmsController;  
 use App\Http\Controllers\Admin\AdminAppointmentController;  
 use App\Http\Controllers\Admin\AdminTransactionController;
+use App\Http\Controllers\Admin\ReferralManagementController;
+use App\Http\Controllers\Admin\ReferralSettingsController;
+use App\Http\Controllers\Admin\WalletManagementController;
 use App\Http\Controllers\ManualSmsController;
 use App\Http\Controllers\SmsCampaignController;
 use App\Http\Middleware\SuperAdminMiddleware;
@@ -121,6 +124,46 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
 
     // Packages Management
     Route::resource('packages', \App\Http\Controllers\Admin\PackageController::class);
+    
+    // Referral Management
+    Route::prefix('referral')->name('referral.')->group(function () {
+        Route::get('/', [ReferralManagementController::class, 'dashboard'])->name('dashboard');
+        Route::get('/users', [ReferralManagementController::class, 'users'])->name('users');
+        Route::get('/referrals', [ReferralManagementController::class, 'referrals'])->name('referrals');
+        Route::get('/wallet', [ReferralManagementController::class, 'wallet'])->name('wallet');
+        Route::get('/users/{user}/referrals', [ReferralManagementController::class, 'userReferrals'])->name('users.referrals');
+        Route::get('/users/{user}/wallet', [ReferralManagementController::class, 'userWallet'])->name('users.wallet');
+        Route::post('/wallet/manual-credit', [ReferralManagementController::class, 'manualCredit'])->name('wallet.manual-credit');
+        Route::post('/wallet/manual-debit', [ReferralManagementController::class, 'manualDebit'])->name('wallet.manual-debit');
+        
+        // Settings
+        Route::get('/settings', [ReferralSettingsController::class, 'index'])->name('settings');
+        Route::post('/settings', [ReferralSettingsController::class, 'update'])->name('settings.update');
+    });
+    
+    // Wallet Management
+    Route::prefix('wallet-management')->name('wallet.management.')->group(function () {
+        Route::get('/', [WalletManagementController::class, 'index'])->name('index');
+        Route::get('/charge', [WalletManagementController::class, 'showChargeForm'])->name('charge');
+        Route::post('/charge', [WalletManagementController::class, 'createChargeRequest'])->name('charge.create');
+        Route::get('/payment/{order}', [WalletManagementController::class, 'showPaymentPage'])->name('payment');
+        Route::post('/payment/{order}/process', [WalletManagementController::class, 'processPayment'])->name('payment.process');
+        Route::get('/payment/{order}/verify', [WalletManagementController::class, 'verifyPayment'])->name('payment.verify');
+        Route::post('/manual-adjustment', [WalletManagementController::class, 'manualAdjustment'])->name('manual.adjustment');
+        Route::get('/history', [WalletManagementController::class, 'getChargeHistory'])->name('history');
+    });
+    
+    // Wallet Packages Management
+    Route::prefix('wallet/packages')->name('wallet.packages.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Admin\WalletPackageController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\Admin\WalletPackageController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\Admin\WalletPackageController::class, 'store'])->name('store');
+        Route::get('/{package}', [\App\Http\Controllers\Admin\WalletPackageController::class, 'show'])->name('show');
+        Route::get('/{package}/edit', [\App\Http\Controllers\Admin\WalletPackageController::class, 'edit'])->name('edit');
+        Route::put('/{package}', [\App\Http\Controllers\Admin\WalletPackageController::class, 'update'])->name('update');
+        Route::delete('/{package}', [\App\Http\Controllers\Admin\WalletPackageController::class, 'destroy'])->name('destroy');
+        Route::post('/{package}/toggle-status', [\App\Http\Controllers\Admin\WalletPackageController::class, 'toggleStatus'])->name('toggle-status');
+    });
     
     // Options Management (only list and toggle)
     Route::get('options', [\App\Http\Controllers\Admin\OptionController::class, 'index'])->name('options.index');

@@ -51,6 +51,7 @@ class CompleteProfileRequest extends FormRequest
             'longitude'                 => 'nullable|numeric|between:-180,180',
             'image'                     => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'whatsapp'                  => 'nullable|string|max:255',
+            'referral_code'             => 'nullable|string|exists:users,referral_code',
         ];
     }
 
@@ -84,6 +85,7 @@ class CompleteProfileRequest extends FormRequest
             'city_id.exists' => 'شهر انتخاب شده معتبر نیست.',
             'address.required' => 'وارد کردن آدرس سالن الزامی است.',
             'address.max' => 'آدرس سالن نمی‌تواند بیشتر از ۱۰۰۰ کاراکتر باشد.',
+            'referral_code.exists' => 'کد دعوت وارد شده معتبر نیست.',
         ];
 
         if (!$user->is_superadmin) {
