@@ -12,14 +12,35 @@ class Order extends Model
         'sms_package_id',
         'package_id',
         'type',
+        'order_type',
+        'item_id',
+        'item_title',
         'amount',
+        'original_amount',
+        'discount_amount',
         'sms_count',
         'status',
+        'payment_status',
+        'payment_method',
         'discount_code',
         'discount_percentage',
-        'original_amount',
         'payment_authority',
         'payment_ref_id',
+        'transaction_id',
+        'reference_id',
+        'paid_at',
+        'metadata',
+        'description',
+    ];
+
+    protected $casts = [
+        'amount' => 'decimal:0',
+        'original_amount' => 'decimal:0',
+        'discount_amount' => 'decimal:0',
+        'sms_count' => 'integer',
+        'discount_percentage' => 'integer',
+        'paid_at' => 'datetime',
+        'metadata' => 'array',
     ];
 
     /**

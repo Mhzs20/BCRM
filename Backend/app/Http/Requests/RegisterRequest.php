@@ -35,6 +35,11 @@ class RegisterRequest extends FormRequest
                 'regex:/^[a-zA-Z0-9]+$/',
                 'min:4',
             ],
+            'referral_code' => [
+                'nullable',
+                'string',
+                'exists:users,referral_code',
+            ],
         ];
     }
 
@@ -52,6 +57,7 @@ class RegisterRequest extends FormRequest
             'password.required' => 'رمز عبور الزامی است',
             'password.regex' => 'رمز عبور باید فقط شامل حروف انگلیسی و عدد باشد',
             'password.min' => 'رمز عبور باید حداقل ۴ کاراکتر باشد',
+            'referral_code.exists' => 'کد دعوت وارد شده معتبر نیست',
         ];
     }
 }
