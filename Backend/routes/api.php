@@ -9,6 +9,7 @@ use App\Http\Controllers\StaffController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PaymentGatewayController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SalonSmsTemplateController;
 use App\Http\Controllers\UserSmsBalanceController;
@@ -79,6 +80,32 @@ Route::middleware('auth:api')->group(function () {
 
     // کارت
     Route::get('card-info', [\App\Http\Controllers\Api\CardSettingController::class, 'showCardInfo']);
+
+    // Referral & Wallet APIs
+    Route::prefix('referral')->name('referral.')->group(function () {
+        Route::get('info', [\App\Http\Controllers\Api\ReferralController::class, 'getReferralInfo'])->name('info');
+        Route::get('list', [\App\Http\Controllers\Api\ReferralController::class, 'getReferrals'])->name('list');
+        Route::get('settings', [\App\Http\Controllers\Api\ReferralController::class, 'getSettings'])->name('settings');
+    });
+
+    Route::prefix('wallet')->name('wallet.')->group(function () {
+        Route::get('info', [\App\Http\Controllers\Api\WalletController::class, 'getWalletInfo'])->name('info');
+        Route::get('transactions', [\App\Http\Controllers\Api\WalletController::class, 'getTransactions'])->name('transactions');
+        Route::get('packages', [\App\Http\Controllers\Api\WalletController::class, 'getAvailablePackages'])->name('packages');
+        Route::post('add-credit', [\App\Http\Controllers\Api\WalletController::class, 'addCredit'])->name('add_credit');
+        Route::post('purchase/package', [\App\Http\Controllers\Api\WalletController::class, 'purchasePackage'])->name('purchase.package');
+        Route::post('purchase/sms-package', [\App\Http\Controllers\Api\WalletController::class, 'purchaseSmsPackage'])->name('purchase.sms_package');
+        
+        Route::post('purchase/feature-package', [\App\Http\Controllers\Api\WalletController::class, 'purchaseFeaturePackageWithWallet'])->name('purchase.feature_package');
+        Route::post('charge', [\App\Http\Controllers\Api\WalletController::class, 'chargeWallet'])->name('charge');
+        
+        // Wallet charge packages
+        Route::get('charge-packages', [\App\Http\Controllers\Api\WalletPackageController::class, 'index'])->name('charge_packages');
+        Route::get('charge-packages/{package}', [\App\Http\Controllers\Api\WalletPackageController::class, 'show'])->name('charge_packages.show');
+        Route::post('charge-packages/{package}/purchase', [\App\Http\Controllers\Api\WalletPackageController::class, 'purchase'])->name('charge_packages.purchase');
+        Route::post('charge-packages/process-payment', [\App\Http\Controllers\Api\WalletPackageController::class, 'processPayment'])->name('charge_packages.process_payment');
+        Route::get('charge/verify/{orderId}', [\App\Http\Controllers\Api\WalletController::class, 'verifyWalletCharge'])->name('charge.verify');
+    });
 
     Route::prefix('salons')->name('salons.')->group(function () {
         Route::get('/', [SalonController::class, 'getUserSalons'])->name('user_index');
@@ -225,6 +252,8 @@ Route::middleware('auth:api')->group(function () {
     Route::prefix('payment')->name('payment.')->middleware('throttle:10,1')->group(function () {
         Route::post('purchase', [ZarinpalController::class, 'purchase'])->name('purchase');
         Route::post('verify', [ZarinpalController::class, 'verify'])->name('verify');
+        Route::get('gateway/{order}', [\App\Http\Controllers\PaymentGatewayController::class, 'redirect'])->name('gateway');
+        Route::get('wallet/callback', [\App\Http\Controllers\PaymentGatewayController::class, 'walletCallback'])->name('wallet.callback');
     });
 
     Route::prefix('discount')->name('discount.')->group(function () {
@@ -243,6 +272,26 @@ Route::middleware(['auth:api', 'superadmin'])->prefix('superadmin')->name('super
         Route::get('pending', [ManualSmsController::class, 'listPendingManualSms'])->name('pending');
         Route::post('{smsTransactionId}/approve', [ManualSmsController::class, 'approveManualSms'])->name('approve');
         Route::post('{smsTransactionId}/reject', [ManualSmsController::class, 'rejectManualSms'])->name('reject');
+    });
+
+    // Referral Management Routes
+    Route::prefix('referral')->name('referral.')->group(function () {
+        Route::get('users', [\App\Http\Controllers\Admin\ReferralManagementController::class, 'getUsers'])->name('users');
+        Route::get('referrals', [\App\Http\Controllers\Admin\ReferralManagementController::class, 'getReferrals'])->name('referrals');
+        Route::put('referrals/{referralId}/status', [\App\Http\Controllers\Admin\ReferralManagementController::class, 'updateReferralStatus'])->name('referrals.status');
+        Route::get('wallet/transactions', [\App\Http\Controllers\Admin\ReferralManagementController::class, 'getWalletTransactions'])->name('wallet.transactions');
+        Route::post('wallet/adjust', [\App\Http\Controllers\Admin\ReferralManagementController::class, 'adjustWalletBalance'])->name('wallet.adjust');
+        Route::get('withdraw/requests', [\App\Http\Controllers\Admin\ReferralManagementController::class, 'getWithdrawRequests'])->name('withdraw.requests');
+        Route::put('withdraw/requests/{requestId}', [\App\Http\Controllers\Admin\ReferralManagementController::class, 'processWithdrawRequest'])->name('withdraw.process');
+        Route::get('statistics', [\App\Http\Controllers\Admin\ReferralManagementController::class, 'getStatistics'])->name('statistics');
+    });
+
+    // Referral Settings Routes
+    Route::prefix('referral-settings')->name('referral_settings.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Admin\ReferralSettingsController::class, 'getSettings'])->name('index');
+        Route::put('/', [\App\Http\Controllers\Admin\ReferralSettingsController::class, 'updateSettings'])->name('update');
+        Route::get('history', [\App\Http\Controllers\Admin\ReferralSettingsController::class, 'getSettingsHistory'])->name('history');
+        Route::post('toggle', [\App\Http\Controllers\Admin\ReferralSettingsController::class, 'toggleSystem'])->name('toggle');
     });
 });
 

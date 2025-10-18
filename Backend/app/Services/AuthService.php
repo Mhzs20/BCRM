@@ -12,22 +12,26 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use App\Services\SmsService;
+use App\Services\ReferralService;
 class AuthService
 {
     protected SmsService $smsService;
+    protected ReferralService $referralService;
 
-    public function __construct(SmsService $smsService)
+    public function __construct(SmsService $smsService, ReferralService $referralService)
     {
         $this->smsService = $smsService;
+        $this->referralService = $referralService;
     }
 
     /**
      * generateOtp
      *
      * @param string $mobile
+     * @param string|null $referralCode
      * @return string
      */
-    public function generateOtp(string $mobile): string
+    public function generateOtp(string $mobile, ?string $referralCode = null): string
     {
         // بررسی محدودیت زمانی 90 ثانیه برای درخواست OTP جدید
         $lastOtpTimeKey = 'last_otp_time_' . $mobile;
@@ -60,6 +64,14 @@ class AuthService
 
         Log::info("AuthService::generateOtp - Generating OTP for mobile: {$mobile}. OTP: {$otp}.");
 
+        // Validate referral code if provided
+        if ($referralCode) {
+            $validation = $this->referralService->validateReferralCode($referralCode, $mobile);
+            if (!$validation['valid']) {
+                throw new \Exception($validation['message']);
+            }
+        }
+
         $user = User::updateOrCreate(
             ['mobile' => $mobile],
             [
@@ -67,6 +79,17 @@ class AuthService
                 'otp_expires_at' => $expiresAt
             ]
         );
+
+        // Generate referral code for new user if not exists (در لحظه ثبت نام)
+        if (!$user->referral_code) {
+            $user->generateReferralCode();
+            Log::info("AuthService::generateOtp - Generated referral code for user ID: {$user->id}, Code: {$user->referral_code}");
+        }
+
+        // Store referral code temporarily for processing after verification
+        if ($referralCode) {
+            Cache::put('temp_referral_' . $mobile, $referralCode, now()->addMinutes(10));
+        }
 
         // ذخیره زمان ارسال آخرین OTP
         Cache::put($lastOtpTimeKey, now(), now()->addMinutes(10));
@@ -128,6 +151,24 @@ class AuthService
             'otp_code' => null,
             'otp_expires_at' => null
         ]);
+
+        // Process referral if exists
+        $referralCode = Cache::get('temp_referral_' . $mobile);
+        if ($referralCode) {
+            try {
+                $this->referralService->processRegistrationReferral($user, $referralCode);
+                Cache::forget('temp_referral_' . $mobile);
+                Log::info("AuthService::verifyOtp - Processed referral for user: {$user->id} with code: {$referralCode}");
+            } catch (\Exception $e) {
+                Log::warning("AuthService::verifyOtp - Failed to process referral for user: {$user->id}. Error: " . $e->getMessage());
+                // Don't throw exception here, just log the warning
+            }
+        }
+
+        // Generate referral code for new user if not exists
+        if (!$user->referral_code) {
+            $user->generateReferralCode();
+        }
 
         Log::info("AuthService::verifyOtp - User {$user->id} OTP details cleared successfully.");
         return $user;
@@ -238,6 +279,25 @@ class AuthService
             ['balance' => (int)env('INITIAL_SMS_BALANCE', 20)]
         );
         Log::info("AuthService::completeProfile - Salon SMS balance checked/created for Salon ID: {$salon->id}");
+
+        // Process referral if provided in complete profile
+        if (isset($data['referral_code']) && $data['referral_code']) {
+            try {
+                $this->referralService->processRegistrationReferral($user, $data['referral_code']);
+                Log::info("AuthService::completeProfile - Processed referral for user: {$user->id} with code: {$data['referral_code']}");
+            } catch (\Exception $e) {
+                Log::warning("AuthService::completeProfile - Failed to process referral for user: {$user->id}. Error: " . $e->getMessage());
+                // Don't throw exception here, just log the warning
+            }
+        }
+
+        // Process referral completion (rewards)
+        try {
+            $this->referralService->processRegistrationCompletion($user);
+            Log::info("AuthService::completeProfile - Processed referral completion for user: {$user->id}");
+        } catch (\Exception $e) {
+            Log::warning("AuthService::completeProfile - Failed to process referral completion for user ID: {$user->id}. Error: " . $e->getMessage());
+        }
 
         Log::info("AuthService::completeProfile - Profile completion finished for user ID: {$user->id}");
         return $user->fresh()->load('activeSalon', 'salons');

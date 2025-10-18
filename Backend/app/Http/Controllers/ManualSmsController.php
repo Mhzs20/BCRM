@@ -502,11 +502,25 @@ class ManualSmsController extends Controller
             abort(403, 'اقدام غیرمجاز.');
         }
 
-        $smsTransactions = SmsTransaction::where('sms_type', 'manual_sms')
-            ->whereNotNull('batch_id')
-            ->with(['user', 'salon', 'approver'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        try {
+            \Log::info('Starting showReportsPage method');
+            
+            $smsTransactions = SmsTransaction::where('sms_type', 'manual_sms')
+                ->whereNotNull('batch_id')
+                ->with(['user', 'salon', 'approver'])
+                ->orderBy('created_at', 'desc')
+                ->get();
+                
+            \Log::info('Successfully fetched SMS transactions', ['count' => $smsTransactions->count()]);
+        } catch (\Exception $e) {
+            \Log::error('Error in showReportsPage', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
 
         $groupedBatches = $smsTransactions->groupBy('batch_id')->map(function ($batch) {
             $firstTransaction = $batch->first();

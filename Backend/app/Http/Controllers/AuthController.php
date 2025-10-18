@@ -37,9 +37,10 @@ class AuthController extends Controller
     {
         try {
             $mobile = $request->mobile;
-            Log::info("AuthController::register - Registration attempt for mobile: {$mobile}");
+            $referralCode = $request->referral_code;
+            Log::info("AuthController::register - Registration attempt for mobile: {$mobile}" . ($referralCode ? " with referral code: {$referralCode}" : ""));
 
-            $otp = $this->authService->generateOtp($mobile); // متد generateOtp دیگر static نیست
+            $otp = $this->authService->generateOtp($mobile, $referralCode);
 
             $userForSms = User::firstWhere('mobile', $mobile);
             if ($userForSms) {
