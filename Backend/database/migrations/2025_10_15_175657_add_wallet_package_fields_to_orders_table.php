@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::table('orders', function (Blueprint $table) {
             // Add only missing columns
             if (!Schema::hasColumn('orders', 'paid_at')) {
-                $table->timestamp('paid_at')->nullable()->after('payment_method');
+                $table->timestamp('paid_at')->nullable()->after('status');
             }
             if (!Schema::hasColumn('orders', 'metadata')) {
                 $table->json('metadata')->nullable()->after('paid_at');
