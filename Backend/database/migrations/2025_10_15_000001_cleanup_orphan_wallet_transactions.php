@@ -21,8 +21,17 @@ return new class extends Migration
         
         // Add foreign key constraint to prevent future orphan records
         Schema::table('wallet_transactions', function (Blueprint $table) {
-            // First, ensure user_id is properly indexed
-            if (!Schema::hasColumn('wallet_transactions', 'user_id_foreign')) {
+            // Check if foreign key already exists by attempting to get constraint info
+            $foreignKeys = collect(DB::select("
+                SELECT CONSTRAINT_NAME 
+                FROM information_schema.KEY_COLUMN_USAGE 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = 'wallet_transactions' 
+                AND COLUMN_NAME = 'user_id' 
+                AND REFERENCED_TABLE_NAME = 'users'
+            "));
+            
+            if ($foreignKeys->isEmpty()) {
                 $table->foreign('user_id')
                       ->references('id')
                       ->on('users')
