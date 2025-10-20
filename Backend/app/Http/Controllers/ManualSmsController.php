@@ -501,15 +501,32 @@ class ManualSmsController extends Controller
         if (!Auth::user()->is_superadmin) {
             abort(403, 'اقدام غیرمجاز.');
         }
-
+        
+        
         try {
             \Log::info('Starting showReportsPage method');
             
-            $smsTransactions = SmsTransaction::where('sms_type', 'manual_sms')
+            // Get unique batch_ids first with pagination in mind - use VERY aggressive limits
+            // to avoid memory exhaustion with 21k+ records
+            $batchIds = SmsTransaction::where('sms_type', 'manual_sms')
                 ->whereNotNull('batch_id')
+                ->select('batch_id', \DB::raw('MAX(created_at) as latest_created_at'))
+                ->groupBy('batch_id')
+                ->orderBy('latest_created_at', 'desc')
+                ->limit(50) // Limit to last 50 batches for performance - can increase later
+                ->pluck('batch_id');
+                
+            \Log::info('Found batch IDs', ['count' => $batchIds->count()]);
+            
+            // Now get one transaction per batch with relationships
+            $smsTransactions = SmsTransaction::whereIn('batch_id', $batchIds)
                 ->with(['user', 'salon', 'approver'])
                 ->orderBy('created_at', 'desc')
-                ->get();
+                ->get()
+                ->groupBy('batch_id')
+                ->map(function ($group) {
+                    return $group->first(); // Get first transaction from each batch
+                });
                 
             \Log::info('Successfully fetched SMS transactions', ['count' => $smsTransactions->count()]);
         } catch (\Exception $e) {
@@ -522,11 +539,16 @@ class ManualSmsController extends Controller
             throw $e;
         }
 
-        $groupedBatches = $smsTransactions->groupBy('batch_id')->map(function ($batch) {
-            $firstTransaction = $batch->first();
-            $successfulCount = $batch->where('status', 'sent')->count();
-            $failedCount = $batch->where('status', 'failed')->count();
-            $pendingCount = $batch->where('status', 'pending')->count();
+        $groupedBatches = $smsTransactions->map(function ($firstTransaction) {
+            // Get statistics for this specific batch
+            $batchStats = SmsTransaction::where('batch_id', $firstTransaction->batch_id)
+                ->selectRaw('
+                    COUNT(*) as total_count,
+                    SUM(CASE WHEN status = "sent" THEN 1 ELSE 0 END) as successful_count,
+                    SUM(CASE WHEN status = "failed" THEN 1 ELSE 0 END) as failed_count,
+                    SUM(CASE WHEN status = "pending" THEN 1 ELSE 0 END) as pending_count
+                ')
+                ->first();
 
             return (object) [
                 'batch_id' => $firstTransaction->batch_id,
@@ -535,14 +557,14 @@ class ManualSmsController extends Controller
                 'content' => $firstTransaction->content, // Original content from the user
                 'original_content' => $firstTransaction->original_content,
                 'edited_content' => $firstTransaction->edited_content,
-                'recipients_count' => $batch->count(),
+                'recipients_count' => $batchStats->total_count ?? 0,
                 'approval_status' => $firstTransaction->approval_status,
-                'approved_by' => $firstTransaction->approver,
+                'approved_by' => $firstTransaction->approver, // This can be null
                 'approved_at' => $firstTransaction->approved_at,
                 'created_at' => $firstTransaction->created_at,
-                'successful_sends' => $successfulCount,
-                'failed_sends' => $failedCount,
-                'pending_sends' => $pendingCount,
+                'successful_sends' => $batchStats->successful_count ?? 0,
+                'failed_sends' => $batchStats->failed_count ?? 0,
+                'pending_sends' => $batchStats->pending_count ?? 0,
             ];
         });
 
