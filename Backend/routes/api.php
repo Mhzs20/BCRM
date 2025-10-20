@@ -166,6 +166,8 @@ Route::middleware('auth:api')->group(function () {
 
             Route::get('appointments/available-slots', [AppointmentController::class, 'getAvailableSlots'])->name('appointments.availableSlots');
             Route::get('appointments/calendar', [AppointmentController::class, 'getCalendarAppointments'])->name('appointments.calendar');
+            Route::post('appointments/prepare', [AppointmentController::class, 'prepareAppointment'])->name('appointments.prepare');
+            Route::post('appointments/submit', [AppointmentController::class, 'submitAppointment'])->name('appointments.submit');
             Route::get('appointments/sms-templates', [\App\Http\Controllers\AppointmentSmsTemplateController::class, 'getAppointmentTemplates'])->name('appointments.sms_templates');
             Route::post('appointments/sms-templates/set-default', [\App\Http\Controllers\AppointmentSmsTemplateController::class, 'setDefaultTemplate'])->name('appointments.sms_templates.set_default');
             Route::get('appointments-by-month/{year}/{month}/{day}', [AppointmentController::class, 'getAppointmentsByMonthAndDay'])

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\AppointmentResource;
 use App\Models\Appointment;
+use App\Models\PendingAppointment;
 use App\Models\Customer;
 use App\Models\Salon;
 use App\Models\Setting;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use App\Http\Requests\StoreAppointmentRequest;
+use App\Http\Requests\PrepareAppointmentRequest;
+use App\Http\Requests\SubmitAppointmentRequest;
 use App\Http\Requests\UpdateAppointmentRequest;
 use App\Http\Requests\GetAvailableSlotsRequest;
 use App\Http\Requests\CalendarQueryRequest;
@@ -172,7 +175,7 @@ class AppointmentController extends Controller
             
             $message = 'نوبت با موفقیت ثبت شد. پیامک تایید به زودی ارسال خواهد شد.';
 
-            return response()->json(['message' => $message, 'data' => $appointment], 201);
+            return response()->json(['message' => $message, 'data' => new AppointmentResource($appointment)], 201);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
             Log::error('خطا در ثبت نوبت - مدل یافت نشد: ' . $e->getMessage());
@@ -436,7 +439,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
         Log::error('Error fetching monthly appointments count: ' . $e->getMessage());
         return response()->json(['message' => 'خطا در دریافت تعداد نوبت‌های ماهانه.', 'error' => $e->getMessage()], 500);
     }
-}
+    }
 
     /**
      *
@@ -613,5 +616,356 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
             'templates' => $templates,
             'message' => 'تمپلیت‌های SMS با موفقیت دریافت شدند'
         ]);
+    }
+
+    /**
+     * Prepare appointment - validates data and checks for conflicts
+     */
+    public function prepareAppointment(PrepareAppointmentRequest $request, $salon_id)
+    {
+        $validatedData = $request->validated();
+        
+        // Convert Jalali date to Gregorian
+        if (isset($validatedData['appointment_date'])) {
+            try {
+                $jalaliDate = Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validatedData['appointment_date']));
+                $carbonDate = $jalaliDate->toCarbon('UTC')->startOfDay();
+                $validatedData['appointment_date'] = $carbonDate->format('Y-m-d');
+            } catch (JalaliException $e) {
+                Log::error('Jalali date conversion error in prepare method: ' . $e->getMessage());
+                return response()->json(['message' => 'فرمت تاریخ شمسی نامعتبر است.'], 422);
+            }
+        }
+
+        // Check if services are active
+        $activeServicesCount = \App\Models\Service::where('salon_id', $salon_id)
+            ->whereIn('id', $validatedData['service_ids'])
+            ->where('is_active', true)
+            ->count();
+        
+        if ($activeServicesCount !== count($validatedData['service_ids'])) {
+            return response()->json(['message' => 'یکی از سرویس‌های انتخاب شده غیر فعال است.'], 422);
+        }
+
+        $customer = null;
+        $newCustomerData = null;
+
+        DB::beginTransaction();
+        try {
+            // Handle customer
+            if (!empty($validatedData['customer_id'])) {
+                $customer = Customer::where('salon_id', $salon_id)
+                    ->whereNull('deleted_at')
+                    ->findOrFail($validatedData['customer_id']);
+            } elseif (isset($validatedData['new_customer']['name']) && isset($validatedData['new_customer']['phone_number'])) {
+                // Check if customer already exists
+                $existingCustomer = Customer::withTrashed()
+                    ->where('salon_id', $salon_id)
+                    ->where('phone_number', $validatedData['new_customer']['phone_number'])
+                    ->first();
+
+                if ($existingCustomer) {
+                    $customer = $existingCustomer;
+                    if ($customer->trashed()) {
+                        $customer->restore();
+                    }
+                } else {
+                    // Store new customer data to create later
+                    $newCustomerData = $validatedData['new_customer'];
+                }
+            } else {
+                DB::rollBack();
+                return response()->json(['message' => 'اطلاعات مشتری برای ثبت نوبت ناقص است.'], 422);
+            }
+
+            // Prepare appointment data
+            $appointmentDetails = $this->appointmentBookingService->prepareAppointmentData(
+                $salon_id,
+                $customer ? $customer->id : 0, // Always pass int, never null
+                $validatedData['staff_id'],
+                $validatedData['service_ids'],
+                $validatedData['appointment_date'],
+                $validatedData['start_time'],
+                $validatedData['total_duration'],
+                $validatedData['notes'] ?? null
+            );
+
+            // Unified conflict detection logic - check both confirmed appointments and pending appointments
+            $slotStart = Carbon::parse($validatedData['appointment_date'] . ' ' . $validatedData['start_time']);
+            $slotEnd = $slotStart->copy()->addMinutes($validatedData['total_duration']);
+            
+            // Check confirmed appointments - check all staff for this salon
+            $confirmedAppointments = Appointment::where('salon_id', $salon_id)
+                ->with(['customer', 'services'])
+                ->get();
+                
+            // Check pending appointments (not expired) - check all staff for this salon
+            $pendingAppointments = PendingAppointment::notExpired()
+                ->where('salon_id', $salon_id)
+                ->with(['customer'])
+                ->get();
+                
+            // Combine and filter conflicting appointments - for salon-wide conflicts, show all pending appointments as conflicts
+            $allAppointments = $confirmedAppointments->concat($pendingAppointments);
+            $conflictingAppointments = $allAppointments->filter(function ($appointment) use ($slotStart, $slotEnd) {
+                $existingStart = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time);
+                $existingEnd = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->end_time);
+                return $slotStart->lt($existingEnd) && $slotEnd->gt($existingStart);
+            })
+            ->concat(
+                // Also include all pending appointments as conflicts for salon-wide booking limit
+                $pendingAppointments->map(function ($appointment) {
+                    $services = [];
+                    if ($appointment->service_ids) {
+                        $services = \App\Models\Service::whereIn('id', $appointment->service_ids)->pluck('name')->toArray();
+                    }
+                    $customerName = $appointment->customer ? $appointment->customer->name : ($appointment->new_customer_data['name'] ?? 'مشتری جدید');
+                    
+                    return [
+                        'id' => $appointment->id,
+                        'customer_name' => $customerName,
+                        'start_time' => $appointment->start_time,
+                        'end_time' => $appointment->end_time,
+                        'services' => $services,
+                        'status' => 'pending',
+                        'reason' => 'نوبت در انتظار تأیید',
+                    ];
+                })
+            )
+            ->unique('id')
+            ->values()
+            ->toArray();
+
+            Log::info('[APPT PREPARE] Conflicting appointments count: ' . count($conflictingAppointments), ['conflictingAppointments' => $conflictingAppointments]);
+            $isSlotAvailable = count($conflictingAppointments) === 0;
+
+            // Get salon settings
+            $salonSettings = Setting::where('salon_id', $salon_id)->pluck('value', 'key');
+
+            // Always create pending appointment, but show conflicts if any
+            $pendingData = array_merge(
+                $appointmentDetails['appointment_data'],
+                [
+                    'total_price' => $validatedData['total_price'] ?? $appointmentDetails['appointment_data']['total_price'],
+                    'status' => 'pending',
+                    'internal_note' => $validatedData['internal_notes'] ?? null,
+                    'deposit_required' => $validatedData['deposit_required'] ?? false,
+                    'deposit_paid' => $validatedData['deposit_paid'] ?? false,
+                    'deposit_amount' => $validatedData['deposit_amount'] ?? 0,
+                    'deposit_payment_method' => $validatedData['deposit_payment_method'] ?? null,
+                    'reminder_time' => $validatedData['reminder_time'] ?? null,
+                    'send_reminder_sms' => $validatedData['send_reminder_sms'] ?? filter_var($salonSettings->get('enable_reminder_sms_globally', true), FILTER_VALIDATE_BOOLEAN),
+                    'send_satisfaction_sms' => $validatedData['send_satisfaction_sms'] ?? filter_var($salonSettings->get('enable_satisfaction_sms_globally', true), FILTER_VALIDATE_BOOLEAN),
+                    'send_confirmation_sms' => $validatedData['send_confirmation_sms'] ?? filter_var($salonSettings->get('enable_confirmation_sms_globally', true), FILTER_VALIDATE_BOOLEAN),
+                    'confirmation_sms_template_id' => $validatedData['confirmation_sms_template_id'] ?? null,
+                    'reminder_sms_template_id' => $validatedData['reminder_sms_template_id'] ?? null,
+                    'service_ids' => $validatedData['service_ids'],
+                    'new_customer_data' => $newCustomerData,
+                    'conflicting_appointments' => $conflictingAppointments,
+                    'expires_at' => Carbon::now()->addMinutes(15), // 15 minutes to confirm
+                ]
+            );
+
+            // Remove customer_id if we don't have a customer yet
+            if (!$customer) {
+                unset($pendingData['customer_id']);
+            }
+
+            $pendingAppointment = PendingAppointment::create($pendingData);
+
+            DB::commit();
+
+            // Load services for display
+            $services = \App\Models\Service::where('salon_id', $salon_id)
+                ->whereIn('id', $validatedData['service_ids'])
+                ->get(['id', 'name', 'price']);
+
+            $staff = \App\Models\Staff::where('salon_id', $salon_id)
+                ->where('id', $validatedData['staff_id'])
+                ->first(['id', 'full_name']);
+
+            // Load salon with relationships for complete response
+            $salon = Salon::with(['businessCategory', 'businessSubcategories', 'province', 'city', 'user'])
+                ->findOrFail($salon_id);
+
+            $response = [
+                'success' => true,
+                'pending_appointment_id' => $pendingAppointment->id,
+                'expires_in_minutes' => $pendingAppointment->getExpiresInMinutes(),
+                'appointment_details' => [
+                    'salon_id' => $salon_id,
+                    'customer_id' => $customer ? $customer->id : null,
+                    'staff_id' => $validatedData['staff_id'],
+                    'appointment_date' => $validatedData['appointment_date'],
+                    'appointment_date_jalali' => Jalalian::fromCarbon(Carbon::parse($validatedData['appointment_date']))->format('Y/m/d'),
+                    'start_time' => $validatedData['start_time'],
+                    'end_time' => $appointmentDetails['appointment_data']['end_time'],
+                    'total_duration' => $validatedData['total_duration'],
+                    'total_price' => $pendingData['total_price'],
+                    'status' => 'pending_confirmation',
+                    'notes' => $validatedData['notes'] ?? null,
+                    'internal_note' => $validatedData['internal_notes'] ?? null,
+                    'deposit_required' => $pendingData['deposit_required'],
+                    'deposit_paid' => $pendingData['deposit_paid'],
+                    'deposit_amount' => $pendingData['deposit_amount'],
+                    'deposit_payment_method' => $pendingData['deposit_payment_method'],
+                    'reminder_time' => $pendingData['reminder_time'],
+                    'send_reminder_sms' => $pendingData['send_reminder_sms'],
+                    'send_satisfaction_sms' => $pendingData['send_satisfaction_sms'],
+                    'send_confirmation_sms' => $pendingData['send_confirmation_sms'],
+                    'confirmation_sms_template_id' => $pendingData['confirmation_sms_template_id'],
+                    'reminder_sms_template_id' => $pendingData['reminder_sms_template_id'],
+                    'staff' => [
+                        'id' => $staff->id,
+                        'full_name' => $staff->full_name,
+                        'phone_number' => $staff->phone_number ?? null,
+                        'specialty' => $staff->specialty ?? null,
+                        'profile_image' => $staff->profile_image ?? null,
+                    ],
+                    'customer' => $customer ? [
+                        'id' => $customer->id,
+                        'name' => $customer->name,
+                        'phone_number' => $customer->phone_number,
+                        'profile_image' => $customer->profile_image ?? null,
+                    ] : [
+                        'name' => $newCustomerData['name'] ?? null,
+                        'phone_number' => $newCustomerData['phone_number'] ?? null,
+                    ],
+                    'services' => $services->map(function ($service) {
+                        return [
+                            'id' => $service->id,
+                            'name' => $service->name,
+                            'price' => $service->price,
+                        ];
+                    }),
+                    'salon' => [
+                        'id' => $salon->id,
+                        'name' => $salon->name,
+                        'address' => $salon->address,
+                        'mobile' => $salon->mobile,
+                        'image' => $salon->image,
+                        'business_category' => $salon->businessCategory ? [
+                            'id' => $salon->businessCategory->id,
+                            'name' => $salon->businessCategory->name,
+                        ] : null,
+                    ],
+                ],
+                'has_conflicts' => !empty($conflictingAppointments),
+                'conflicting_appointments' => $conflictingAppointments,
+                'message' => !empty($conflictingAppointments) ? 'در زمان انتخابی نوبت دیگری وجود دارد. آیا می‌خواهید ادامه دهید؟' : 'اطلاعات نوبت تایید شد. برای ثبت نهایی، درخواست ثبت را ارسال کنید.',
+            ];
+
+            return response()->json($response);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('خطا در آماده‌سازی نوبت: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json(['message' => 'خطا در آماده‌سازی نوبت رخ داد.'], 500);
+        }
+    }
+
+    /**
+     * Submit appointment - creates final appointment from pending appointment
+     */
+    public function submitAppointment(SubmitAppointmentRequest $request, $salon_id)
+    {
+        $validatedData = $request->validated();
+        
+        $pendingAppointment = PendingAppointment::notExpired()
+            ->where('salon_id', $salon_id)
+            ->findOrFail($validatedData['pending_appointment_id']);
+
+        if ($pendingAppointment->isExpired()) {
+            return response()->json(['message' => 'نوبت موقت منقضی شده است. لطفا مجدد تلاش کنید.'], 410);
+        }
+
+        DB::beginTransaction();
+        try {
+            $customer = null;
+
+            // Handle customer creation if needed
+            if ($pendingAppointment->customer_id) {
+                $customer = Customer::findOrFail($pendingAppointment->customer_id);
+            } elseif ($pendingAppointment->new_customer_data) {
+                $customerData = array_merge(
+                    ['salon_id' => $salon_id],
+                    $pendingAppointment->new_customer_data
+                );
+                $customer = Customer::create($customerData);
+            } else {
+                throw new \Exception('Customer data not found in pending appointment');
+            }
+
+            // Double-check slot availability
+            if (!$this->appointmentBookingService->isSlotStillAvailable(
+                $salon_id,
+                $pendingAppointment->staff_id,
+                $pendingAppointment->service_ids,
+                $pendingAppointment->total_duration,
+                $pendingAppointment->appointment_date->format('Y-m-d'),
+                $pendingAppointment->start_time
+            )) {
+                return response()->json(['message' => 'متاسفانه این زمان به تازگی پر شده است. لطفا زمان دیگری انتخاب کنید.'], 409);
+            }
+
+            // Create appointment from pending data
+            $appointmentData = $pendingAppointment->toArray();
+            unset($appointmentData['id'], $appointmentData['service_ids'], $appointmentData['new_customer_data'], 
+                  $appointmentData['conflicting_appointments'], $appointmentData['expires_at'], 
+                  $appointmentData['created_at'], $appointmentData['updated_at']);
+            
+            // Ensure appointment_date is correctly set
+            $appointmentData['appointment_date'] = $pendingAppointment->appointment_date->format('Y-m-d');
+            
+            $appointmentData['customer_id'] = $customer->id;
+            $appointmentData['status'] = 'confirmed';
+
+            $appointment = new Appointment($appointmentData);
+            $appointment->save();
+
+            // Generate hash
+            $hashids = new Hashids(env('HASHIDS_SALT', 'your-default-salt'), 8);
+            $appointment->hash = $hashids->encode($appointment->id);
+            $appointment->save();
+
+            // Attach services
+            $services = \App\Models\Service::where('salon_id', $salon_id)
+                ->whereIn('id', $pendingAppointment->service_ids)
+                ->get();
+
+            $servicePivotData = [];
+            foreach ($services as $service) {
+                $servicePivotData[$service->id] = [
+                    'price_at_booking' => $service->price,
+                ];
+            }
+
+            if (!empty($servicePivotData)) {
+                $appointment->services()->attach($servicePivotData);
+            }
+
+            // Delete pending appointment
+            $pendingAppointment->delete();
+
+            DB::commit();
+
+            // Load relationships
+            $appointment->load(['customer', 'staff', 'services']);
+
+            // Send confirmation SMS
+            $templateId = $appointment->confirmation_sms_template_id;
+            SendAppointmentConfirmationSms::dispatch($customer, $appointment, $appointment->salon, $templateId);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'نوبت با موفقیت ثبت شد. پیامک تایید به زودی ارسال خواهد شد.',
+                'data' => new AppointmentResource($appointment)
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('خطا در ثبت نهایی نوبت: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json(['message' => 'خطا در ثبت نوبت رخ داد.'], 500);
+        }
     }
 }
