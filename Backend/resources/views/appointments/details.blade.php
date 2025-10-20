@@ -6,7 +6,7 @@
     <title>جزئیات نوبت</title>
     <meta name="lat" content="{{ $appointment->salon->lat ?? 35.7219 }}">
     <meta name="lang" content="{{ $appointment->salon->lang ?? 51.3347 }}">
-    <meta name="appointment-date" content="{{ \Carbon\Carbon::parse($appointment->start_time)->toIso8601String() }}">
+    <meta name="appointment-date" content="{{ \Carbon\Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time)->toIso8601String() }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
