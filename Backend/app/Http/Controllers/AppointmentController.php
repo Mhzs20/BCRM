@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
+use App\Http\Requests\StoreAppointmentRequest;
 use App\Http\Requests\StoreOldAppointmentRequest;
 use App\Http\Requests\PrepareAppointmentRequest;
 use App\Http\Requests\SubmitAppointmentRequest;
