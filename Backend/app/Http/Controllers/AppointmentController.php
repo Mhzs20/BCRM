@@ -885,9 +885,8 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
             
             // Ensure appointment_date is correctly set
             $appointmentData['appointment_date'] = $pendingAppointment->appointment_date->format('Y-m-d');
-            
             $appointmentData['customer_id'] = $customer->id;
-            $appointmentData['status'] = 'confirmed';
+            $appointmentData['status'] = 'pending_confirmation';
 
             $appointment = new Appointment($appointmentData);
             $appointment->save();
