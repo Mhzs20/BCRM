@@ -42,6 +42,12 @@ class CustomersImport implements ToModel, WithHeadingRow, WithValidation, SkipsO
             'phone_number' => normalizePhoneNumber($phoneNumber),
         ];
 
+        // Validate phone number format after normalization
+        if (!preg_match('/^98[0-9]{10}$/', $customerData['phone_number'])) {
+            $this->skippedRows[] = ['row_data' => $row, 'reason' => 'فرمت شماره تلفن معتبر نیست.'];
+            return null;
+        }
+
         $customer = Customer::where('salon_id', $this->salon_id)
             ->withTrashed() // Include soft-deleted customers
             ->where('phone_number', $customerData['phone_number'])

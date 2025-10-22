@@ -14,13 +14,10 @@ class IranianPhoneNumber implements ValidationRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        // Clean the phone number by removing spaces, dashes, and other non-essential characters
-        // Keep only +, digits, and ensure proper format
-        $cleanedValue = preg_replace('/[\s\-\(\)]/', '', $value);
-        
-        // Basic Iranian phone number regex
-        // This regex allows for optional +98 or 0 prefix, followed by 9 and 9 digits.
-        if (!preg_match('/^(?:[+]98|0)?9[0-9]{9}$/', $cleanedValue)) {
+        // Clean and normalize the phone number
+        $cleanedValue = \normalizePhoneNumber($value);
+        // Accept only Iranian mobile numbers in 98XXXXXXXXXX format
+        if (!preg_match('/^98[0-9]{10}$/', $cleanedValue)) {
             $fail('فرمت شماره معتبر نیست');
         }
     }
