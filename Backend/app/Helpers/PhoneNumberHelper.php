@@ -10,6 +10,7 @@ if (!function_exists('normalizePhoneNumber')) {
     function normalizePhoneNumber(string $phoneNumber): string
     {
     // Trim and convert Persian/Arabic digits to Latin digits
+    $phoneNumber = (string) $phoneNumber;
     $phoneNumber = trim($phoneNumber);
     $persian = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
     $arabic  = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];

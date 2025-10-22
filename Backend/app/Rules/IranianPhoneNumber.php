@@ -15,7 +15,7 @@ class IranianPhoneNumber implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         // Clean and normalize the phone number
-        $cleanedValue = \normalizePhoneNumber($value);
+    $cleanedValue = \normalizePhoneNumber((string)$value);
         // Accept only Iranian mobile numbers in 98XXXXXXXXXX format
         if (!preg_match('/^98[0-9]{10}$/', $cleanedValue)) {
             $fail('فرمت شماره معتبر نیست');
