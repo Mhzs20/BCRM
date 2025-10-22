@@ -16,7 +16,7 @@ class ImportCustomersContactsRequest extends FormRequest
         return [
             'contacts' => ['required', 'array', 'min:1'],
             'contacts.*.name' => ['required', 'string', 'max:255'],
-            'contacts.*.phone_number' => ['required', 'string', 'max:20'],
+            'contacts.*.phone_number' => ['required', 'string', new \App\Rules\IranianPhoneNumber()],
         ];
     }
 }
