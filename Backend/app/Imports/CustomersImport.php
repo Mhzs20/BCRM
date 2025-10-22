@@ -13,10 +13,25 @@ use Illuminate\Validation\Rule;
 use Illuminate\Database\QueryException;
 use App\Rules\IranianPhoneNumber;
 
-
 class CustomersImport implements ToModel, WithHeadingRow, WithValidation, SkipsOnFailure
 {
     private int $salon_id;
+
+
+    /**
+     * Cast phone_number to string before validation (for Excel import)
+     */
+    public function prepareForValidation($data, $index)
+    {
+        // Possible keys for phone number
+        $phoneKeys = ['phone_number', 'شماره_تلفن', 'شماره تلفن'];
+        foreach ($phoneKeys as $key) {
+            if (isset($data[$key]) && !is_string($data[$key])) {
+                $data[$key] = (string) $data[$key];
+            }
+        }
+        return $data;
+    }
     private int $importedCount = 0;
     private array $skippedRows = [];
 
@@ -31,6 +46,11 @@ class CustomersImport implements ToModel, WithHeadingRow, WithValidation, SkipsO
         $name = $row['name'] ?? $row['نام'] ?? null;
         $phoneNumber = $row['phone_number'] ?? $row['شماره_تلفن'] ?? $row['شماره تلفن'] ?? null;
 
+        // Always cast phoneNumber to string for validation/normalization
+        if (!is_null($phoneNumber)) {
+            $phoneNumber = (string) $phoneNumber;
+        }
+
         if (!$name || !$phoneNumber) {
             $this->skippedRows[] = ['row_data' => $row, 'reason' => 'ستون نام یا شماره تلفن یافت نشد یا خالی است.'];
             return null;
@@ -41,6 +61,12 @@ class CustomersImport implements ToModel, WithHeadingRow, WithValidation, SkipsO
             'name'         => $name,
             'phone_number' => normalizePhoneNumber($phoneNumber),
         ];
+
+        // Validate phone number format after normalization
+        if (!preg_match('/^98[0-9]{10}$/', $customerData['phone_number'])) {
+            $this->skippedRows[] = ['row_data' => $row, 'reason' => 'فرمت شماره تلفن معتبر نیست.'];
+            return null;
+        }
 
         $customer = Customer::where('salon_id', $this->salon_id)
             ->withTrashed() // Include soft-deleted customers
