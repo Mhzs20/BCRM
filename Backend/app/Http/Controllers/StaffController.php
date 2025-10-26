@@ -9,9 +9,30 @@ use App\Http\Requests\UpdateStaffRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Models\StaffBreak;
 
 class StaffController extends Controller
 {
+    /**
+     * ثبت بازه‌های استراحت برای کارمند
+     */
+    private function syncBreaks(Staff $staff, array $breaksData)
+    {
+        $staff->breaks()->delete();
+        $newBreaks = [];
+        foreach ($breaksData as $break) {
+            if (isset($break['weekday'], $break['start_time'], $break['end_time'])) {
+                $newBreaks[] = [
+                    'weekday' => $break['weekday'],
+                    'start_time' => $break['start_time'],
+                    'end_time' => $break['end_time'],
+                ];
+            }
+        }
+        if (!empty($newBreaks)) {
+            $staff->breaks()->createMany($newBreaks);
+        }
+    }
     public function index(Request $request, Salon $salon)
     {
         $this->authorize('viewAny', [Staff::class, $salon]);
@@ -102,7 +123,10 @@ class StaffController extends Controller
             if (!empty($validatedData['schedules'])) {
                 $this->syncSchedules($staff, $validatedData['schedules']);
             }
-            $staff->load(['services:id,name', 'schedules']);
+                if (!empty($validatedData['breaks'])) {
+                    $this->syncBreaks($staff, $validatedData['breaks']);
+                }
+            $staff->load(['services:id,name', 'schedules', 'breaks']);
             return response()->json([
                 'success' => true,
                 'message' => 'پرسنل جدید با موفقیت ثبت شد.',
@@ -163,6 +187,9 @@ class StaffController extends Controller
             if (array_key_exists('schedules', $updateData)) {
                 $this->syncSchedules($staff, $updateData['schedules']);
             }
+                if (array_key_exists('breaks', $updateData)) {
+                    $this->syncBreaks($staff, $updateData['breaks']);
+                }
 
             $staff->refresh()->load(['services:id,name', 'schedules']);
             return response()->json([

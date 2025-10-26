@@ -59,19 +59,14 @@ class SmsCampaignController extends Controller
         Gate::authorize('manageResources', $salon);
 
         $query = $this->buildFilteredQuery($request, $salon);
-        
-        // Get customers directly instead of using pluck to avoid HAVING issues with distinct
         $customers = $query->get();
         $customerCount = $customers->count();
-
-        // Debug: Check total customers without filters
         $totalCustomers = $salon->customers()->where('sms_opt_out', false)->count();
 
-        // Check if any customers match the filter
         if ($customerCount === 0) {
             return response()->json([
                 'message' => 'هیچ مشتری‌ای با فیلترهای انتخابی یافت نشد.',
-                'customer_count' => 0,
+                'customers' => [],
                 'total_customers_in_salon' => $totalCustomers,
                 'filters_applied' => $request->only(['min_age', 'max_age', 'profession_id', 'customer_group_id', 'how_introduced_id', 'min_appointments', 'max_appointments']),
                 'error_type' => 'no_customers'
@@ -81,7 +76,7 @@ class SmsCampaignController extends Controller
         $message = $request->input('message', '');
         $usesTemplate = false;
         $smsTemplateId = null;
-        
+
         if ($request->has('sms_template_id')) {
             $template = SalonSmsTemplate::find($request->input('sms_template_id'));
             if ($template) {
@@ -91,13 +86,11 @@ class SmsCampaignController extends Controller
             }
         }
 
-        // Calculate total SMS parts considering personalization (e.g. {customer_name}) length impact
         $totalSmsParts = $customers->sum(function ($customer) use ($message) {
             $finalMessage = str_replace('{customer_name}', $customer->name, $message);
             return $this->smsService->calculateSmsCount($finalMessage);
         });
 
-        // Check if salon has enough SMS balance
         $smsBalance = $salon->smsBalance()->first();
         if (!$smsBalance || $smsBalance->balance < $totalSmsParts) {
             $currentBalance = $smsBalance ? $smsBalance->balance : 0;
@@ -105,7 +98,7 @@ class SmsCampaignController extends Controller
                 'message' => 'اعتبار پیامک کافی نیست.',
                 'required_sms_count' => $totalSmsParts,
                 'current_balance' => $currentBalance,
-                'customer_count' => $customerCount,
+                'customers' => (new \Illuminate\Support\Collection([])),
                 'error_type' => 'insufficient_balance'
             ], 422);
         }
@@ -118,19 +111,22 @@ class SmsCampaignController extends Controller
             'customer_count' => $customerCount,
             'total_cost' => $totalSmsParts,
             'status' => 'draft',
-            'approval_status' => $usesTemplate ? 'approved' : 'pending', // Auto-approve template usage
+            'approval_status' => $usesTemplate ? 'approved' : 'pending',
             'uses_template' => $usesTemplate,
             'sms_template_id' => $smsTemplateId,
         ]);
 
-        // Load relationships for complete response
         $campaign->load(['salon', 'user']);
-
-        // Enhance filters with complete object data
         $enhancedFilters = $this->enhanceFiltersWithObjects($request->validated(), $salon);
         $campaign->filters = $enhancedFilters;
 
-        return new SmsCampaignResource($campaign);
+        // اضافه کردن لیست کامل مشتریان با اطلاعات خواسته‌شده
+        $customerResource = \App\Http\Resources\CustomerSmsCampaignResource::collection($customers);
+
+        return response()->json([
+            'campaign' => new SmsCampaignResource($campaign),
+            'customers' => $customerResource,
+        ]);
     }
 
     public function sendCampaign(Request $request, Salon $salon, SmsCampaign $campaign): JsonResponse
@@ -243,7 +239,7 @@ class SmsCampaignController extends Controller
             });
         }
         if ($request->filled('customer_group_id')) {
-            $query->whereHas('customerGroup', function($q) use ($salon, $request) {
+            $query->whereHas('customerGroups', function($q) use ($salon, $request) {
                 $q->where('salon_id', $salon->id)
                   ->whereIn('id', $request->input('customer_group_id'));
             });

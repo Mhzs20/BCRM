@@ -19,6 +19,9 @@ class StoreStaffRequest extends FormRequest
         if ($this->has('schedules') && is_string($this->schedules)) {
             $this->merge(['schedules' => json_decode($this->schedules, true)]);
         }
+        if ($this->has('breaks') && is_string($this->breaks)) {
+            $this->merge(['breaks' => json_decode($this->breaks, true)]);
+        }
     }
 
     public function rules(): array
@@ -40,6 +43,10 @@ class StoreStaffRequest extends FormRequest
             'service_ids' => ['nullable', 'array'],
             'service_ids.*' => ['integer', Rule::exists('services', 'id')->where('salon_id', $salon->id)],
             'hire_date' => ['nullable', 'date'],
+            'breaks' => ['nullable', 'array'],
+            'breaks.*.weekday' => ['required', 'integer', 'between:0,6'],
+            'breaks.*.start_time' => ['required', 'date_format:H:i'],
+            'breaks.*.end_time' => ['required', 'date_format:H:i', 'after:breaks.*.start_time'],
         ];
     }
 
@@ -51,6 +58,15 @@ class StoreStaffRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'breaks.array' => 'بازه‌های استراحت باید به صورت آرایه ارسال شوند.',
+            'breaks.*.weekday.required' => 'روز هفته برای بازه استراحت الزامی است.',
+            'breaks.*.weekday.integer' => 'روز هفته باید عدد باشد.',
+            'breaks.*.weekday.between' => 'روز هفته باید بین ۰ تا ۶ باشد.',
+            'breaks.*.start_time.required' => 'ساعت شروع استراحت الزامی است.',
+            'breaks.*.start_time.date_format' => 'فرمت ساعت شروع استراحت معتبر نیست (HH:MM).',
+            'breaks.*.end_time.required' => 'ساعت پایان استراحت الزامی است.',
+            'breaks.*.end_time.date_format' => 'فرمت ساعت پایان استراحت معتبر نیست (HH:MM).',
+            'breaks.*.end_time.after' => 'ساعت پایان استراحت باید بعد از ساعت شروع باشد.',
             'full_name.required' => 'وارد کردن نام کامل پرسنل الزامی است.',
             'full_name.string' => 'نام کامل باید به صورت متنی باشد.',
             'full_name.max' => 'نام کامل نباید بیشتر از ۲۵۵ کاراکتر باشد.',

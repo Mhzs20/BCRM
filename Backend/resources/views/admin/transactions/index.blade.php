@@ -294,28 +294,33 @@ function updateTransactionStatus(transactionId, status, selectElement) {
 }
 
 function updateStatusBadge(badgeElement, status, type) {
+    if (!badgeElement) return; // جلوگیری از خطا اگر المنت پیدا نشد
     // Remove old classes
     badgeElement.className = 'px-2 py-1 rounded text-xs';
     
     if (type === 'order') {
-        if (status === 'paid') {
+        if (status === 'completed') {
             badgeElement.classList.add('bg-green-100', 'text-green-700');
+            badgeElement.textContent = 'پرداخت شده';
         } else if (status === 'pending') {
             badgeElement.classList.add('bg-yellow-100', 'text-yellow-700');
+            badgeElement.textContent = 'در انتظار';
         } else {
             badgeElement.classList.add('bg-red-100', 'text-red-600');
+            badgeElement.textContent = 'ناموفق';
         }
     } else { // transaction
         if (status === 'completed') {
             badgeElement.classList.add('bg-green-100', 'text-green-700');
+            badgeElement.textContent = 'تکمیل شده';
         } else if (status === 'pending') {
             badgeElement.classList.add('bg-yellow-100', 'text-yellow-700');
+            badgeElement.textContent = 'در انتظار';
         } else {
             badgeElement.classList.add('bg-red-100', 'text-red-600');
+            badgeElement.textContent = status;
         }
     }
-    
-    badgeElement.textContent = status;
 }
 
 function showMessage(message, type) {

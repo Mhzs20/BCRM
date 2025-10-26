@@ -449,8 +449,8 @@ class WalletController extends Controller
                 $order->id
             );
             
-            // Activate package for salon (implement your package activation logic here)
-            // For example: $salon->activatePackage($package);
+            // Activate package for salon
+            $this->activateFeaturePackage($order, $package);
             
             // Process purchase for referral rewards
             $user->processPurchaseForReferral($package->price);
@@ -475,6 +475,57 @@ class WalletController extends Controller
                 'status' => 'error',
                 'message' => 'خطا در خرید پکیج امکانات: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Activate feature package for salon
+     */
+    private function activateFeaturePackage($order, $package)
+    {
+        // Deactivate all previous active packages for this user and salon
+        \App\Models\UserPackage::where('user_id', $order->user_id)
+            ->where('salon_id', $order->salon_id)
+            ->where('status', 'active')
+            ->update([
+                'status' => 'expired',
+                'updated_at' => now()
+            ]);
+
+        // Create or update the new user package for this salon
+        $durationDays = $package->duration_days ?? 365;
+        
+        \App\Models\UserPackage::updateOrCreate(
+            [
+                'user_id' => $order->user_id,
+                'salon_id' => $order->salon_id,
+                'package_id' => $order->package_id,
+                'order_id' => $order->id
+            ],
+            [
+                'amount_paid' => $order->amount,
+                'status' => 'active',
+                'purchased_at' => now(),
+                'expires_at' => \Carbon\Carbon::now()->addDays($durationDays)
+            ]
+        );
+
+        // If package has gift SMS, increment salon SMS balance
+        if ($package && $package->gift_sms_count > 0) {
+            $salonSmsBalance = \App\Models\SalonSmsBalance::firstOrCreate(
+                ['salon_id' => $order->salon_id],
+                ['balance' => 0]
+            );
+            $salonSmsBalance->increment('balance', $package->gift_sms_count);
+
+            // Create SMS transaction record for gift
+            // \App\Models\SmsTransaction::create([
+            //     'salon_id' => $order->salon_id,
+            //     'type' => 'gift',
+            //     'amount' => $package->gift_sms_count,
+            //     'description' => "هدیه بسته امکانات - سفارش {$order->id}",
+            //     'status' => 'completed',
+            // ]);
         }
     }
 

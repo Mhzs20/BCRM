@@ -28,7 +28,6 @@ class Customer extends Model
         'notes',
         'emergency_contact',
         'how_introduced_id',
-        'customer_group_id',
         'profession_id',
         'age_range_id',
         'city_id',
@@ -72,9 +71,9 @@ class Customer extends Model
         return $this->belongsTo(HowIntroduced::class);
     }
 
-    public function customerGroup()
+    public function customerGroups()
     {
-        return $this->belongsTo(CustomerGroup::class);
+        return $this->belongsToMany(CustomerGroup::class)->withTimestamps();
     }
 
     public function profession()

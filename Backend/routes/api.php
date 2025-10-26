@@ -165,6 +165,9 @@ Route::middleware('auth:api')->group(function () {
             Route::apiResource('services', ServiceController::class)->except(['create', 'edit']);
 
             Route::get('appointments/available-slots', [AppointmentController::class, 'getAvailableSlots'])->name('appointments.availableSlots');
+
+            // اندپوینت جدید paginated برای بازه‌های خالی سالن
+            Route::get('appointments/available-slots/paginated', [AppointmentController::class, 'getAvailableSlotsPaginated'])->name('appointments.availableSlotsPaginated');
             Route::get('appointments/calendar', [AppointmentController::class, 'getCalendarAppointments'])->name('appointments.calendar');
             Route::post('appointments/prepare', [AppointmentController::class, 'prepareAppointment'])->name('appointments.prepare');
             Route::post('appointments/submit', [AppointmentController::class, 'submitAppointment'])->name('appointments.submit');
@@ -306,6 +309,14 @@ Route::middleware('auth:api')->post('manual-sms/{salon}/send', [ManualSmsControl
 
 Route::get('/app-history', [AppController::class, 'latestHistory']);
 Route::get('/staff/{staffId}/appointments', [AppController::class, 'getStaffAppointments'])->whereNumber('staffId');
+
+// اندپوینت جدید paginated برای لیست نوبت‌های کارمند
+Route::get('/staff/{staffId}/appointments/paginated', [AppController::class, 'getStaffAppointmentsPaginated'])->whereNumber('staffId');
+
+// اندپوینت جدید paginated برای لیست نوبت‌های مشتری سالن
+Route::get('/salons/{salon}/customers/{customer}/appointments/paginated', [CustomerController::class, 'listCustomerAppointmentsPaginated'])
+    ->whereNumber('salon')
+    ->whereNumber('customer');
 
 Route::middleware('auth:api')->group(function () {
     Route::get('/salons/{salonId}/notifications', [NotificationController::class, 'index'])->whereNumber('salonId');

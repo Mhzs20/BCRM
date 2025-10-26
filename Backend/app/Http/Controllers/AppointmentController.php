@@ -32,11 +32,119 @@ use Hashids\Hashids;
 use Illuminate\Pagination\LengthAwarePaginator;  
 use Illuminate\Support\Facades\Validator;
 use Morilog\Jalali\JalaliException; 
+use App\Http\Controllers\Traits\StaffBreakTrait;
+
 
 class AppointmentController extends Controller
 {
-    protected AppointmentBookingService $appointmentBookingService;
-    protected SmsService $smsService;
+    use StaffBreakTrait;
+    /**
+     * بررسی تداخل‌های نوبت جدید با نوبت‌های موجود و استراحت‌های پرسنل
+     * @param int $salonId
+     * @param int $staffId
+     * @param string $appointmentDate YYYY-MM-DD
+     * @param string $startTime HH:MM
+     * @param string $endTime HH:MM
+     * @param int|null $excludeAppointmentId ID نوبت برای حذف از بررسی (برای آپدیت)
+     * @return array 
+     */
+    private function getAppointmentConflicts($salonId, $staffId, $appointmentDate, $startTime, $endTime, $excludeAppointmentId = null)
+    {
+        $slotStart = Carbon::parse($appointmentDate . ' ' . $startTime);
+        $slotEnd = Carbon::parse($appointmentDate . ' ' . $endTime);
+
+        $conflicts = [];
+
+        // بررسی تداخل با استراحت‌های پرسنل
+        $staffBreakConflicts = $this->getStaffBreakConflicts($staffId, $appointmentDate, $startTime, $endTime);
+        $conflicts = array_merge($conflicts, $staffBreakConflicts);
+
+        // بررسی تداخل با نوبت‌های موجود
+        $query = Appointment::where('salon_id', $salonId)
+            ->where('appointment_date', $appointmentDate)
+            ->where('status', '!=', 'canceled')
+            ->with(['customer', 'services']);
+
+        if ($excludeAppointmentId) {
+            $query->where('id', '!=', $excludeAppointmentId);
+        }
+
+        $appointments = $query->get();
+
+        foreach ($appointments as $appointment) {
+            $existingStart = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time);
+            $existingEnd = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->end_time);
+
+            if ($slotStart->lt($existingEnd) && $slotEnd->gt($existingStart)) {
+                $conflicts[] = [
+                    'type' => 'appointment',
+                    'id' => $appointment->id,
+                    'appointment_date' => $appointment->appointment_date->format('Y-m-d'),
+                    'start_time' => $appointment->start_time,
+                    'end_time' => $appointment->end_time,
+                    'customer_name' => $appointment->customer->name ?? 'نامشخص',
+                    'customer_phone' => $appointment->customer->phone_number ?? '',
+                    'services' => $appointment->services->pluck('name')->toArray(),
+                    'status' => $appointment->status,
+                    'conflict_reason' => 'تداخل با نوبت موجود',
+                ];
+            }
+        }
+
+        // بررسی تداخل با نوبت‌های در حال انتظار (pending appointments)
+        $pendingQuery = PendingAppointment::where('salon_id', $salonId)
+            ->where('appointment_date', $appointmentDate)
+            ->notExpired()
+            ->with(['customer']); // Load customer relationship
+
+        if ($excludeAppointmentId) {
+            $pendingQuery->where('id', '!=', $excludeAppointmentId);
+        }
+
+        $pendingAppointments = $pendingQuery->get();
+
+        foreach ($pendingAppointments as $pendingAppointment) {
+            $existingStart = Carbon::parse($pendingAppointment->appointment_date->format('Y-m-d') . ' ' . $pendingAppointment->start_time);
+            $existingEnd = Carbon::parse($pendingAppointment->appointment_date->format('Y-m-d') . ' ' . $pendingAppointment->end_time);
+
+            if ($slotStart->lt($existingEnd) && $slotEnd->gt($existingStart)) {
+                // Get customer info
+                $customerName = 'نامشخص';
+                $customerPhone = '';
+                if ($pendingAppointment->customer) {
+                    $customerName = $pendingAppointment->customer->name;
+                    $customerPhone = $pendingAppointment->customer->phone_number;
+                } elseif (isset($pendingAppointment->new_customer_data['name'])) {
+                    $customerName = $pendingAppointment->new_customer_data['name'];
+                    $customerPhone = $pendingAppointment->new_customer_data['phone_number'] ?? '';
+                }
+
+                // Get services info
+                $services = [];
+                if (!empty($pendingAppointment->service_ids)) {
+                    $services = \App\Models\Service::where('salon_id', $salonId)
+                        ->whereIn('id', $pendingAppointment->service_ids)
+                        ->pluck('name')
+                        ->toArray();
+                }
+
+                $conflicts[] = [
+                    'type' => 'appointment',
+                    'id' => $pendingAppointment->id,
+                    'appointment_date' => $pendingAppointment->appointment_date->format('Y-m-d'),
+                    'start_time' => $pendingAppointment->start_time,
+                    'end_time' => $pendingAppointment->end_time,
+                    'customer_name' => $customerName,
+                    'customer_phone' => $customerPhone,
+                    'services' => $services,
+                    'status' => 'pending',
+                    'conflict_reason' => 'تداخل با نوبت در حال انتظار',
+                ];
+            }
+        }
+
+        return $conflicts;
+    }
 
     public function __construct(AppointmentBookingService $appointmentBookingService, SmsService $smsService)
     {
@@ -72,6 +180,14 @@ class AppointmentController extends Controller
         if ($activeServicesCount !== count($validatedData['service_ids'])) {
             return response()->json(['message' => 'یکی از سرویس‌های انتخاب شده غیر فعال است و امکان ثبت نوبت وجود ندارد.'], 422);
         }
+
+        // بررسی تداخل‌ها
+        $startTime = $validatedData['start_time'];
+        $totalDuration = $validatedData['total_duration'] ?? 0;
+        $endTime = Carbon::parse($startTime)->addMinutes($totalDuration)->format('H:i');
+        $conflictingItems = $this->getAppointmentConflicts($salon_id, $validatedData['staff_id'], $validatedData['appointment_date'], $startTime, $endTime);
+        $hasConflicts = !empty($conflictingItems);
+
         $customer = null;
         DB::beginTransaction();
         try {
@@ -143,17 +259,7 @@ class AppointmentController extends Controller
                     'reminder_sms_template_id' => $validatedData['reminder_sms_template_id'] ?? null,
                 ]
             );
-            if (!$this->appointmentBookingService->isSlotStillAvailable(
-                $salon_id,
-                $validatedData['staff_id'],
-                $validatedData['service_ids'], // service_ids are still needed for validation
-                $validatedData['total_duration'], // Add total_duration
-                $validatedData['appointment_date'],
-                $validatedData['start_time']
-            )) {
-                DB::rollBack();
-                return response()->json(['message' => 'متاسفانه این زمان به تازگی پر شده است. لطفا زمان دیگری انتخاب کنید.'], 409);
-            }
+
             $appointment = new Appointment($finalAppointmentData);
             $appointment->save();
             $hashids = new Hashids(env('HASHIDS_SALT', 'your-default-salt'), 8);
@@ -176,7 +282,12 @@ class AppointmentController extends Controller
             
             $message = 'نوبت با موفقیت ثبت شد. پیامک تایید به زودی ارسال خواهد شد.';
 
-            return response()->json(['message' => $message, 'data' => new AppointmentResource($appointment)], 201);
+            return response()->json([
+                'message' => $message, 
+                'data' => new AppointmentResource($appointment),
+                'has_conflicts' => $hasConflicts,
+                'conflicting_appointments' => $conflictingItems
+            ], 201);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             DB::rollBack();
             Log::error('خطا در ثبت نوبت - مدل یافت نشد: ' . $e->getMessage());
@@ -222,32 +333,31 @@ class AppointmentController extends Controller
         $recalculationFields = ['service_ids', 'staff_id', 'appointment_date', 'start_time'];
         $needsRecalculation = !empty(array_intersect(array_keys($request->validated()), $recalculationFields));
 
+        $oldServiceIds = $appointment->services->pluck('id')->toArray();
+        $oldStaffId = $appointment->staff_id;
+        $oldDate = $appointment->appointment_date->format('Y-m-d');
+        $oldStartTime = Carbon::parse($appointment->start_time)->format('H:i');
+
+        $newServiceIds = $validatedData['service_ids'] ?? $oldServiceIds;
+        $newStaffId = $validatedData['staff_id'] ?? $oldStaffId;
+        $newDate = $validatedData['appointment_date'] ?? $oldDate;
+        $newStartTime = $validatedData['start_time'] ?? $oldStartTime;
+        $newTotalDuration = $validatedData['total_duration'] ?? $appointment->total_duration;
+
+        $appointmentModified = (
+            $newServiceIds !== $oldServiceIds ||
+            $newDate != $oldDate ||
+            $newStartTime != $oldStartTime
+        );
+
         DB::beginTransaction();
 
         try {
-                $oldServiceIds = $appointment->services->pluck('id')->toArray();
-                $oldStaffId = $appointment->staff_id;
-                $oldDate = $appointment->appointment_date->format('Y-m-d');
-                $oldStartTime = Carbon::parse($appointment->start_time)->format('H:i');
-
-                $newServiceIds = $validatedData['service_ids'] ?? $oldServiceIds;
-                $newStaffId = $validatedData['staff_id'] ?? $oldStaffId;
-                $newDate = $validatedData['appointment_date'] ?? $oldDate;
-                $newStartTime = $validatedData['start_time'] ?? $oldStartTime;
-                $newTotalDuration = $validatedData['total_duration'] ?? $appointment->total_duration;
-
-                $appointmentModified = (
-                    $newServiceIds !== $oldServiceIds ||
-                    $newDate != $oldDate ||
-                    $newStartTime != $oldStartTime
-                );
-
+                // بررسی تداخل‌ها هنگام آپدیت
+                $newEndTime = Carbon::parse($newStartTime)->addMinutes($newTotalDuration)->format('H:i');
+                $conflictingItems = $this->getAppointmentConflicts($salon->id, $newStaffId, $newDate, $newStartTime, $newEndTime, $appointment->id);
+                $hasConflicts = !empty($conflictingItems);
                 if ($needsRecalculation) {
-                    if (!$this->appointmentBookingService->isSlotStillAvailable($salon->id, $newStaffId, $newServiceIds, $newTotalDuration, $newDate, $newStartTime, $appointment->id)) {
-                        DB::rollBack();
-                        return response()->json(['message' => 'زمان انتخابی جدید با نوبت دیگری تداخل دارد.'], 409);
-                    }
-
                     $appointmentDetails = $this->appointmentBookingService->prepareAppointmentData(
                         $salon->id,
                         $appointment->customer_id,
@@ -288,7 +398,12 @@ class AppointmentController extends Controller
             $message = 'نوبت با موفقیت به‌روزرسانی شد.';
 
             $appointment->refresh()->load(['customer', 'staff', 'services']);
-            return response()->json(['message' => $message, 'data' => new AppointmentResource($appointment)]);
+            return response()->json([
+                'message' => $message, 
+                'data' => new AppointmentResource($appointment),
+                'has_conflicts' => $hasConflicts,
+                'conflicting_appointments' => $conflictingItems
+            ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -353,10 +468,49 @@ class AppointmentController extends Controller
 
             return response()->json(['data' => AppointmentResource::collection($appointments)]);
         } catch (\Exception $e) {
-            Log::error('خطا در دریافت نوبت‌ها: ' . $e->getMessage());
-            return response()->json(['message' => 'خطا در دریافت نوبت‌ها: ' . $e->getMessage()], 500);
+                Log::error('خطا در دریافت نوبت‌ها: ' . $e->getMessage());
+                return response()->json(['message' => 'خطا در دریافت نوبت‌ها: ' . $e->getMessage()], 500);
+            }
+
         }
-    }
+
+        /**
+         * بازه‌های خالی سالن با قابلیت pagination
+         */
+        public function getAvailableSlotsPaginated(GetAvailableSlotsRequest $request, $salon_id)
+        {
+            $validated = $request->validated();
+            try {
+                $query = Appointment::where('salon_id', $salon_id)
+                    ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name']);
+
+                // فیلتر بازه تاریخی
+                if (!empty($validated['start_date']) && !empty($validated['end_date'])) {
+                    $query->whereBetween('appointment_date', [$validated['start_date'], $validated['end_date']]);
+                } elseif (!empty($validated['start_date'])) {
+                    $query->where('appointment_date', '>=', $validated['start_date']);
+                } elseif (!empty($validated['end_date'])) {
+                    $query->where('appointment_date', '<=', $validated['end_date']);
+                }
+
+                if ($validated['staff_id'] != -1) {
+                    $query->where('staff_id', $validated['staff_id']);
+                }
+
+                if (isset($validated['service_ids']) && !in_array(-1, $validated['service_ids'])) {
+                    $query->whereHas('services', function ($q) use ($validated) {
+                        $q->whereIn('service_id', $validated['service_ids']);
+                    });
+                }
+
+                $perPage = $request->input('per_page', 15);
+                $appointments = $query->orderBy('appointment_date')->orderBy('start_time')->paginate($perPage);
+
+                return response()->json(['data' => AppointmentResource::collection($appointments)]);
+            } catch (\Exception $e) {
+                return response()->json(['error' => $e->getMessage()], 500);
+            }
+        }
     public function getCalendarAppointments(CalendarQueryRequest $request, $salon_id)
     {
         $validated = $request->validated();
@@ -434,14 +588,12 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
                     'count' => $item->count,
                 ];
             });
-
         return response()->json(['data' => $appointmentsCount]);
     } catch (\Exception $e) {
-        Log::error('Error fetching monthly appointments count: ' . $e->getMessage());
-        return response()->json(['message' => 'خطا در دریافت تعداد نوبت‌های ماهانه.', 'error' => $e->getMessage()], 500);
-    }
+        return response()->json(['message' => 'خطا در دریافت آمار نوبت‌ها.', 'error' => $e->getMessage()], 500);
     }
 
+}
     /**
      *
      * @param Request $request
@@ -530,17 +682,9 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
                 ->paginate($request->input('per_page', 15));
 
             return AppointmentResource::collection($appointments);
-
         } catch (\Exception $e) {
-            Log::error('Error in getAppointments:', ['error' => $e]);
+            Log::error('Error fetching appointments: ' . $e->getMessage());
             return response()->json(['message' => 'خطا در دریافت نوبت‌ها.', 'error' => $e->getMessage()], 500);
-        }
-    }
-
-    public function sendReminderSms(Request $request, Salon $salon, Appointment $appointment)
-    {
-        if ($appointment->salon_id != $salon->id) {
-            return response()->json(['message' => 'نوبت یافت نشد.'], 404);
         }
 
         if ($appointment->status === 'completed') {
@@ -694,31 +838,16 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
             // Unified conflict detection logic - check both confirmed appointments and pending appointments
             $slotStart = Carbon::parse($validatedData['appointment_date'] . ' ' . $validatedData['start_time']);
             $slotEnd = $slotStart->copy()->addMinutes($validatedData['total_duration']);
-            
-            // Check confirmed appointments - check all staff for this salon
-            $confirmedAppointments = Appointment::where('salon_id', $salon_id)
-                ->with(['customer', 'services'])
-                ->get();
-                
-            // Check pending appointments (not expired) - check all staff for this salon
-            $pendingAppointments = PendingAppointment::notExpired()
-                ->where('salon_id', $salon_id)
-                ->with(['customer'])
-                ->get();
-                
-            // Combine and filter conflicting appointments
-            $allAppointments = $confirmedAppointments->concat($pendingAppointments);
-            $conflictingAppointments = $allAppointments->filter(function ($appointment) use ($slotStart, $slotEnd) {
-                $existingStart = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time);
-                $existingEnd = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->end_time);
-                return $slotStart->lt($existingEnd) && $slotEnd->gt($existingStart);
-            })
-            ->unique('id')
-            ->values()
-            ->toArray();
+            $endTime = $slotEnd->format('H:i');
+            $conflictingAppointments = $this->getAppointmentConflicts($salon_id, $validatedData['staff_id'], $validatedData['appointment_date'], $validatedData['start_time'], $endTime);
 
-            Log::info('[APPT PREPARE] Conflicting appointments count: ' . count($conflictingAppointments), ['conflictingAppointments' => $conflictingAppointments]);
-            $isSlotAvailable = count($conflictingAppointments) === 0;
+            // Separate conflicts into appointment and staff break conflicts
+            $appointmentConflicts = array_filter($conflictingAppointments, function($c) {
+                return $c['type'] === 'appointment';
+            });
+            $staffBreakConflicts = array_filter($conflictingAppointments, function($c) {
+                return $c['type'] === 'staff_break';
+            });
 
             // Get salon settings
             $salonSettings = Setting::where('salon_id', $salon_id)->pluck('value', 'key');
@@ -831,9 +960,10 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
                         ] : null,
                     ],
                 ],
-                'has_conflicts' => !empty($conflictingAppointments),
-                'conflicting_appointments' => $conflictingAppointments,
-                'message' => !empty($conflictingAppointments) ? 'در زمان انتخابی نوبت دیگری وجود دارد. آیا می‌خواهید ادامه دهید؟' : 'اطلاعات نوبت تایید شد. برای ثبت نهایی، درخواست ثبت را ارسال کنید.',
+                'appointment_conflicts' => array_values($appointmentConflicts),
+                'staff_break_conflicts' => array_values($staffBreakConflicts),
+                'appointment_conflict_message' => !empty($appointmentConflicts) ? 'در زمان انتخابی نوبت دیگری وجود دارد. آیا می‌خواهید ادامه دهید؟' : null,
+                'staff_break_conflict_message' => !empty($staffBreakConflicts) ? 'در زمان انتخابی پرسنل مورد نظر در استراحت است. آیا می‌خواهید ادامه دهید؟' : null,
             ];
 
             return response()->json($response);
@@ -841,7 +971,11 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('خطا در آماده‌سازی نوبت: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            return response()->json(['message' => 'خطا در آماده‌سازی نوبت رخ داد.'], 500);
+            return response()->json([
+                'message' => 'خطا در آماده‌سازی نوبت رخ داد.',
+                'error_details_for_debug' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ], 500);
         }
     }
 
@@ -892,9 +1026,6 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
             $appointment->save();
 
             // Generate hash
-            $hashids = new Hashids(env('HASHIDS_SALT', 'your-default-salt'), 8);
-            $appointment->hash = $hashids->encode($appointment->id);
-            $appointment->save();
 
             // Attach services
             $services = \App\Models\Service::where('salon_id', $salon_id)
