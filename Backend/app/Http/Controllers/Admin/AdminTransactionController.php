@@ -121,11 +121,29 @@ class AdminTransactionController extends Controller
     public function updateOrderStatus(Request $request, Order $order)
     {
         $request->validate([
-            'status' => 'required|in:pending,completed,failed'  // تغییر 'paid' به 'completed'
+            'status' => 'required|in:pending,completed,failed'   
         ]);
 
+        $oldStatus = $order->status;
         $order->status = $request->status;
         $order->save();
+
+        try {
+            // If order is feature package and status changed to completed, activate the package
+            if ($order->type === 'feature' && $order->package_id && $request->status === 'completed' && $oldStatus !== 'completed') {
+                $this->activateFeaturePackage($order);
+            }
+
+            // If order is SMS package and status changed to completed, activate the SMS balance
+            if ($order->sms_package_id && $request->status === 'completed' && $oldStatus !== 'completed') {
+                $this->activateSmsPackage($order);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'خطا در فعال‌سازی: ' . $e->getMessage()
+            ], 500);
+        }
 
         return response()->json([
             'success' => true,
@@ -151,5 +169,80 @@ class AdminTransactionController extends Controller
             'message' => 'وضعیت تراکنش با موفقیت به‌روزرسانی شد.',
             'new_status' => $transaction->status
         ]);
+    }
+
+    /**
+     * Activate SMS package for order
+     */
+    private function activateSmsPackage($order)
+    {
+        // Increment the SalonSmsBalance for the associated salon
+        $salonSmsBalance = \App\Models\SalonSmsBalance::firstOrCreate(
+            ['salon_id' => $order->salon_id],
+            ['balance' => 0]
+        );
+        $salonSmsBalance->increment('balance', $order->sms_count);
+
+        // Create SMS transaction record for purchase history
+        // \App\Models\SmsTransaction::create([
+        //     'salon_id' => $order->salon_id,
+        //     'sms_package_id' => $order->sms_package_id,
+        //     'type' => 'purchase',
+        //     'amount' => $order->sms_count,
+        //     'description' => "خرید بسته پیامک - سفارش {$order->id}",
+        //     'status' => 'completed',
+        // ]);
+    }
+
+    /**
+     * Activate feature package for order
+     */
+    private function activateFeaturePackage($order)
+    {
+        // Deactivate all previous active packages for this user and salon
+        \App\Models\UserPackage::where('user_id', $order->user_id)
+            ->where('salon_id', $order->salon_id)
+            ->where('status', 'active')
+            ->update([
+                'status' => 'expired',
+                'updated_at' => now()
+            ]);
+
+        // Create or update the new user package for this salon
+        $package = $order->package;
+        $durationDays = $package->duration_days ?? 365;
+        
+        \App\Models\UserPackage::updateOrCreate(
+            [
+                'user_id' => $order->user_id,
+                'salon_id' => $order->salon_id,
+                'package_id' => $order->package_id,
+                'order_id' => $order->id
+            ],
+            [
+                'amount_paid' => $order->amount,
+                'status' => 'active',
+                'purchased_at' => now(),
+                'expires_at' => \Carbon\Carbon::now()->addDays($durationDays)
+            ]
+        );
+
+        // If package has gift SMS, increment salon SMS balance
+        if ($package && $package->gift_sms_count > 0) {
+            $salonSmsBalance = \App\Models\SalonSmsBalance::firstOrCreate(
+                ['salon_id' => $order->salon_id],
+                ['balance' => 0]
+            );
+            $salonSmsBalance->increment('balance', $package->gift_sms_count);
+
+            // Create SMS transaction record for gift
+            // \App\Models\SmsTransaction::create([
+            //     'salon_id' => $order->salon_id,
+            //     'type' => 'gift',
+            //     'amount' => $package->gift_sms_count,
+            //     'description' => "هدیه بسته امکانات - سفارش {$order->id}",
+            //     'status' => 'completed',
+            // ]);
+        }
     }
 }

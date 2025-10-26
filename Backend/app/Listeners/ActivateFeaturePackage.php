@@ -37,60 +37,69 @@ class ActivateFeaturePackage implements ShouldQueue
         $order = $event->order;
         $successfulTransaction = $event->transaction;
 
-        DB::transaction(function () use ($order, $successfulTransaction) {
-            // 1. Update the Order status to 'completed' (if not already)
-            if ($order->status === 'pending') {
-                $order->update(['status' => 'completed']);
-                Log::info("Order {$order->id} status updated to 'completed'.");
-            } else {
-                Log::warning("Order {$order->id} was already '{$order->status}', not updating again.");
-            }
+        try {
+            DB::transaction(function () use ($order, $successfulTransaction) {
+                // 1. Update the Order status to 'completed' (if not already)
+                if ($order->status === 'pending') {
+                    $order->update(['status' => 'completed']);
+                    Log::info("Order {$order->id} status updated to 'completed'.");
+                } else {
+                    Log::warning("Order {$order->id} was already '{$order->status}', not updating again.");
+                }
 
-            // 2. Deactivate all previous active packages for this user and salon
-            UserPackage::where('user_id', $order->user_id)
-                ->where('salon_id', $order->salon_id)
-                ->where('status', 'active')
-                ->update([
-                    'status' => 'expired',
-                    'updated_at' => now()
-                ]);
-            Log::info("Previous active packages for user {$order->user_id} and salon {$order->salon_id} marked as expired.");
+                // 2. Deactivate all previous active packages for this user and salon
+                UserPackage::where('user_id', $order->user_id)
+                    ->where('salon_id', $order->salon_id)
+                    ->where('status', 'active')
+                    ->update([
+                        'status' => 'expired',
+                        'updated_at' => now()
+                    ]);
+                Log::info("Previous active packages for user {$order->user_id} and salon {$order->salon_id} marked as expired.");
 
-            // 3. Create or update the new user package for this salon
-            // Get package to access duration_days
-            $package = $order->package;
-            $durationDays = $package->duration_days ?? 365; // پیش‌فرض 365 روز
-            
-            $userPackage = UserPackage::updateOrCreate(
-                [
+                // 3. Create or update the new user package for this salon
+                // Get package to access duration_days
+                $package = $order->package;
+                $durationDays = $package->duration_days ?? 365; // پیش‌فرض 365 روز
+                
+                $userPackage = UserPackage::updateOrCreate(
+                    [
+                        'user_id' => $order->user_id,
+                        'salon_id' => $order->salon_id,
+                        'package_id' => $order->package_id,
+                        'order_id' => $order->id
+                    ],
+                    [
+                        'amount_paid' => $order->amount,
+                        'status' => 'active',
+                        'purchased_at' => now(),
+                        'expires_at' => Carbon::now()->addDays($durationDays) // بر اساس تنظیمات پکیج
+                    ]
+                );
+                Log::info('Feature package activated successfully for salon', [
                     'user_id' => $order->user_id,
                     'salon_id' => $order->salon_id,
                     'package_id' => $order->package_id,
-                    'order_id' => $order->id
-                ],
-                [
-                    'amount_paid' => $order->amount,
-                    'status' => 'active',
-                    'purchased_at' => now(),
-                    'expires_at' => Carbon::now()->addDays($durationDays) // بر اساس تنظیمات پکیج
-                ]
-            );
-            Log::info('Feature package activated successfully for salon', [
-                'user_id' => $order->user_id,
-                'salon_id' => $order->salon_id,
-                'package_id' => $order->package_id,
-                'order_id' => $order->id,
-                'user_package_id' => $userPackage->id,
-                'duration_days' => $durationDays,
-                'expires_at' => $userPackage->expires_at
-            ]);
+                    'order_id' => $order->id,
+                    'user_package_id' => $userPackage->id,
+                    'duration_days' => $durationDays,
+                    'expires_at' => $userPackage->expires_at
+                ]);
 
-            // 4. Mark all *other* Transactions belonging to the same Order as 'expired'
-            $order->transactions()
-                ->where('id', '!=', $successfulTransaction->id)
-                ->where('status', 'pending')
-                ->update(['status' => 'expired', 'description' => 'تراکنش منقضی شده به دلیل پرداخت موفقیت آمیز تراکنش دیگر برای همین سفارش.']);
-            Log::info("Other pending transactions for Order {$order->id} marked as 'expired'.");
-        });
+                // 4. Mark all *other* Transactions belonging to the same Order as 'expired'
+                $order->transactions()
+                    ->where('id', '!=', $successfulTransaction->id)
+                    ->where('status', 'pending')
+                    ->update(['status' => 'expired', 'description' => 'تراکنش منقضی شده به دلیل پرداخت موفقیت آمیز تراکنش دیگر برای همین سفارش.']);
+                Log::info("Other pending transactions for Order {$order->id} marked as 'expired'.");
+            });
+        } catch (\Exception $e) {
+            Log::error('Failed to activate feature package', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e; // Re-throw to mark job as failed
+        }
     }
 }
