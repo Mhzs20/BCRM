@@ -24,7 +24,7 @@ class CustomerController extends Controller
     {
         $this->authorize('viewAny', [Customer::class, $salon]);
 
-        $query = $salon->customers()->with(['howIntroduced', 'customerGroup', 'profession', 'ageRange'])
+        $query = $salon->customers()->with(['howIntroduced', 'customerGroups', 'profession', 'ageRange'])
             ->withCount([
                 'appointments as total_appointments',
                 'appointments as completed_appointments' => function ($query) {
@@ -80,7 +80,16 @@ class CustomerController extends Controller
                 $message = 'مشتری با موفقیت ایجاد شد.';
             }
 
-            $customer->load(['howIntroduced', 'customerGroup', 'profession', 'ageRange']);
+            // Sync customer groups
+            if (isset($validatedData['customer_group_ids'])) {
+                $syncData = [];
+                foreach ($validatedData['customer_group_ids'] as $groupId) {
+                    $syncData[$groupId] = ['salon_id' => $salon->id];
+                }
+                $customer->customerGroups()->sync($syncData);
+            }
+
+            $customer->load(['howIntroduced', 'customerGroups', 'profession', 'ageRange']);
             return response()->json(['message' => $message, 'data' => $customer], 201);
         } catch (\Exception $e) {
             Log::error('خطا در ایجاد مشتری: ' . $e->getMessage());
@@ -95,7 +104,7 @@ class CustomerController extends Controller
     {
         $this->authorize('view', $customer);
 
-        $customer->load(['howIntroduced', 'customerGroup', 'profession', 'ageRange']);
+        $customer->load(['howIntroduced', 'customerGroups', 'profession', 'ageRange']);
 
         $appointments = $customer->appointments();
 
@@ -139,7 +148,17 @@ class CustomerController extends Controller
             if (!empty($updateData)) {
                 $customer->update($updateData);
             }
-            $customer->refresh()->load(['howIntroduced', 'customerGroup', 'profession', 'ageRange']);
+
+            // Sync customer groups if provided
+            if (array_key_exists('customer_group_ids', $validatedData)) {
+                $syncData = [];
+                foreach ($validatedData['customer_group_ids'] ?? [] as $groupId) {
+                    $syncData[$groupId] = ['salon_id' => $salon->id];
+                }
+                $customer->customerGroups()->sync($syncData);
+            }
+
+            $customer->refresh()->load(['howIntroduced', 'customerGroups', 'profession', 'ageRange']);
             return response()->json(['message' => 'اطلاعات مشتری با موفقیت به‌روزرسانی شد.', 'data' => $customer]);
 
         } catch (\Exception $e) {
@@ -267,4 +286,19 @@ class CustomerController extends Controller
         // Removed the makeVisible call to respect the model's $appends and $hidden properties.
         return response()->json($appointments);
     }
+        /**
+         * لیست نوبت‌های مشتری سالن با قابلیت pagination
+         */
+        public function listCustomerAppointmentsPaginated(Request $request, Salon $salon, Customer $customer)
+        {
+            $this->authorize('view', $customer);
+
+            $perPage = $request->input('per_page', 15);
+            $appointments = $customer->appointments()
+                ->with(['services', 'staff'])
+                ->orderBy('appointment_date', 'desc')
+                ->paginate($perPage);
+
+            return response()->json($appointments);
+        }
 }

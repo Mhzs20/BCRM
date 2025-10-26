@@ -97,6 +97,26 @@ class AppController extends Controller
         return \App\Http\Resources\AppointmentResource::collection($appointments);
     }
 
+        /**
+         * لیست نوبت‌های کارمند با قابلیت pagination
+         */
+        public function getStaffAppointmentsPaginated(Request $request, $staffId)
+        {
+            $query = Appointment::where('staff_id', $staffId)
+                ->with(['customer', 'services', 'salon']);
+
+            if ($request->has('status') && $request->status != 'all') {
+                $query->where('status', $request->status);
+            }
+
+            $perPage = $request->input('per_page', 15);
+            $appointments = $query->orderBy('appointment_date', 'desc')
+                ->orderBy('start_time', 'desc')
+                ->paginate($perPage);
+
+            return \App\Http\Resources\AppointmentResource::collection($appointments);
+        }
+
     /**
      * Get cities by province ID.
      *

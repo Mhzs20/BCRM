@@ -61,8 +61,11 @@ class StoreCustomerRequest extends FormRequest
                 'integer',
                 Rule::exists('age_ranges', 'id')->where('salon_id', $salonId),
             ],
-            'customer_group_id' => [
+            'customer_group_ids' => [
                 'nullable',
+                'array',
+            ],
+            'customer_group_ids.*' => [
                 'integer',
                 Rule::exists('customer_groups', 'id')->where('salon_id', $salonId),
             ],
@@ -94,8 +97,9 @@ class StoreCustomerRequest extends FormRequest
             'profession_id.exists' => 'شغل انتخاب شده در این سالن تعریف نشده است.',
             'age_range_id.integer' => 'بازه سنی انتخاب شده نامعتبر است.',
             'age_range_id.exists' => 'بازه سنی انتخاب شده در این سالن تعریف نشده است.',
-            'customer_group_id.integer' => 'گروه مشتری انتخاب شده نامعتبر است.',
-            'customer_group_id.exists' => 'گروه مشتری انتخاب شده در این سالن تعریف نشده است.',
+            'customer_group_ids.array' => 'گروه‌های مشتری باید به صورت آرایه باشند.',
+            'customer_group_ids.*.integer' => 'شناسه گروه مشتری نامعتبر است.',
+            'customer_group_ids.*.exists' => 'گروه مشتری انتخاب شده در این سالن تعریف نشده است.',
         ];
     }
 
@@ -111,6 +115,12 @@ class StoreCustomerRequest extends FormRequest
         if ($this->has('birth_date') && $this->birth_date !== null) {
             $this->merge([
                 'birth_date' => $this->convertToEnglishNumbers($this->birth_date),
+            ]);
+        }
+
+        if ($this->has('customer_group_ids') && is_string($this->customer_group_ids)) {
+            $this->merge([
+                'customer_group_ids' => json_decode($this->customer_group_ids, true),
             ]);
         }
     }
