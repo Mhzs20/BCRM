@@ -20,7 +20,7 @@ return new class extends Migration
                 $table->string('order_type')->nullable()->after('type');
             }
             if (!Schema::hasColumn('orders', 'transaction_id')) {
-                $table->string('transaction_id')->nullable()->after('payment_ref_id');
+                $table->string('transaction_id')->nullable();
             }
             if (!Schema::hasColumn('orders', 'description')) {
                 $table->text('description')->nullable()->after('metadata');
