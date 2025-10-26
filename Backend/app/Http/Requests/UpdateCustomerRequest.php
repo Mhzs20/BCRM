@@ -48,7 +48,8 @@ class UpdateCustomerRequest extends FormRequest
             'how_introduced_id' => ['sometimes', 'nullable', 'integer', Rule::exists('how_introduceds', 'id')->where('salon_id', $salonId)],
             'profession_id' => ['sometimes', 'nullable', 'integer', Rule::exists('professions', 'id')->where('salon_id', $salonId)],
             'age_range_id' => ['sometimes', 'nullable', 'integer', Rule::exists('age_ranges', 'id')->where('salon_id', $salonId)],
-            'customer_group_id' => ['sometimes', 'nullable', 'integer', Rule::exists('customer_groups', 'id')->where('salon_id', $salonId)],
+            'customer_group_ids' => ['sometimes', 'nullable', 'array'],
+            'customer_group_ids.*' => ['integer', Rule::exists('customer_groups', 'id')->where('salon_id', $salonId)],
         ];
     }
 
@@ -75,8 +76,9 @@ class UpdateCustomerRequest extends FormRequest
             'profession_id.exists' => 'شغل انتخاب شده در این سالن تعریف نشده است.',
             'age_range_id.integer' => 'بازه سنی انتخاب شده نامعتبر است.',
             'age_range_id.exists' => 'بازه سنی انتخاب شده در این سالن تعریف نشده است.',
-            'customer_group_id.integer' => 'گروه مشتری انتخاب شده نامعتبر است.',
-            'customer_group_id.exists' => 'گروه مشتری انتخاب شده در این سالن تعریف نشده است.',
+            'customer_group_ids.array' => 'گروه‌های مشتری باید به صورت آرایه باشند.',
+            'customer_group_ids.*.integer' => 'شناسه گروه مشتری نامعتبر است.',
+            'customer_group_ids.*.exists' => 'گروه مشتری انتخاب شده در این سالن تعریف نشده است.',
         ];
     }
 
@@ -84,6 +86,12 @@ class UpdateCustomerRequest extends FormRequest
     {
         if ($this->has('birth_date') && $this->birth_date !== null) {
             $this->merge(['birth_date' => $this->convertToEnglishNumbers($this->birth_date)]);
+        }
+
+        if ($this->has('customer_group_ids') && is_string($this->customer_group_ids)) {
+            $this->merge([
+                'customer_group_ids' => json_decode($this->customer_group_ids, true),
+            ]);
         }
     }
 

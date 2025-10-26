@@ -120,4 +120,12 @@ class Staff extends Model
             'total_income' => $stats->total_income ?? 0,
         ]);
     }
+
+        /**
+         * Get the breaks for the staff.
+         */
+        public function breaks()
+        {
+            return $this->hasMany(StaffBreak::class, 'staff_id');
+        }
 }
