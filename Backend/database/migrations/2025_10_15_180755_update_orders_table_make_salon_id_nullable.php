@@ -23,7 +23,7 @@ return new class extends Migration
                 $table->string('transaction_id')->nullable();
             }
             if (!Schema::hasColumn('orders', 'description')) {
-                $table->text('description')->nullable()->after('metadata');
+                $table->text('description')->nullable();
             }
         });
     }
