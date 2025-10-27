@@ -86,6 +86,19 @@ class SmsCampaignController extends Controller
             }
         }
 
+        // اگر پیام وجود ندارد، فقط لیست مشتریان را با pagination برگردان
+        if (empty($message)) {
+            $perPage = $request->input('per_page', 50);
+            $paginatedCustomers = $this->buildFilteredQuery($request, $salon)->paginate($perPage);
+            $customerResource = \App\Http\Resources\CustomerSmsCampaignResource::collection($paginatedCustomers);
+
+            return response()->json([
+                'customers' => $customerResource,
+                'total_customers' => $totalCustomers,
+                'filters_applied' => $request->only(['min_age', 'max_age', 'profession_id', 'customer_group_id', 'how_introduced_id', 'min_appointments', 'max_appointments', 'min_payment', 'max_payment', 'customer_created_from', 'last_visit_from', 'satisfaction_min', 'satisfaction_max']),
+            ]);
+        }
+
         $totalSmsParts = $customers->sum(function ($customer) use ($message) {
             $finalMessage = str_replace('{customer_name}', $customer->name, $message);
             return $this->smsService->calculateSmsCount($finalMessage);
