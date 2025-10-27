@@ -120,16 +120,9 @@ class SmsCampaignController extends Controller
         $enhancedFilters = $this->enhanceFiltersWithObjects($request->validated(), $salon);
         $campaign->filters = $enhancedFilters;
 
-        // Paginate customers for better performance
-        $perPage = $request->input('per_page', 50); // Default 50 customers per page
-        $paginatedCustomers = $this->buildFilteredQuery($request, $salon)->paginate($perPage);
-
-        // اضافه کردن لیست مشتریان با pagination
-        $customerResource = \App\Http\Resources\CustomerSmsCampaignResource::collection($paginatedCustomers);
-
         return response()->json([
             'campaign' => new SmsCampaignResource($campaign),
-            'customers' => $customerResource,
+            'customers' => $customerCount, // Just return the count, not the full list
         ]);
     }
 
@@ -560,9 +553,9 @@ class SmsCampaignController extends Controller
     }
 
     /**
-     * Get campaign status (for salon users to track their campaigns)
+     * Get paginated customers for an existing SMS campaign
      */
-    public function getCampaignStatus(Salon $salon, SmsCampaign $campaign): JsonResponse
+    public function getCampaignPagination(Request $request, Salon $salon, SmsCampaign $campaign): JsonResponse
     {
         Gate::authorize('manageResources', $salon);
 
@@ -570,20 +563,29 @@ class SmsCampaignController extends Controller
             return response()->json(['message' => 'این کمپین به این سالن تعلق ندارد.'], 403);
         }
 
-        $campaign->load(['approver']);
+        // Get filters from the campaign
+        $filters = json_decode($campaign->filters, true) ?: [];
+
+        // Override with pagination parameters from request
+        $perPage = $request->input('per_page', 50);
+        $page = $request->input('page', 1);
+
+        // Create a request object with the campaign filters
+        $filterRequest = new Request($filters);
+
+        // Get paginated customers using the same filters
+        $paginatedCustomers = $this->buildFilteredQuery($filterRequest, $salon)->paginate($perPage, ['*'], 'page', $page);
+
+        $customerResource = \App\Http\Resources\CustomerSmsCampaignResource::collection($paginatedCustomers);
 
         return response()->json([
-            'id' => $campaign->id,
-            'status' => $campaign->status,
-            'approval_status' => $campaign->approval_status,
-            'uses_template' => $campaign->uses_template,
-            'message' => $campaign->message,
-            'customer_count' => $campaign->customer_count,
-            'total_cost' => $campaign->total_cost,
-            'approved_by' => $campaign->approver ? $campaign->approver->name : null,
-            'approved_at' => $campaign->approved_at,
-            'rejection_reason' => $campaign->rejection_reason,
-            'created_at' => $campaign->created_at,
+            'campaign_id' => $campaign->id,
+            'customers' => $customerResource,
+            'total_customers' => $paginatedCustomers->total(),
+            'current_page' => $paginatedCustomers->currentPage(),
+            'per_page' => $paginatedCustomers->perPage(),
+            'last_page' => $paginatedCustomers->lastPage(),
+            'filters_applied' => $filters,
         ]);
     }
 
