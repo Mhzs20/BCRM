@@ -120,16 +120,9 @@ class SmsCampaignController extends Controller
         $enhancedFilters = $this->enhanceFiltersWithObjects($request->validated(), $salon);
         $campaign->filters = $enhancedFilters;
 
-        // Paginate customers for better performance
-        $perPage = $request->input('per_page', 50); // Default 50 customers per page
-        $paginatedCustomers = $this->buildFilteredQuery($request, $salon)->paginate($perPage);
-
-        // اضافه کردن لیست مشتریان با pagination
-        $customerResource = \App\Http\Resources\CustomerSmsCampaignResource::collection($paginatedCustomers);
-
         return response()->json([
             'campaign' => new SmsCampaignResource($campaign),
-            'customers' => $customerResource,
+            'customers' => $customerCount, // Just return the count, not the full list
         ]);
     }
 
