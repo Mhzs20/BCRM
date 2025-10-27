@@ -38,7 +38,7 @@ class StaffController extends Controller
         $this->authorize('viewAny', [Staff::class, $salon]);
 
         $query = $salon->staff()
-            ->with(['services:id,name', 'schedules']);
+            ->with(['services:id,name', 'schedules', 'breaks']);
 
         if ($request->filled('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
@@ -59,6 +59,13 @@ class StaffController extends Controller
 
         $staffMembers->getCollection()->transform(function ($staff) {
             $staff->total_income = (float) $staff->total_income;
+            $staff->break_time = $staff->breaks->map(function($break) {
+                return [
+                    'weekday' => $break->weekday,
+                    'start_time' => $break->start_time,
+                    'end_time' => $break->end_time,
+                ];
+            });
             return $staff;
         });
 
@@ -170,7 +177,7 @@ class StaffController extends Controller
         } elseif ($request->input('remove_profile_image') == true) {
             if ($staff->profile_image) {
                 Storage::disk('public')->delete($staff->profile_image);
-            }
+            } 
             $updateData['profile_image'] = null;
         }
 
