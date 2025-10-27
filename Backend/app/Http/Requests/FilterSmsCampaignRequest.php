@@ -37,8 +37,14 @@ class FilterSmsCampaignRequest extends FormRequest
             'how_introduced_id.*' => "integer|exists:how_introduceds,id,salon_id,{$salonId}",
             'min_appointments' => 'nullable|integer|min:0',
             'max_appointments' => 'nullable|integer|min:0|gte:min_appointments',
+            'customer_created_from' => 'nullable|string|regex:/^\d{4}\/\d{2}\/\d{2}$/',
+            'last_visit_from' => 'nullable|string|regex:/^\d{4}\/\d{2}\/\d{2}$/',
+            'satisfaction_min' => 'nullable|integer|min:1|max:5',
+            'satisfaction_max' => 'nullable|integer|min:1|max:5|gte:satisfaction_min',
             'sms_template_id' => 'nullable|integer|exists:salon_sms_templates,id',
             'message' => 'nullable|string|max:1000',
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:1|max:100',
         ];
     }
 
@@ -56,6 +62,8 @@ class FilterSmsCampaignRequest extends FormRequest
             'max_age.gte' => 'حداکثر سن باید بزرگتر یا مساوی حداقل سن باشد.',
             'max_payment.gte' => 'حداکثر مبلغ پرداخت باید بزرگتر یا مساوی حداقل مبلغ باشد.',
             'max_appointments.gte' => 'حداکثر تعداد نوبت باید بزرگتر یا مساوی حداقل تعداد باشد.',
+            'customer_created_from.regex' => 'فرمت تاریخ ایجاد مشتری باید به صورت سال/ماه/روز باشد (مثال: ۱۴۰۲/۰۱/۰۱).',
+            'last_visit_from.regex' => 'فرمت تاریخ آخرین مراجعه باید به صورت سال/ماه/روز باشد (مثال: ۱۴۰۲/۰۱/۰۱).',
         ];
     }
 }

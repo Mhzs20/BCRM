@@ -68,7 +68,7 @@ class SmsCampaignController extends Controller
                 'message' => 'هیچ مشتری‌ای با فیلترهای انتخابی یافت نشد.',
                 'customers' => [],
                 'total_customers_in_salon' => $totalCustomers,
-                'filters_applied' => $request->only(['min_age', 'max_age', 'profession_id', 'customer_group_id', 'how_introduced_id', 'min_appointments', 'max_appointments']),
+                'filters_applied' => $request->only(['min_age', 'max_age', 'profession_id', 'customer_group_id', 'how_introduced_id', 'min_appointments', 'max_appointments', 'min_payment', 'max_payment', 'customer_created_from', 'last_visit_from', 'satisfaction_min', 'satisfaction_max']),
                 'error_type' => 'no_customers'
             ], 422);
         }
@@ -120,8 +120,12 @@ class SmsCampaignController extends Controller
         $enhancedFilters = $this->enhanceFiltersWithObjects($request->validated(), $salon);
         $campaign->filters = $enhancedFilters;
 
-        // اضافه کردن لیست کامل مشتریان با اطلاعات خواسته‌شده
-        $customerResource = \App\Http\Resources\CustomerSmsCampaignResource::collection($customers);
+        // Paginate customers for better performance
+        $perPage = $request->input('per_page', 50); // Default 50 customers per page
+        $paginatedCustomers = $this->buildFilteredQuery($request, $salon)->paginate($perPage);
+
+        // اضافه کردن لیست مشتریان با pagination
+        $customerResource = \App\Http\Resources\CustomerSmsCampaignResource::collection($paginatedCustomers);
 
         return response()->json([
             'campaign' => new SmsCampaignResource($campaign),
@@ -292,6 +296,35 @@ class SmsCampaignController extends Controller
                       ->havingRaw('SUM(total_price) <= ?', [$maxPayment]);
                 });
             }
+        }
+
+        if ($request->filled('customer_created_from')) {
+            $query->where('created_at', '>=', $request->input('customer_created_from'));
+        }
+
+        if ($request->filled('last_visit_from')) {
+            $query->whereIn('id', function($q) use ($salon, $request) {
+                $q->select('customer_id')
+                  ->from('appointments')
+                  ->where('salon_id', $salon->id)
+                  ->where('appointment_date', '>=', $request->input('last_visit_from'))
+                  ->groupBy('customer_id');
+            });
+        }
+
+        if ($request->filled('satisfaction_min') || $request->filled('satisfaction_max')) {
+            $minSatisfaction = $request->input('satisfaction_min', 1);
+            $maxSatisfaction = $request->input('satisfaction_max', 5);
+            
+            $query->whereIn('id', function($q) use ($salon, $minSatisfaction, $maxSatisfaction) {
+                $q->select('customers.id')
+                  ->from('customers')
+                  ->join('appointments', 'customers.id', '=', 'appointments.customer_id')
+                  ->join('customer_feedback', 'appointments.id', '=', 'customer_feedback.appointment_id')
+                  ->where('appointments.salon_id', $salon->id)
+                  ->groupBy('customers.id')
+                  ->havingRaw('AVG(customer_feedback.rating) >= ? AND AVG(customer_feedback.rating) <= ?', [$minSatisfaction, $maxSatisfaction]);
+            });
         }
 
         return $query;
