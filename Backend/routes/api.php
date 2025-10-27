@@ -220,6 +220,7 @@ Route::middleware('auth:api')->group(function () {
                 Route::post('prepare', [SmsCampaignController::class, 'prepareCampaign'])->name('prepare');
                 Route::post('{campaign}/send', [SmsCampaignController::class, 'sendCampaign'])->name('send');
                 Route::get('{campaign}/status', [SmsCampaignController::class, 'getCampaignStatus'])->name('status');
+                Route::get('{campaign}/pagination', [SmsCampaignController::class, 'getCampaignPagination'])->name('pagination');
             });
 
             // Feature Packages API
