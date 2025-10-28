@@ -78,8 +78,7 @@ Route::middleware('auth:api')->group(function () {
         return $request->user();
     })->name('user.profile.default');
 
-    // کارت
-    Route::get('card-info', [\App\Http\Controllers\Api\CardSettingController::class, 'showCardInfo']);
+     Route::get('card-info', [\App\Http\Controllers\Api\CardSettingController::class, 'showCardInfo']);
 
     // Referral & Wallet APIs
     Route::prefix('referral')->name('referral.')->group(function () {
@@ -113,10 +112,13 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/active', [SalonController::class, 'getActiveSalon'])->name('active');
 
         Route::prefix('{salon}')->whereNumber('salon')->scopeBindings()->group(function() {
+             Route::get('renewal-reminders/settings/summary', [ServiceRenewalController::class, 'getRenewalSettingsSummary'])->name('renewal_reminders.settings.summary');
             Route::get('/', [SalonController::class, 'getSalon'])->name('show');
             Route::put('/', [SalonController::class, 'updateSalon'])->name('update');
             Route::delete('/', [SalonController::class, 'deleteSalon'])->name('destroy');
             Route::post('/select-active', [SalonController::class, 'selectActiveSalon'])->name('select_active');
+             Route::get('renewal-reminders/services/settings', [ServiceRenewalController::class, 'getMultipleServiceSettings'])->name('renewal_reminders.services.multiple_settings');
+            Route::put('renewal-reminders/services/settings', [ServiceRenewalController::class, 'updateMultipleServiceSettings'])->name('renewal_reminders.services.update_multiple_settings');
 
             Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete'])->name('customers.bulkDelete');
             Route::get('customers/{customer}/appointments', [CustomerController::class, 'listCustomerAppointments'])->name('customers.appointments');
@@ -166,8 +168,7 @@ Route::middleware('auth:api')->group(function () {
 
             Route::get('appointments/available-slots', [AppointmentController::class, 'getAvailableSlots'])->name('appointments.availableSlots');
 
-            // اندپوینت جدید paginated برای بازه‌های خالی سالن
-            Route::get('appointments/available-slots/paginated', [AppointmentController::class, 'getAvailableSlotsPaginated'])->name('appointments.availableSlotsPaginated');
+             Route::get('appointments/available-slots/paginated', [AppointmentController::class, 'getAvailableSlotsPaginated'])->name('appointments.availableSlotsPaginated');
             Route::get('appointments/calendar', [AppointmentController::class, 'getCalendarAppointments'])->name('appointments.calendar');
             Route::post('appointments/prepare', [AppointmentController::class, 'prepareAppointment'])->name('appointments.prepare');
             Route::post('appointments/submit', [AppointmentController::class, 'submitAppointment'])->name('appointments.submit');
@@ -311,11 +312,9 @@ Route::middleware('auth:api')->post('manual-sms/{salon}/send', [ManualSmsControl
 Route::get('/app-history', [AppController::class, 'latestHistory']);
 Route::get('/staff/{staffId}/appointments', [AppController::class, 'getStaffAppointments'])->whereNumber('staffId');
 
-// اندپوینت جدید paginated برای لیست نوبت‌های کارمند
-Route::get('/staff/{staffId}/appointments/paginated', [AppController::class, 'getStaffAppointmentsPaginated'])->whereNumber('staffId');
+ Route::get('/staff/{staffId}/appointments/paginated', [AppController::class, 'getStaffAppointmentsPaginated'])->whereNumber('staffId');
 
-// اندپوینت جدید paginated برای لیست نوبت‌های مشتری سالن
-Route::get('/salons/{salon}/customers/{customer}/appointments/paginated', [CustomerController::class, 'listCustomerAppointmentsPaginated'])
+ Route::get('/salons/{salon}/customers/{customer}/appointments/paginated', [CustomerController::class, 'listCustomerAppointmentsPaginated'])
     ->whereNumber('salon')
     ->whereNumber('customer');
 

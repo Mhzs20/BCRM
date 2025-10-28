@@ -22,6 +22,153 @@ class ServiceRenewalController extends Controller
     use ChecksPackageFeature;
 
     /**
+      */
+    public function getRenewalSettingsSummary(Request $request, Salon $salon): JsonResponse
+    {
+        $this->authorize('manageResources', $salon);
+        if (!$this->checkRenewalReminderAccess($salon->id)) {
+            return $this->renewalReminderAccessDeniedResponse();
+        }
+    $globalSetting = RenewalReminderSetting::where('salon_id', $salon->id)->first();
+    $isActive = $globalSetting ? $globalSetting->is_active : false;
+    $activeTemplateId = $globalSetting ? $globalSetting->active_template_id : null;
+
+        $services = Service::where('salon_id', $salon->id)
+            ->where('is_active', true)
+            ->with(['renewalSetting'])
+            ->get();
+
+         foreach ($services as $service) {
+            $customerCount = DB::table('appointment_service')
+                ->join('appointments', 'appointment_service.appointment_id', '=', 'appointments.id')
+                ->where('appointment_service.service_id', $service->id)
+                ->where('appointments.status', 'completed')
+                ->distinct('appointments.customer_id')
+                ->count('appointments.customer_id');
+            $service->customers_count = $customerCount;
+        }
+
+        $serviceData = [];
+        foreach ($services as $service) {
+            $setting = $service->renewalSetting;
+            $serviceData[] = [
+                'service_id' => $service->id,
+                'service_name' => $service->name,
+                'customers_count' => $service->customers_count,
+                'renewal_period_days' => $setting ? $setting->renewal_period_days : 30,
+                'reminder_days_before' => $setting ? $setting->reminder_days_before : 7,
+                'reminder_time' => $setting ? $setting->reminder_time : '10:00',
+                'template_id' => $setting ? $setting->template_id : null,
+                'is_active' => $setting ? $setting->is_active : false
+            ];
+        }
+
+        return response()->json([
+            'global_reminder_active' => $isActive,
+            'global_template_id' => $activeTemplateId,
+            'services' => $serviceData
+        ]);
+    }
+    /**
+      */
+    public function getMultipleServiceSettings(Request $request, Salon $salon): JsonResponse
+    {
+        $this->authorize('manageResources', $salon);
+        if (!$this->checkRenewalReminderAccess($salon->id)) {
+            return $this->renewalReminderAccessDeniedResponse();
+        }
+        $serviceIds = $request->input('service_ids');
+        if (!is_array($serviceIds) || empty($serviceIds)) {
+            return response()->json(['message' => 'service_ids الزامی است و باید آرایه باشد.'], 422);
+        }
+        $settings = ServiceRenewalSetting::where('salon_id', $salon->id)
+            ->whereIn('service_id', $serviceIds)
+            ->get();
+        $result = [];
+        foreach ($settings as $setting) {
+            $result[$setting->service_id] = [
+                'is_active' => $setting->is_active,
+                'renewal_period_days' => $setting->renewal_period_days,
+                'reminder_days_before' => $setting->reminder_days_before,
+                'reminder_time' => $setting->reminder_time,
+                'template_id' => $setting->template_id
+            ];
+        }
+         foreach ($serviceIds as $sid) {
+            if (!isset($result[$sid])) {
+                $result[$sid] = [
+                    'is_active' => false,
+                    'renewal_period_days' => 30,
+                    'reminder_days_before' => 7,
+                    'reminder_time' => '10:00',
+                    'template_id' => null
+                ];
+            }
+        }
+        return response()->json($result);
+    }
+
+    /**
+      */
+    public function updateMultipleServiceSettings(Request $request, Salon $salon): JsonResponse
+    {
+        $this->authorize('manageResources', $salon);
+        if (!$this->checkRenewalReminderAccess($salon->id)) {
+            return $this->renewalReminderAccessDeniedResponse();
+        }
+        $data = $request->input('services');
+        $templateId = $request->input('template_id');
+        if ($templateId !== null) {
+            RenewalReminderSetting::updateOrCreate(
+                ['salon_id' => $salon->id],
+                ['active_template_id' => $templateId]
+            );
+        }
+        if (!is_array($data) || empty($data)) {
+            return response()->json(['message' => 'services الزامی است و باید آرایه باشد.'], 422);
+        }
+        $result = [];
+        foreach ($data as $serviceId => $setting) {
+            if ($templateId !== null) {
+                $setting['template_id'] = $templateId;
+            }
+            $validator = Validator::make($setting, [
+                'is_active' => 'required|boolean',
+                'renewal_period_days' => 'required|integer|min:1|max:365',
+                'reminder_days_before' => 'required|integer|min:1|max:30',
+                'reminder_time' => ['required', 'string', 'regex:/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/'],
+                'template_id' => 'nullable|exists:salon_sms_templates,id',
+            ]);
+            if ($validator->fails()) {
+                $result[$serviceId] = ['success' => false, 'errors' => $validator->errors()];
+                continue;
+            }
+            $service = Service::find($serviceId);
+            if (!$service || $service->salon_id != $salon->id) {
+                $result[$serviceId] = ['success' => false, 'errors' => ['service' => ['سرویس معتبر نیست']]];
+                continue;
+            }
+            $settingModel = ServiceRenewalSetting::updateOrCreate(
+                [
+                    'salon_id' => $salon->id,
+                    'service_id' => $serviceId
+                ],
+                [
+                    'is_active' => $setting['is_active'],
+                    'renewal_period_days' => $setting['renewal_period_days'],
+                    'reminder_days_before' => $setting['reminder_days_before'],
+                    'reminder_time' => $setting['reminder_time'],
+                    'template_id' => $setting['is_active'] ? $setting['template_id'] : null
+                ]
+            );
+            $result[$serviceId] = ['success' => true, 'renewal_setting' => $settingModel];
+        }
+        return response()->json($result);
+    }
+
+    use ChecksPackageFeature;
+
+    /**
      */
     public function getServicesWithRenewalSettings(Request $request, Salon $salon): JsonResponse
     {
