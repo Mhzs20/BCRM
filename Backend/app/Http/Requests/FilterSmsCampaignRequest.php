@@ -25,6 +25,7 @@ class FilterSmsCampaignRequest extends FormRequest
         $salonId = $salon instanceof \App\Models\Salon ? $salon->id : $salon;
         
         return [
+            'part_of_name' => 'nullable|string|max:255',
             'min_age' => 'nullable|integer|min:0',
             'max_age' => 'nullable|integer|min:0|gte:min_age',
             'profession_id' => 'nullable|array',
@@ -39,8 +40,9 @@ class FilterSmsCampaignRequest extends FormRequest
             'max_appointments' => 'nullable|integer|min:0|gte:min_appointments',
             'customer_created_from' => 'nullable|string|regex:/^\d{4}\/\d{2}\/\d{2}$/',
             'last_visit_from' => 'nullable|string|regex:/^\d{4}\/\d{2}\/\d{2}$/',
-            'satisfaction_min' => 'nullable|integer|min:1|max:5',
-            'satisfaction_max' => 'nullable|integer|min:1|max:5|gte:satisfaction_min',
+            'satisfaction' => 'nullable|array',
+            'satisfaction.*' => 'integer|min:1|max:5',
+            'gender' => 'nullable|in:male,female',
             'sms_template_id' => 'nullable|integer|exists:salon_sms_templates,id',
             'message' => 'nullable|string|max:1000',
             'page' => 'nullable|integer|min:1',

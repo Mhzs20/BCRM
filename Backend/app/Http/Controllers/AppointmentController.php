@@ -372,7 +372,6 @@ class AppointmentController extends Controller
                     $appointment->update($appointmentDetails['appointment_data']);
                     $appointment->services()->sync($appointmentDetails['service_pivot_data']);
 
-                    // ارسال پیامک بروزرسانی فقط اگر واقعا نوبت تغییر کرده باشد
                     if ($appointmentModified) {
                         $customer = $appointment->customer;
                         if ($customer) {
@@ -383,8 +382,29 @@ class AppointmentController extends Controller
 
             $updateData = Arr::except($validatedData, ['service_ids', 'internal_notes']);
 
+            $oldStatus = $appointment->status;
+            $newStatus = $updateData['status'] ?? $oldStatus;
+
             if (!empty($updateData)) {
                 $appointment->update($updateData);
+            }
+
+            $smsSent = false;
+            if ($newStatus === 'confirmed' && $oldStatus !== 'confirmed') {
+                $customer = $appointment->customer;
+                if ($customer) {
+                    $smsService = $this->smsService;
+                    $smsResult = $smsService->sendAppointmentConfirmation($customer, $appointment, $salon);
+                    if (isset($smsResult['status']) && $smsResult['status'] === 'success') {
+                        $smsSent = 'confirmation';
+                    }
+                }
+            } elseif ($appointmentModified && !($newStatus === 'confirmed' && $oldStatus !== 'confirmed')) {
+                $customer = $appointment->customer;
+                if ($customer) {
+                    \App\Jobs\SendAppointmentModificationSms::dispatch($customer, $appointment, $salon);
+                    $smsSent = 'modification';
+                }
             }
 
             // Manually update internal_note if present in validatedData
@@ -396,10 +416,16 @@ class AppointmentController extends Controller
             DB::commit();
 
             $message = 'نوبت با موفقیت به‌روزرسانی شد.';
+            if ($smsSent === 'confirmation') {
+                $message .= ' پیامک تایید نوبت ارسال شد.';
+            } elseif ($smsSent === 'modification') {
+                $message .= ' پیامک تغییر نوبت ارسال شد.';
+            }
 
             $appointment->refresh()->load(['customer', 'staff', 'services']);
             return response()->json([
                 'message' => $message, 
+                'sms_sent' => $smsSent,
                 'data' => new AppointmentResource($appointment),
                 'has_conflicts' => $hasConflicts,
                 'conflicting_appointments' => $conflictingItems
@@ -857,7 +883,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
                 $appointmentDetails['appointment_data'],
                 [
                     'total_price' => $validatedData['total_price'] ?? $appointmentDetails['appointment_data']['total_price'],
-                    'status' => 'pending',
+                    'status' => $validatedData['status'] ?? 'pending',
                     'internal_note' => $validatedData['internal_notes'] ?? null,
                     'deposit_required' => $validatedData['deposit_required'] ?? false,
                     'deposit_paid' => $validatedData['deposit_paid'] ?? false,
@@ -912,7 +938,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
                     'end_time' => $appointmentDetails['appointment_data']['end_time'],
                     'total_duration' => $validatedData['total_duration'],
                     'total_price' => $pendingData['total_price'],
-                    'status' => 'pending_confirmation',
+                    'status' => $pendingData['status'],
                     'notes' => $validatedData['notes'] ?? null,
                     'internal_note' => $validatedData['internal_notes'] ?? null,
                     'deposit_required' => $pendingData['deposit_required'],
@@ -1020,7 +1046,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
             // Ensure appointment_date is correctly set
             $appointmentData['appointment_date'] = $pendingAppointment->appointment_date->format('Y-m-d');
             $appointmentData['customer_id'] = $customer->id;
-            $appointmentData['status'] = 'pending_confirmation';
+            $appointmentData['status'] = $pendingAppointment->status;
 
             $appointment = new Appointment($appointmentData);
             $appointment->save();
@@ -1051,13 +1077,15 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
             // Load relationships
             $appointment->load(['customer', 'staff', 'services']);
 
-            // Send confirmation SMS
-            $templateId = $appointment->confirmation_sms_template_id;
-            SendAppointmentConfirmationSms::dispatch($customer, $appointment, $appointment->salon, $templateId);
+            // Send confirmation SMS only if status is confirmed
+            if ($appointment->status === 'confirmed') {
+                $templateId = $appointment->confirmation_sms_template_id;
+                SendAppointmentConfirmationSms::dispatch($customer, $appointment, $appointment->salon, $templateId);
+            }
 
             return response()->json([
                 'success' => true,
-                'message' => 'نوبت با موفقیت ثبت شد. پیامک تایید به زودی ارسال خواهد شد.',
+                'message' => 'نوبت با موفقیت ثبت شد.' . ($appointment->status === 'confirmed' ? ' پیامک تایید به زودی ارسال خواهد شد.' : ''),
                 'data' => new AppointmentResource($appointment)
             ], 201);
 

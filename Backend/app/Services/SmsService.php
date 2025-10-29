@@ -520,6 +520,17 @@ class SmsService
 
     public function sendAppointmentConfirmation(Customer $customer, Appointment $appointment, Salon $salon, ?string $detailsUrl = null): array
     {
+        // Check if confirmation SMS has already been sent for this appointment
+        $existingTransaction = \App\Models\SmsTransaction::where('appointment_id', $appointment->id)
+            ->where('sms_type', 'appointment_confirmation')
+            ->where('status', '!=', 'not_sent')
+            ->first();
+
+        if ($existingTransaction) {
+            Log::info("Confirmation SMS already sent for Appointment ID: {$appointment->id}. Skipping duplicate send.");
+            return ['status' => 'success', 'message' => 'پیامک تایید نوبت قبلاً ارسال شده است.'];
+        }
+
         // بررسی اینکه آیا ارسال پیامک تایید فعال است
         if (!$appointment->send_confirmation_sms) {
             return ['status' => 'success', 'message' => 'ارسال پیامک تایید نوبت غیرفعال است.'];
@@ -585,6 +596,17 @@ class SmsService
 
     public function sendAppointmentModification(Customer $customer, Appointment $appointment, Salon $salon): array
     {
+        // Check if modification SMS has already been sent for this appointment
+        $existingTransaction = \App\Models\SmsTransaction::where('appointment_id', $appointment->id)
+            ->where('sms_type', 'appointment_modification')
+            ->where('status', '!=', 'not_sent')
+            ->first();
+
+        if ($existingTransaction) {
+            Log::info("Modification SMS already sent for Appointment ID: {$appointment->id}. Skipping duplicate send.");
+            return ['status' => 'success', 'message' => 'پیامک تغییر نوبت قبلاً ارسال شده است.'];
+        }
+
         $detailsUrl = url('a/' . $appointment->hash);
         // Add a unique timestamp to the message to prevent deduplication
         $timestamp = now()->format('H:i:s');
