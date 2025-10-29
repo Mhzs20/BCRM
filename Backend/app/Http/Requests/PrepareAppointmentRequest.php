@@ -54,6 +54,7 @@ class PrepareAppointmentRequest extends FormRequest
             'confirmation_sms_template_id' => ['nullable', 'integer', 'exists:salon_sms_templates,id'],
             'reminder_sms_template_id' => ['nullable', 'integer', 'exists:salon_sms_templates,id'],
             'total_price' => ['nullable', 'numeric', 'min:0'],
+            'status' => ['nullable', 'string', Rule::in(['pending', 'confirmed', 'completed', 'cancelled', 'pending_confirmation', 'no_show'])],
         ];
 
         return $rules;

@@ -65,12 +65,27 @@ class AdminAppointmentController extends Controller
     public function updateStatus(Request $request, Appointment $appointment)
     {
         $request->validate([
-            'status' => 'required|string|in:pending,completed,cancelled,pending_confirmation,no_show'
+            'status' => 'required|string|in:pending,confirmed,completed,cancelled,pending_confirmation,no_show'
         ]);
 
+        $oldStatus = $appointment->status;
+        $newStatus = $request->status;
+
         $appointment->update([
-            'status' => $request->status
+            'status' => $newStatus
         ]);
+
+        if ($newStatus === 'confirmed' && $oldStatus !== 'confirmed') {
+            $customer = $appointment->customer;
+            $salon = $appointment->salon;
+            if ($customer && $salon) {
+                $smsService = app(\App\Services\SmsService::class);
+                $smsResult = $smsService->sendAppointmentConfirmation($customer, $appointment, $salon);
+                if (isset($smsResult['status']) && $smsResult['status'] === 'error') {
+                    \Illuminate\Support\Facades\Log::warning('خطا در ارسال پیامک تایید نوبت: ' . $smsResult['message']);
+                }
+            }
+        }
 
         return redirect()->back()->with('success', 'وضعیت نوبت با موفقیت بروزرسانی شد.');
     }
