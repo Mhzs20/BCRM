@@ -1,0 +1,135 @@
+<?php
+namespace App\Http\Controllers;
+
+use App\Models\BirthdayReminder;
+use App\Models\BirthdayReminderCustomerGroup;
+use App\Models\CustomerGroup;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class BirthdayReminderController extends Controller
+{
+    // 1. Get Birthday Reminder Statistics
+    public function stats($salonId)
+    {
+        // نمونه آمار: تعداد کل گروه‌ها، تعداد فعال، تعداد پیام‌های امروز و ...
+        $totalGroups = CustomerGroup::where('salon_id', $salonId)->count();
+        $activeGroups = BirthdayReminderCustomerGroup::whereHas('birthdayReminder', function($q) use ($salonId) {
+            $q->where('salon_id', $salonId);
+        })->where('is_active', true)->count();
+        $pendingReminders = BirthdayReminderCustomerGroup::where('is_active', true)->whereHas('birthdayReminder', function($q) use ($salonId) {
+            $q->where('salon_id', $salonId);
+        })->count();
+        $messagesSentToday = 0; // باید با جدول پیامک‌ها شمارش شود
+        $coverage = $totalGroups ? round(($activeGroups / $totalGroups) * 100, 2) : 0;
+        return response()->json([
+            'total_groups' => $totalGroups,
+            'active_groups' => $activeGroups,
+            'pending_reminders' => $pendingReminders,
+            'messages_sent_today' => $messagesSentToday,
+            'coverage_percentage' => $coverage,
+        ]);
+    }
+
+    // 2. Get Customer Groups with Birthday Reminder Settings
+    public function groups(Request $request, $salonId)
+    {
+        $search = $request->get('search');
+        $reminder_status = $request->get('reminder_status');
+        $sort_by = $request->get('sort_by', 'name');
+        $query = CustomerGroup::where('salon_id', $salonId);
+        if ($search) $query->where('name', 'like', "%$search%");
+        if ($reminder_status !== null) {
+            $query->whereHas('birthdayReminders', function($q) use ($reminder_status) {
+                $q->where('is_active', $reminder_status === 'active');
+            });
+        }
+        if ($sort_by === 'name') $query->orderBy('name');
+        // تعداد مشتریان در گروه را می‌توان با withCount('customers') اضافه کرد
+        $groups = $query->with(['birthdayReminders'])->get();
+        return response()->json($groups);
+    }
+
+    // 3. Get SMS Templates for Birthday
+    public function templates($salonId)
+    {
+        // فرض بر این است که مدل Template و نوع birthday وجود دارد
+        $templates = \App\Models\Template::where('type', 'birthday')
+            ->where(function($q) use ($salonId) {
+                $q->where('salon_id', $salonId)->orWhere('is_global', true);
+            })->get();
+        return response()->json($templates);
+    }
+
+    // 4. Get Birthday Reminder Summary
+    public function summary($salonId)
+    {
+        $reminder = BirthdayReminder::where('salon_id', $salonId)->with('customerGroups')->first();
+        return response()->json($reminder);
+    }
+
+    // 5. Update Birthday Reminder Settings for Groups
+    public function updateSettings(Request $request, $salonId)
+    {
+        $data = $request->all();
+        $reminder = BirthdayReminder::firstOrCreate([
+            'salon_id' => $salonId
+        ], [
+            'template_id' => $data['template_id'] ?? null,
+            'is_global_active' => true,
+        ]);
+        foreach ($data['customer_group_ids'] as $groupId => $settings) {
+            BirthdayReminderCustomerGroup::updateOrCreate([
+                'birthday_reminder_id' => $reminder->id,
+                'customer_group_id' => $groupId
+            ], [
+                'is_active' => $settings['is_active'],
+                'send_days_before' => $settings['send_days_before'],
+            ]);
+        }
+        $reminder->template_id = $data['template_id'] ?? $reminder->template_id;
+        if (isset($data['send_time'])) {
+            $reminder->send_time = $data['send_time'];
+        }
+        $reminder->save();
+        return response()->json(['success' => true]);
+    }
+
+    // 6. Enable/Disable Birthday Reminder for a Group
+    public function toggleGroup(Request $request, $salonId, $groupId)
+    {
+        $reminder = BirthdayReminder::where('salon_id', $salonId)->firstOrFail();
+        $groupSetting = BirthdayReminderCustomerGroup::where('birthday_reminder_id', $reminder->id)
+            ->where('customer_group_id', $groupId)->firstOrFail();
+        $groupSetting->is_active = $request->input('is_active');
+        $groupSetting->save();
+        return response()->json(['success' => true]);
+    }
+
+    // 7. Enable/Disable Global Birthday Reminder System
+    public function globalToggle(Request $request, $salonId)
+    {
+        $reminder = BirthdayReminder::where('salon_id', $salonId)->firstOrFail();
+        $reminder->is_global_active = $request->input('is_active');
+        $reminder->save();
+        return response()->json(['success' => true]);
+    }
+
+    // 8. Delete Birthday Reminder Settings for a Group
+    public function deleteGroupSettings($salonId, $groupId)
+    {
+        $reminder = BirthdayReminder::where('salon_id', $salonId)->firstOrFail();
+        BirthdayReminderCustomerGroup::where('birthday_reminder_id', $reminder->id)
+            ->where('customer_group_id', $groupId)->delete();
+        return response()->json(['success' => true]);
+    }
+
+    // 9. Get Specific Group Settings
+    public function groupSettings($salonId, $groupId)
+    {
+        $reminder = BirthdayReminder::where('salon_id', $salonId)->firstOrFail();
+        $groupSetting = BirthdayReminderCustomerGroup::where('birthday_reminder_id', $reminder->id)
+            ->where('customer_group_id', $groupId)->first();
+        return response()->json($groupSetting);
+    }
+}

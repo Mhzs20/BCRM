@@ -119,6 +119,20 @@ Route::middleware('auth:api')->group(function () {
             Route::post('/select-active', [SalonController::class, 'selectActiveSalon'])->name('select_active');
              Route::get('renewal-reminders/services/settings', [ServiceRenewalController::class, 'getMultipleServiceSettings'])->name('renewal_reminders.services.multiple_settings');
             Route::put('renewal-reminders/services/settings', [ServiceRenewalController::class, 'updateMultipleServiceSettings'])->name('renewal_reminders.services.update_multiple_settings');
+            // Birthday Reminder Routes - Protected by Feature Package
+            Route::prefix('birthday-reminders')->name('birthday_reminders.')
+                ->middleware('feature:پیامک یادآوری ترمیم و تولد')
+                ->group(function () {
+                    Route::get('stats', [BirthdayReminderController::class, 'stats'])->name('stats');
+                    Route::get('groups', [BirthdayReminderController::class, 'groups'])->name('groups');
+                    Route::get('templates', [BirthdayReminderController::class, 'templates'])->name('templates');
+                    Route::get('settings/summary', [BirthdayReminderController::class, 'summary'])->name('settings.summary');
+                    Route::put('groups/settings', [BirthdayReminderController::class, 'updateSettings'])->name('groups.update_settings');
+                    Route::post('groups/{groupId}/toggle', [BirthdayReminderController::class, 'toggleGroup'])->name('groups.toggle');
+                    Route::post('global-toggle', [BirthdayReminderController::class, 'globalToggle'])->name('global_toggle');
+                    Route::delete('groups/{groupId}/settings', [BirthdayReminderController::class, 'deleteGroupSettings'])->name('groups.delete_settings');
+                    Route::get('groups/{groupId}/settings', [BirthdayReminderController::class, 'groupSettings'])->name('groups.settings');
+                });
 
             Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete'])->name('customers.bulkDelete');
             Route::get('customers/{customer}/appointments', [CustomerController::class, 'listCustomerAppointments'])->name('customers.appointments');
