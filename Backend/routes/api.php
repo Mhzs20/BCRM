@@ -24,6 +24,7 @@ use App\Http\Controllers\AppointmentReportController;
 use App\Http\Controllers\ManualSmsController;
 use App\Http\Controllers\SmsTransactionController;
 use App\Http\Controllers\SmsCampaignController;
+use App\Http\Controllers\BirthdayReminderController;
 use App\Http\Controllers\Api\AppController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\BannerController as ApiBannerController;
