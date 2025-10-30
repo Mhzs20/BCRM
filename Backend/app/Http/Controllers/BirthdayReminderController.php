@@ -9,6 +9,33 @@ use Illuminate\Support\Facades\Auth;
 
 class BirthdayReminderController extends Controller
 {
+    // دریافت تنظیمات گروه‌های تولد با جزئیات مشابه سرویس‌های ترمیم
+    public function groupsSettingsDetailed($salonId)
+    {
+        $reminder = BirthdayReminder::where('salon_id', $salonId)->first();
+        if (!$reminder) {
+            return response()->json([ 'success' => false, 'error' => 'تنظیمات تولد یافت نشد.' ], 404);
+        }
+        $groups = BirthdayReminderCustomerGroup::where('birthday_reminder_id', $reminder->id)->get();
+        $result = [];
+        foreach ($groups as $group) {
+            $result[$group->customer_group_id] = [
+                'success' => true,
+                'birthday_setting' => [
+                    'salon_id' => $salonId,
+                    'customer_group_id' => $group->customer_group_id,
+                    'is_active' => $group->is_active,
+                    'send_days_before' => $group->send_days_before,
+                    'send_time' => $reminder->send_time,
+                    'template_id' => $reminder->template_id,
+                    'updated_at' => $group->updated_at,
+                    'created_at' => $group->created_at,
+                    'id' => $group->id
+                ]
+            ];
+        }
+        return response()->json($result);
+    }
     // 1. Get Birthday Reminder Statistics
     public function stats($salonId)
     {
@@ -50,15 +77,29 @@ class BirthdayReminderController extends Controller
         return response()->json($groups);
     }
 
-    // 3. Get SMS Templates for Birthday
-    public function templates($salonId)
+    // 3. Get SMS Templates for Birthday (admin-defined, like renewal-reminders/templates)
+    public function templates(Request $request)
     {
-        // فرض بر این است که مدل Template و نوع birthday وجود دارد
-        $templates = \App\Models\Template::where('type', 'birthday')
-            ->where(function($q) use ($salonId) {
-                $q->where('salon_id', $salonId)->orWhere('is_global', true);
-            })->get();
-        return response()->json($templates);
+        $category = \App\Models\SmsTemplateCategory::whereNull('salon_id')
+            ->where('name', 'تبریک تولد')
+            ->first();
+
+        if (!$category) {
+            return response()->json([
+                'message' => 'دسته‌بندی تبریک تولد یافت نشد.',
+                'templates' => []
+            ], 404);
+        }
+
+        $templates = \App\Models\SalonSmsTemplate::where('category_id', $category->id)
+            ->whereNull('salon_id')
+            ->where('is_active', true)
+            ->get();
+
+        return response()->json([
+            'message' => 'قالب‌ها با موفقیت دریافت شدند.',
+            'templates' => $templates
+        ]);
     }
 
     // 4. Get Birthday Reminder Summary
@@ -78,21 +119,36 @@ class BirthdayReminderController extends Controller
             'template_id' => $data['template_id'] ?? null,
             'is_global_active' => true,
         ]);
+        $result = [];
         foreach ($data['customer_group_ids'] as $groupId => $settings) {
-            BirthdayReminderCustomerGroup::updateOrCreate([
+            $group = BirthdayReminderCustomerGroup::updateOrCreate([
                 'birthday_reminder_id' => $reminder->id,
                 'customer_group_id' => $groupId
             ], [
                 'is_active' => $settings['is_active'],
                 'send_days_before' => $settings['send_days_before'],
             ]);
+            $result[$groupId] = [
+                'success' => true,
+                'birthday_setting' => [
+                    'salon_id' => $salonId,
+                    'customer_group_id' => $groupId,
+                    'is_active' => $group->is_active,
+                    'send_days_before' => $group->send_days_before,
+                    'send_time' => $reminder->send_time,
+                    'template_id' => $reminder->template_id,
+                    'updated_at' => $group->updated_at,
+                    'created_at' => $group->created_at,
+                    'id' => $group->id
+                ]
+            ];
         }
         $reminder->template_id = $data['template_id'] ?? $reminder->template_id;
         if (isset($data['send_time'])) {
             $reminder->send_time = $data['send_time'];
         }
         $reminder->save();
-        return response()->json(['success' => true]);
+        return response()->json($result);
     }
 
     // 6. Enable/Disable Birthday Reminder for a Group

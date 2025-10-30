@@ -23,4 +23,11 @@ class CustomerGroup extends Model
     {
         return $this->belongsToMany(Customer::class)->withTimestamps();
     }
+    // Add relationship to BirthdayReminder
+    public function birthdayReminders()
+    {
+        return $this->belongsToMany(BirthdayReminder::class, 'birthday_reminder_customer_group', 'customer_group_id', 'birthday_reminder_id')
+            ->withPivot('is_active', 'send_days_before', 'send_time')
+            ->withTimestamps();
+    }
 }

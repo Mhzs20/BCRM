@@ -12,4 +12,9 @@ class BirthdayReminderCustomerGroup extends Model
         'is_active',
         'send_days_before',
     ];
+    // Add relationship to BirthdayReminder
+    public function birthdayReminder()
+    {
+        return $this->belongsTo(BirthdayReminder::class, 'birthday_reminder_id');
+    }
 }
