@@ -10,6 +10,7 @@ class BirthdayReminder extends Model
         'template_id',
         'is_global_active',
         'send_time',
+        'send_days_before',
     ];
 
     public function customerGroups()

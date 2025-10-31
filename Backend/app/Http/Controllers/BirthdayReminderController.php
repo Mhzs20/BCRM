@@ -118,6 +118,7 @@ class BirthdayReminderController extends Controller
         ], [
             'template_id' => $data['template_id'] ?? null,
             'is_global_active' => true,
+            'send_days_before' => $data['send_days_before'] ?? null,
         ]);
         $result = [];
         foreach ($data['customer_group_ids'] as $groupId => $settings) {
@@ -126,7 +127,7 @@ class BirthdayReminderController extends Controller
                 'customer_group_id' => $groupId
             ], [
                 'is_active' => $settings['is_active'],
-                'send_days_before' => $settings['send_days_before'],
+                'send_days_before' => $settings['send_days_before'] ?? $reminder->send_days_before ?? 3,
             ]);
             $result[$groupId] = [
                 'success' => true,
@@ -147,8 +148,18 @@ class BirthdayReminderController extends Controller
         if (isset($data['send_time'])) {
             $reminder->send_time = $data['send_time'];
         }
+        if (isset($data['send_days_before'])) {
+            $reminder->send_days_before = $data['send_days_before'];
+        }
         $reminder->save();
-        return response()->json($result);
+        $response = [
+            'success' => true,
+            'send_days_before' => $reminder->send_days_before,
+            'send_time' => $reminder->send_time,
+            'template_id' => $reminder->template_id,
+            'customer_group_ids' => $result
+        ];
+        return response()->json($response);
     }
 
     // 6. Enable/Disable Birthday Reminder for a Group
