@@ -72,8 +72,8 @@ class BirthdayReminderController extends Controller
             });
         }
         if ($sort_by === 'name') $query->orderBy('name');
-        // تعداد مشتریان در گروه را می‌توان با withCount('customers') اضافه کرد
-        $groups = $query->with(['birthdayReminders'])->get();
+        // اضافه کردن تعداد مشتریان در هر گروه
+        $groups = $query->with(['birthdayReminders'])->withCount('customers')->get();
         return response()->json($groups);
     }
 

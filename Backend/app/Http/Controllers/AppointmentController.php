@@ -1218,4 +1218,44 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
             return response()->json(['message' => 'خطا در ثبت نوبت قدیمی رخ داد.', 'error_details_for_debug' => $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Send reminder SMS for a specific appointment
+     */
+    public function sendReminderSms(Request $request, $salon_id, Appointment $appointment)
+    {
+        try {
+            // Check if appointment belongs to the salon
+            if ($appointment->salon_id != $salon_id) {
+                return response()->json(['message' => 'نوبت متعلق به این سالن نیست.'], 403);
+            }
+
+            // Check if reminder SMS is enabled for this appointment
+            if (!$appointment->send_reminder_sms) {
+                return response()->json(['message' => 'ارسال پیامک یادآوری برای این نوبت فعال نیست.'], 400);
+            }
+
+            // Check if customer exists
+            if (!$appointment->customer) {
+                return response()->json(['message' => 'مشتری برای این نوبت یافت نشد.'], 404);
+            }
+
+            // Check if SMS already sent
+            if (in_array($appointment->reminder_sms_status, ['sent', 'delivered'])) {
+                return response()->json(['message' => 'پیامک یادآوری قبلاً ارسال شده است.'], 400);
+            }
+
+            // Dispatch the reminder SMS job
+            \App\Jobs\SendAppointmentReminderSms::dispatch($appointment, $appointment->salon);
+
+            // Update status to processing
+            $appointment->update(['reminder_sms_status' => 'processing']);
+
+            return response()->json(['message' => 'پیامک یادآوری با موفقیت ارسال شد.']);
+
+        } catch (\Exception $e) {
+            Log::error('خطا در ارسال پیامک یادآوری: ' . $e->getMessage());
+            return response()->json(['message' => 'خطا در ارسال پیامک یادآوری رخ داد.'], 500);
+        }
+    }
 }
