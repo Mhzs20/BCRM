@@ -486,7 +486,7 @@ class AppointmentController extends Controller
 
             if (isset($validated['service_ids']) && !in_array(-1, $validated['service_ids'])) {
                 $query->whereHas('services', function ($q) use ($validated) {
-                    $q->whereIn('service_id', $validated['service_ids']);
+                    $q->whereIn('id', $validated['service_ids']);
                 });
             }
 
@@ -525,7 +525,7 @@ class AppointmentController extends Controller
 
                 if (isset($validated['service_ids']) && !in_array(-1, $validated['service_ids'])) {
                     $query->whereHas('services', function ($q) use ($validated) {
-                        $q->whereIn('service_id', $validated['service_ids']);
+                        $q->whereIn('id', $validated['service_ids']);
                     });
                 }
 
