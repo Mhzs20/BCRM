@@ -9,8 +9,7 @@ use Illuminate\Support\Facades\Auth;
 
 class BirthdayReminderController extends Controller
 {
-    // دریافت تنظیمات گروه‌های تولد با جزئیات مشابه سرویس‌های ترمیم
-    public function groupsSettingsDetailed($salonId)
+     public function groupsSettingsDetailed($salonId)
     {
         $reminder = BirthdayReminder::where('salon_id', $salonId)->first();
         if (!$reminder) {
@@ -39,15 +38,14 @@ class BirthdayReminderController extends Controller
     // 1. Get Birthday Reminder Statistics
     public function stats($salonId)
     {
-        // نمونه آمار: تعداد کل گروه‌ها، تعداد فعال، تعداد پیام‌های امروز و ...
-        $totalGroups = CustomerGroup::where('salon_id', $salonId)->count();
+         $totalGroups = CustomerGroup::where('salon_id', $salonId)->count();
         $activeGroups = BirthdayReminderCustomerGroup::whereHas('birthdayReminder', function($q) use ($salonId) {
             $q->where('salon_id', $salonId);
         })->where('is_active', true)->count();
         $pendingReminders = BirthdayReminderCustomerGroup::where('is_active', true)->whereHas('birthdayReminder', function($q) use ($salonId) {
             $q->where('salon_id', $salonId);
         })->count();
-        $messagesSentToday = 0; // باید با جدول پیامک‌ها شمارش شود
+        $messagesSentToday = 0;  
         $coverage = $totalGroups ? round(($activeGroups / $totalGroups) * 100, 2) : 0;
         return response()->json([
             'total_groups' => $totalGroups,
@@ -58,8 +56,7 @@ class BirthdayReminderController extends Controller
         ]);
     }
 
-    // 2. Get Customer Groups with Birthday Reminder Settings
-    public function groups(Request $request, $salonId)
+     public function groups(Request $request, $salonId)
     {
         $search = $request->get('search');
         $reminder_status = $request->get('reminder_status');
@@ -72,13 +69,11 @@ class BirthdayReminderController extends Controller
             });
         }
         if ($sort_by === 'name') $query->orderBy('name');
-        // اضافه کردن تعداد مشتریان در هر گروه
-        $groups = $query->with(['birthdayReminders'])->withCount('customers')->get();
+         $groups = $query->with(['birthdayReminders'])->withCount('customers')->get();
         return response()->json($groups);
     }
 
-    // 3. Get SMS Templates for Birthday (admin-defined, like renewal-reminders/templates)
-    public function templates(Request $request)
+     public function templates(Request $request)
     {
         $category = \App\Models\SmsTemplateCategory::whereNull('salon_id')
             ->where('name', 'تبریک تولد')
@@ -102,15 +97,13 @@ class BirthdayReminderController extends Controller
         ]);
     }
 
-    // 4. Get Birthday Reminder Summary
-    public function summary($salonId)
+     public function summary($salonId)
     {
         $reminder = BirthdayReminder::where('salon_id', $salonId)->with('customerGroups')->first();
         return response()->json($reminder);
     }
 
-    // 5. Update Birthday Reminder Settings for Groups
-    public function updateSettings(Request $request, $salonId)
+     public function updateSettings(Request $request, $salonId)
     {
         $data = $request->all();
         $reminder = BirthdayReminder::firstOrCreate([
@@ -162,8 +155,7 @@ class BirthdayReminderController extends Controller
         return response()->json($response);
     }
 
-    // 6. Enable/Disable Birthday Reminder for a Group
-    public function toggleGroup(Request $request, $salonId, $groupId)
+     public function toggleGroup(Request $request, $salonId, $groupId)
     {
         $reminder = BirthdayReminder::where('salon_id', $salonId)->firstOrFail();
         $groupSetting = BirthdayReminderCustomerGroup::where('birthday_reminder_id', $reminder->id)

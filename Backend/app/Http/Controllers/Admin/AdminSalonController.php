@@ -13,12 +13,15 @@ use App\Models\SalonSmsBalance;
 use Carbon\Carbon;
 use App\Models\SmsTransaction;
 use App\Models\SalonNote;
+use App\Models\Package;
+use App\Models\UserPackage;
 use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Hekmatinasser\Verta\Verta; // Using Hekmatinasser\Verta\Verta package
+use Illuminate\Support\Facades\DB;
 
 class AdminSalonController extends Controller
 {
@@ -577,5 +580,172 @@ class AdminSalonController extends Controller
         ];
 
         return $ranges[$range] ?? null;
+    }
+
+    /**
+     * Get available feature packages for a salon
+     */
+    public function getFeaturePackages(Salon $salon)
+    {
+        try {
+            // Get all active packages
+            $packages = Package::with('options')
+                ->where('is_active', true)
+                ->get();
+            
+            // Get current active package for this salon
+            $currentPackage = UserPackage::with(['package.options'])
+                ->where('salon_id', $salon->id)
+                ->where('status', 'active')
+                ->where('expires_at', '>', now())
+                ->first();
+            
+            // Transform packages data
+            $transformedPackages = $packages->map(function ($package) use ($currentPackage) {
+                return [
+                    'id' => $package->id,
+                    'name' => $package->name,
+                    'description' => $package->description,
+                    'price' => (int) $package->price,
+                    'formatted_price' => number_format($package->price / 10) . ' تومان',
+                    'gift_sms_count' => $package->gift_sms_count,
+                    'duration_days' => $package->duration_days,
+                    'is_active' => $package->is_active,
+                    'is_current' => $currentPackage && $currentPackage->package_id === $package->id,
+                    'options' => $package->options->map(function ($option) {
+                        return [
+                            'id' => $option->id,
+                            'name' => $option->name,
+                            'details' => $option->details,
+                        ];
+                    }),
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'salon' => [
+                        'id' => $salon->id,
+                        'name' => $salon->name,
+                        'owner_name' => $salon->user->name ?? 'نامشخص',
+                    ],
+                    'packages' => $transformedPackages,
+                    'current_package' => $currentPackage ? [
+                        'id' => $currentPackage->id,
+                        'package_name' => $currentPackage->package->name,
+                        'expires_at' => $currentPackage->expires_at->format('Y-m-d H:i:s'),
+                        'expires_at_shamsi' => verta($currentPackage->expires_at)->format('Y/m/d H:i'),
+                        'days_remaining' => now()->diffInDays($currentPackage->expires_at),
+                        'status' => $currentPackage->status,
+                        'options' => $currentPackage->package->options->map(function ($option) {
+                            return [
+                                'id' => $option->id,
+                                'name' => $option->name,
+                                'details' => $option->details,
+                            ];
+                        }),
+                    ] : null,
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'خطا در بارگذاری پکیج‌های امکانات',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Activate a feature package for a salon (Admin action)
+     */
+    public function activateFeaturePackage(Request $request, Salon $salon)
+    {
+        $request->validate([
+            'package_id' => 'required|exists:packages,id',
+            'duration_months' => 'nullable|integer|min:1|max:12'
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $package = Package::findOrFail($request->package_id);
+            $durationMonths = $request->duration_months ?? ($package->duration_days ? ceil($package->duration_days / 30) : 1);
+
+            // Deactivate current active package
+            UserPackage::where('salon_id', $salon->id)
+                ->where('status', 'active')
+                ->update(['status' => 'expired']);
+
+            // Create new user package
+            $userPackage = UserPackage::create([
+                'user_id' => $salon->user_id,
+                'salon_id' => $salon->id,
+                'package_id' => $package->id,
+                'amount_paid' => 0, // Admin activation - no payment
+                'status' => 'active',
+                'purchased_at' => now(),
+                'expires_at' => now()->addMonths($durationMonths),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'پکیج امکانات با موفقیت فعال شد',
+                'data' => [
+                    'package_name' => $package->name,
+                    'salon_name' => $salon->name,
+                    'expires_at' => $userPackage->expires_at->format('Y-m-d H:i:s'),
+                    'expires_at_shamsi' => verta($userPackage->expires_at)->format('Y/m/d H:i'),
+                    'duration_months' => $durationMonths,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'خطا در فعال‌سازی پکیج امکانات: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Deactivate current feature package for a salon (Admin action)
+     */
+    public function deactivateFeaturePackage(Salon $salon)
+    {
+        try {
+            $activePackage = UserPackage::where('salon_id', $salon->id)
+                ->where('status', 'active')
+                ->first();
+
+            if (!$activePackage) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'هیچ پکیج فعالی برای این سالن یافت نشد'
+                ], 404);
+            }
+
+            $activePackage->update(['status' => 'cancelled']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'پکیج امکانات با موفقیت غیرفعال شد',
+                'data' => [
+                    'package_name' => $activePackage->package->name,
+                    'salon_name' => $salon->name,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'خطا در غیرفعال‌سازی پکیج امکانات: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

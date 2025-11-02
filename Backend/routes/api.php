@@ -340,6 +340,14 @@ Route::middleware('auth:api')->group(function () {
 
 Route::get('/banners', [ApiBannerController::class, 'index']);
 
+// Public proxy endpoint used to forward gateway redirects to mobile deep-links.
+// Example: gateway will be given
+// https://api.example.com/api/payment/callback-proxy?app_return=return%3A%2F%2Fziboxcrm.ir
+// and after gateway redirects here with Authority/Status params, this proxy
+// will redirect the browser to the app deep-link with those params appended.
+Route::get('payment/callback-proxy', [\App\Http\Controllers\PaymentGatewayController::class, 'callbackProxy'])
+    ->name('payment.callback_proxy');
+
 Route::middleware('auth:api')->post('/appointments/{appointment}/send-satisfaction-survey', [SatisfactionController::class, 'sendSurvey'])->name('api.appointments.send-satisfaction-survey');
 
 Route::fallback(function(){
