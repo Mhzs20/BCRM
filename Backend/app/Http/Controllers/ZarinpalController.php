@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
 use Shetabit\Multipay\Invoice;
 use Shetabit\Payment\Facade\Payment;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Shetabit\Multipay\Exceptions\InvalidPaymentException;
 
 class ZarinpalController extends Controller
@@ -138,7 +139,36 @@ class ZarinpalController extends Controller
             $invoice->detail('mobile', $user->mobile);
 
             // 1. Create the payment object and set the callback URL.
-            $payment = Payment::via('zarinpal')->callbackUrl($request->callback_url);
+            // If client provided a custom URI scheme (e.g. return://ziboxcrm.ir),
+            // most gateways validate callback domains and may reject non-http(s)
+            // schemes. To support deep-links, we proxy the gateway callback
+            // through a public endpoint on this server and include the original
+            // deep-link as `app_return` query parameter so the proxy can redirect
+            // the user's browser back into the app after payment.
+            // Security: Only return://ziboxcrm.ir is allowed to prevent arbitrary redirects.
+            $providedCallback = $request->callback_url;
+            if (Str::startsWith($providedCallback, ['http://', 'https://']) === false) {
+                // Validate that only our specific app scheme is allowed
+                if ($providedCallback !== 'return://ziboxcrm.ir') {
+                    Log::warning('Unauthorized callback scheme in purchase request', [
+                        'callback_url' => $providedCallback,
+                        'user_id' => $user->id,
+                        'ip' => $request->ip(),
+                        'user_agent' => $request->userAgent(),
+                    ]);
+                    return response()->json([
+                        'status' => 'NOK',
+                        'message' => 'callback_url نامعتبر است.',
+                    ], 400);
+                }
+                
+                // Build a proxy callback URL hosted on this API that will forward
+                // the gateway response to the app deep-link.
+                $proxy = route('payment.callback_proxy') . '?app_return=' . urlencode($providedCallback);
+                $payment = Payment::via('zarinpal')->callbackUrl($proxy);
+            } else {
+                $payment = Payment::via('zarinpal')->callbackUrl($providedCallback);
+            }
 
             // 2. Prepare the invoice and the transaction callback.
             $payment->purchase(

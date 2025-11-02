@@ -3,6 +3,40 @@
 @section('title', 'پروفایل سالن: ' . $salon->name)
 
 @section('content')
+<style>
+    /* Force modals to appear above everything */
+    .modal-overlay {
+        z-index: 999999 !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+    }
+    .modal-content {
+        z-index: 1000000 !important;
+        position: fixed !important;
+    }
+    /* Hide sidebar when modal is open */
+    body.modal-open aside,
+    body.modal-open .sidebar,
+    body.modal-open [data-sidebar] {
+        z-index: 10 !important;
+    }
+    /* Ensure modal portal */
+    .modal-portal {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 999999 !important;
+        pointer-events: none;
+    }
+    .modal-portal.active {
+        pointer-events: auto;
+    }
+</style>
 <div class="container mx-auto px-4 py-6">
     <h1 class="text-3xl font-extrabold text-gray-900 mb-8 text-center font-sans">پروفایل سالن: {{ $salon->name }}</h1>
 
@@ -118,6 +152,9 @@
             <button type="button" onclick="openDiscountCodesModal({{ $salon->id }})" class="btn-action bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500">
                 <i class="ri-coupon-line ml-2"></i> کدهای تخفیف فعال
             </button>
+            <button type="button" onclick="openFeaturePackagesModal({{ $salon->id }})" class="btn-action bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500">
+                <i class="ri-gift-line ml-2"></i> مدیریت پکیج امکانات
+            </button>
             <button type="button" onclick="openNoteModal({{ $salon->id }})" class="btn-action bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500">
                 <i class="ri-sticky-note-line ml-2"></i> افزودن یادداشت
             </button>
@@ -130,6 +167,46 @@
         </div>
     </div>
 
+    <!-- Feature Packages Section -->
+    <div class="bg-white shadow-xl rounded-lg p-8 mb-8">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 border-b-2 border-emerald-500 pb-2">
+                <i class="ri-gift-line text-emerald-600 ml-2"></i>
+                مدیریت پکیج امکانات
+            </h2>
+            <button type="button" onclick="openFeaturePackagesModal({{ $salon->id }})" class="inline-flex items-center px-4 py-2 bg-emerald-600 border border-transparent rounded-md font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition ease-in-out duration-150">
+                <i class="ri-settings-3-line ml-2"></i>
+                مدیریت پکیج‌ها
+            </button>
+        </div>
+
+        <div id="currentPackageInfo" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Current Package Status -->
+            <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-6 border border-emerald-200">
+                <div class="flex items-center mb-4">
+                    <i class="ri-shield-check-line text-3xl text-emerald-600 ml-3"></i>
+                    <h3 class="text-lg font-semibold text-emerald-900">وضعیت پکیج فعلی</h3>
+                </div>
+                <div id="packageStatus" class="text-center text-gray-500">
+                    <i class="ri-loader-4-line animate-spin text-2xl mb-2"></i>
+                    <p>در حال بارگذاری...</p>
+                </div>
+            </div>
+
+            <!-- Package Features -->
+            <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
+                <div class="flex items-center mb-4">
+                    <i class="ri-star-line text-3xl text-blue-600 ml-3"></i>
+                    <h3 class="text-lg font-semibold text-blue-900">امکانات فعال</h3>
+                </div>
+                <div id="packageFeatures" class="text-center text-gray-500">
+                    <i class="ri-loader-4-line animate-spin text-2xl mb-2"></i>
+                    <p>در حال بارگذاری...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Modals --}}
     @include('admin.salons.modals.edit_salon_modal', ['salon' => $salon, 'businessCategories' => $businessCategories, 'businessSubcategories' => $businessSubcategories, 'provinces' => $provinces, 'cities' => $cities])
     @include('admin.salons.modals.toggle_status_modal', ['salon' => $salon])
@@ -138,16 +215,32 @@
     @include('admin.salons.modals.add_sms_credit_modal', ['salon' => $salon])
     @include('admin.salons.modals.reduce_sms_credit_modal', ['salon' => $salon])
     @include('admin.salons.modals.discount_codes_modal', ['salon' => $salon])
+    @include('admin.salons.modals.feature_packages_modal', ['salon' => $salon])
 </div>
 
 <script>
     // General modal open/close functions
     function openModal(modalId) {
-        document.getElementById(modalId).classList.remove('hidden');
+        const modal = document.getElementById(modalId);
+        modal.classList.remove('hidden');
+        document.body.classList.add('modal-open');
+        
+        // Move modal to body to ensure it's on top
+        if (modal.parentNode !== document.body) {
+            document.body.appendChild(modal);
+        }
+        
+        // Force highest z-index
+        modal.style.zIndex = '999999';
+        const modalContent = modal.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.style.zIndex = '1000000';
+        }
     }
 
     function closeModal(modalId) {
         document.getElementById(modalId).classList.add('hidden');
+        document.body.classList.remove('modal-open');
     }
 
     // Specific modal functions
@@ -191,6 +284,11 @@
     function openDiscountCodesModal(salonId) {
         openModal('discountCodesModal');
         loadDiscountCodes(salonId);
+    }
+
+    function openFeaturePackagesModal(salonId) {
+        openModal('featurePackagesModal');
+        loadFeaturePackages(salonId);
     }
 
     function loadDiscountCodes(salonId) {
@@ -356,6 +454,305 @@
         if (event.target.id === 'discountCodesModal') {
             closeModal('discountCodesModal');
         }
+        if (event.target.id === 'featurePackagesModal') {
+            closeModal('featurePackagesModal');
+        }
+        if (event.target.id === 'packageActivationModal') {
+            closeModal('packageActivationModal');
+        }
     }
+
+    // Feature Packages Functions
+    let currentSalonId = null;
+    let currentPackageData = null;
+
+    function loadFeaturePackages(salonId) {
+        currentSalonId = salonId;
+        const loadingElement = document.getElementById('featurePackagesLoading');
+        const contentElement = document.getElementById('featurePackagesContent');
+        
+        loadingElement.classList.remove('hidden');
+        contentElement.classList.add('hidden');
+        
+        fetch(`/admin/salons/${salonId}/feature-packages`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            currentPackageData = data.data;
+            loadingElement.classList.add('hidden');
+            contentElement.classList.remove('hidden');
+            
+            displayCurrentPackage(data.data.current_package);
+            displayAvailablePackages(data.data.packages);
+            updatePagePackageInfo(data.data.current_package);
+        })
+        .catch(error => {
+            console.error('Error loading feature packages:', error);
+            loadingElement.classList.add('hidden');
+            contentElement.classList.remove('hidden');
+            
+            document.getElementById('currentPackageDisplay').innerHTML = `
+                <div class="text-center py-8">
+                    <i class="ri-error-warning-line text-4xl text-red-300 mb-4"></i>
+                    <p class="text-red-500">خطا در بارگذاری پکیج‌های امکانات</p>
+                    <button onclick="loadFeaturePackages(${salonId})" class="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
+                        تلاش مجدد
+                    </button>
+                </div>
+            `;
+        });
+    }
+
+    function displayCurrentPackage(currentPackage) {
+        const currentPackageDisplay = document.getElementById('currentPackageDisplay');
+        const deactivateBtn = document.getElementById('deactivatePackageBtn');
+        
+        if (currentPackage) {
+            currentPackageDisplay.innerHTML = `
+                <div class="bg-white rounded-lg p-4 border border-emerald-300">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h5 class="font-bold text-emerald-900 text-lg">${currentPackage.package_name}</h5>
+                            <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full">فعال</span>
+                        </div>
+                        <div class="text-left text-sm text-emerald-700">
+                            <p><i class="ri-calendar-line ml-1"></i>انقضا: ${currentPackage.expires_at_shamsi}</p>
+                            <p><i class="ri-time-line ml-1"></i>باقی‌مانده: ${currentPackage.days_remaining} روز</p>
+                        </div>
+                    </div>
+                    <div class="text-sm text-gray-600">
+                        <p class="mb-2"><strong>امکانات فعال:</strong></p>
+                        <div class="flex flex-wrap gap-1">
+                            ${currentPackage.options.map(option => `
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    <i class="ri-check-line ml-1"></i>${option.name}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            deactivateBtn.classList.remove('hidden');
+        } else {
+            currentPackageDisplay.innerHTML = `
+                <div class="text-center py-8">
+                    <i class="ri-gift-line text-4xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500 text-lg">هیچ پکیج فعالی برای این سالن موجود نیست</p>
+                    <p class="text-gray-400 text-sm mt-2">یکی از پکیج‌های زیر را انتخاب کنید</p>
+                </div>
+            `;
+            deactivateBtn.classList.add('hidden');
+        }
+    }
+
+    function displayAvailablePackages(packages) {
+        const packagesList = document.getElementById('packagesList');
+        
+        if (packages && packages.length > 0) {
+            packagesList.innerHTML = packages.map(pkg => `
+                <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-150 ${pkg.is_current ? 'ring-2 ring-emerald-500 bg-emerald-50' : ''}">
+                    <div class="flex justify-between items-start mb-3">
+                        <h5 class="font-bold text-gray-900">${pkg.name}</h5>
+                        ${pkg.is_current ? '<span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full">فعال</span>' : ''}
+                    </div>
+                    
+                    <p class="text-sm text-gray-600 mb-3">${pkg.description || 'توضیحی ندارد'}</p>
+                    
+                    <div class="text-sm text-gray-500 mb-3">
+                        <p><i class="ri-money-dollar-circle-line ml-1"></i>قیمت: ${pkg.formatted_price}</p>
+                        <p><i class="ri-calendar-line ml-1"></i>مدت: ${pkg.duration_days} روز</p>
+                        ${pkg.gift_sms_count ? `<p><i class="ri-message-line ml-1"></i>پیامک هدیه: ${pkg.gift_sms_count}</p>` : ''}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <p class="text-xs text-gray-500 mb-1">امکانات:</p>
+                        <div class="flex flex-wrap gap-1">
+                            ${pkg.options.map(option => `
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    ${option.name}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <button 
+                        type="button" 
+                        onclick="confirmPackageActivation(${pkg.id}, '${pkg.name}')"
+                        class="w-full ${pkg.is_current ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-600'} text-white font-bold py-2 px-4 rounded"
+                        ${pkg.is_current ? 'disabled' : ''}
+                    >
+                        <i class="ri-${pkg.is_current ? 'check' : 'play'}-line ml-1"></i>
+                        ${pkg.is_current ? 'پکیج فعال' : 'فعال‌سازی'}
+                    </button>
+                </div>
+            `).join('');
+        } else {
+            packagesList.innerHTML = `
+                <div class="col-span-full text-center py-8">
+                    <i class="ri-inbox-line text-4xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500">هیچ پکیج امکاناتی موجود نیست</p>
+                </div>
+            `;
+        }
+    }
+
+    function updatePagePackageInfo(currentPackage) {
+        const packageStatus = document.getElementById('packageStatus');
+        const packageFeatures = document.getElementById('packageFeatures');
+        
+        if (currentPackage) {
+            packageStatus.innerHTML = `
+                <div>
+                    <h4 class="font-bold text-emerald-900 text-lg mb-1">${currentPackage.package_name}</h4>
+                    <p class="text-sm text-emerald-700">
+                        <i class="ri-calendar-line ml-1"></i>تا ${currentPackage.expires_at_shamsi} (${currentPackage.days_remaining} روز)
+                    </p>
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 mt-2">
+                        <i class="ri-check-circle-line ml-1"></i>فعال
+                    </span>
+                </div>
+            `;
+            
+            packageFeatures.innerHTML = `
+                <div class="space-y-2">
+                    ${currentPackage.options.map(option => `
+                        <div class="flex items-center text-sm text-blue-800">
+                            <i class="ri-check-line text-blue-600 ml-2"></i>
+                            <span>${option.name}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } else {
+            packageStatus.innerHTML = `
+                <div class="text-center">
+                    <i class="ri-close-circle-line text-2xl text-gray-400 mb-2"></i>
+                    <p class="text-gray-600">پکیج فعالی ندارد</p>
+                    <button onclick="openFeaturePackagesModal(${currentSalonId || '{{ $salon->id }}'})" class="mt-2 text-emerald-600 hover:text-emerald-800 text-sm">
+                        انتخاب پکیج
+                    </button>
+                </div>
+            `;
+            
+            packageFeatures.innerHTML = `
+                <div class="text-center">
+                    <i class="ri-information-line text-2xl text-gray-400 mb-2"></i>
+                    <p class="text-gray-600">امکانات خاصی فعال نیست</p>
+                </div>
+            `;
+        }
+    }
+
+    function confirmPackageActivation(packageId, packageName) {
+        document.getElementById('selectedPackageName').textContent = packageName;
+        document.getElementById('confirmActivationBtn').onclick = () => activatePackage(packageId);
+        openModal('packageActivationModal');
+    }
+
+    function activatePackage(packageId) {
+        const modalContent = document.getElementById('activationModalContent');
+        const loadingState = document.getElementById('activationLoadingState');
+        const durationMonths = document.getElementById('durationMonths').value;
+        
+        modalContent.classList.add('hidden');
+        loadingState.classList.remove('hidden');
+        
+        fetch(`/admin/salons/${currentSalonId}/feature-packages/activate`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({
+                package_id: packageId,
+                duration_months: parseInt(durationMonths)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('success', data.message);
+                closeModal('packageActivationModal');
+                loadFeaturePackages(currentSalonId); // Reload the packages
+            } else {
+                throw new Error(data.message || 'خطا در فعال‌سازی پکیج');
+            }
+        })
+        .catch(error => {
+            console.error('Error activating package:', error);
+            showNotification('error', 'خطا در فعال‌سازی پکیج: ' + error.message);
+        })
+        .finally(() => {
+            modalContent.classList.remove('hidden');
+            loadingState.classList.add('hidden');
+        });
+    }
+
+    function deactivateCurrentPackage(salonId) {
+        if (!confirm('آیا مطمئن هستید که می‌خواهید پکیج فعلی را غیرفعال کنید؟')) {
+            return;
+        }
+        
+        fetch(`/admin/salons/${salonId}/feature-packages/deactivate`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('success', data.message);
+                loadFeaturePackages(salonId); // Reload the packages
+            } else {
+                throw new Error(data.message || 'خطا در غیرفعال‌سازی پکیج');
+            }
+        })
+        .catch(error => {
+            console.error('Error deactivating package:', error);
+            showNotification('error', 'خطا در غیرفعال‌سازی پکیج: ' + error.message);
+        });
+    }
+
+    function showNotification(type, message) {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `fixed top-5 left-5 z-50 p-4 rounded-lg shadow-lg ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`;
+        notification.innerHTML = `
+            <div class="flex items-center">
+                <i class="ri-${type === 'success' ? 'check-circle' : 'error-warning'}-line text-xl ml-2"></i>
+                <span>${message}</span>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Remove notification after 3 seconds
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
+
+    // Load feature packages info on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadFeaturePackages({{ $salon->id }});
+    });
 </script>
 @endsection

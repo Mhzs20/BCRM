@@ -90,6 +90,11 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
     Route::post('salons/{salon}/add-sms-credit', [AdminSalonController::class, 'addSmsCredit'])->name('salons.add-sms-credit');
     Route::post('salons/{salon}/reduce-sms-credit', [AdminSalonController::class, 'reduceSmsCredit'])->name('salons.reduce-sms-credit');
     Route::get('salons/{salon}/active-discount-codes', [AdminSalonController::class, 'getActiveDiscountCodes'])->name('salons.active-discount-codes');
+    
+    // Feature Packages Management
+    Route::get('salons/{salon}/feature-packages', [AdminSalonController::class, 'getFeaturePackages'])->name('salons.feature-packages');
+    Route::post('salons/{salon}/feature-packages/activate', [AdminSalonController::class, 'activateFeaturePackage'])->name('salons.activate-feature-package');
+    Route::post('salons/{salon}/feature-packages/deactivate', [AdminSalonController::class, 'deactivateFeaturePackage'])->name('salons.deactivate-feature-package');
 
     // Bulk SMS Gift
     Route::get('bulk-sms-gift', [AdminBulkSmsGiftController::class, 'index'])->name('bulk-sms-gift.index');
