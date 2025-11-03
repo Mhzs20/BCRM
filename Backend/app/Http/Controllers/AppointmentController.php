@@ -486,7 +486,7 @@ class AppointmentController extends Controller
 
             if (isset($validated['service_ids']) && !in_array(-1, $validated['service_ids'])) {
                 $query->whereHas('services', function ($q) use ($validated) {
-                    $q->whereIn('id', $validated['service_ids']);
+                    $q->whereIn('services.id', $validated['service_ids']);
                 });
             }
 
@@ -501,8 +501,7 @@ class AppointmentController extends Controller
         }
 
         /**
-         * بازه‌های خالی سالن با قابلیت pagination
-         */
+          */
         public function getAvailableSlotsPaginated(GetAvailableSlotsRequest $request, $salon_id)
         {
             $validated = $request->validated();
@@ -525,7 +524,7 @@ class AppointmentController extends Controller
 
                 if (isset($validated['service_ids']) && !in_array(-1, $validated['service_ids'])) {
                     $query->whereHas('services', function ($q) use ($validated) {
-                        $q->whereIn('id', $validated['service_ids']);
+                        $q->whereIn('services.id', $validated['service_ids']);
                     });
                 }
 
@@ -556,9 +555,7 @@ class AppointmentController extends Controller
             return response()->json(['data' => AppointmentResource::collection($appointments)]);
     }
     /**
-     * یک تابع کمکی خصوصی برای محاسبه دقیق بازه تاریخ یک ماه شمسی.
-     * این تابع از تکرار کد جلوگیری کرده و صحت محاسبات را تضمین می‌کند.
-     * @param int $year سال شمسی
+      * @param int $year سال شمسی
      * @param int $month ماه شمسی
      * @return array [Carbon $startDate, Carbon $endDate]
      */
@@ -566,12 +563,10 @@ class AppointmentController extends Controller
     {
         $paddedMonth = str_pad($month, 2, '0', STR_PAD_LEFT);
 
-        // تاریخ شروع ماه شمسی
-        $jalaliStartDate = Jalalian::fromFormat('Y-m-d', "$year-$paddedMonth-01");
+         $jalaliStartDate = Jalalian::fromFormat('Y-m-d', "$year-$paddedMonth-01");
         $startDate = $jalaliStartDate->toCarbon()->startOfDay();
 
-        // محاسبه دقیق تاریخ پایان ماه شمسی
-        $daysInMonth = $jalaliStartDate->getMonthDays();
+         $daysInMonth = $jalaliStartDate->getMonthDays();
         $jalaliEndDate = Jalalian::fromFormat('Y-m-d', "$year-$paddedMonth-$daysInMonth");
         $endDate = $jalaliEndDate->toCarbon()->endOfDay();
 
