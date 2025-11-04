@@ -236,13 +236,13 @@ class AdminTransactionController extends Controller
             $salonSmsBalance->increment('balance', $package->gift_sms_count);
 
             // Create SMS transaction record for gift
-            // \App\Models\SmsTransaction::create([
-            //     'salon_id' => $order->salon_id,
-            //     'type' => 'gift',
-            //     'amount' => $package->gift_sms_count,
-            //     'description' => "هدیه بسته امکانات - سفارش {$order->id}",
-            //     'status' => 'completed',
-            // ]);
+            \App\Models\SmsTransaction::create([
+                'salon_id' => $order->salon_id,
+                'type' => 'gift',
+                'amount' => $package->gift_sms_count,
+                'description' => "هدیه بسته امکانات - سفارش {$order->id}",
+                'status' => 'completed',
+            ]);
         }
     }
 }

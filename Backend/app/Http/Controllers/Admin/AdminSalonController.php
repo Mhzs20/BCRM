@@ -659,7 +659,6 @@ class AdminSalonController extends Controller
     }
 
     /**
-     * Activate a feature package for a salon (Admin action)
      */
     public function activateFeaturePackage(Request $request, Salon $salon)
     {
@@ -674,21 +673,37 @@ class AdminSalonController extends Controller
             $package = Package::findOrFail($request->package_id);
             $durationMonths = $request->duration_months ?? ($package->duration_days ? ceil($package->duration_days / 30) : 1);
 
-            // Deactivate current active package
             UserPackage::where('salon_id', $salon->id)
                 ->where('status', 'active')
                 ->update(['status' => 'expired']);
 
-            // Create new user package
             $userPackage = UserPackage::create([
                 'user_id' => $salon->user_id,
                 'salon_id' => $salon->id,
                 'package_id' => $package->id,
-                'amount_paid' => 0, // Admin activation - no payment
+                'amount_paid' => 0, 
                 'status' => 'active',
                 'purchased_at' => now(),
                 'expires_at' => now()->addMonths($durationMonths),
             ]);
+
+            // If package has gift SMS, increment salon SMS balance
+            if ($package && $package->gift_sms_count > 0) {
+                $salonSmsBalance = \App\Models\SalonSmsBalance::firstOrCreate(
+                    ['salon_id' => $salon->id],
+                    ['balance' => 0]
+                );
+                $salonSmsBalance->increment('balance', $package->gift_sms_count);
+
+                // Create SMS transaction record for gift
+                \App\Models\SmsTransaction::create([
+                    'salon_id' => $salon->id,
+                    'type' => 'gift',
+                    'amount' => $package->gift_sms_count,
+                    'description' => "هدیه فعال‌سازی پکیج {$package->name}",
+                    'status' => 'completed',
+                ]);
+            }
 
             DB::commit();
 
