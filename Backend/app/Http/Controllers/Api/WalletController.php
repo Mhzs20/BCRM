@@ -519,13 +519,13 @@ class WalletController extends Controller
             $salonSmsBalance->increment('balance', $package->gift_sms_count);
 
             // Create SMS transaction record for gift
-            // \App\Models\SmsTransaction::create([
-            //     'salon_id' => $order->salon_id,
-            //     'type' => 'gift',
-            //     'amount' => $package->gift_sms_count,
-            //     'description' => "هدیه بسته امکانات - سفارش {$order->id}",
-            //     'status' => 'completed',
-            // ]);
+            \App\Models\SmsTransaction::create([
+                'salon_id' => $order->salon_id,
+                'type' => 'gift',
+                'amount' => $package->gift_sms_count,
+                'description' => "هدیه بسته امکانات - سفارش {$order->id}",
+                'status' => 'completed',
+            ]);
         }
     }
 
@@ -536,7 +536,7 @@ class WalletController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'amount' => 'required|numeric|min:10000|max:50000000', // حداقل 10 هزار تومان، حداکثر 50 میلیون
+                'amount' => 'required|numeric|min:10000|max:50000000', 
                 'description' => 'nullable|string|max:255',
             ]);
             
