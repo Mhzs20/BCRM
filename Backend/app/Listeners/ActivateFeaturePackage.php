@@ -86,6 +86,26 @@ class ActivateFeaturePackage implements ShouldQueue
                     'expires_at' => $userPackage->expires_at
                 ]);
 
+                // 5. If package has gift SMS, increment salon SMS balance
+                if ($package && $package->gift_sms_count > 0) {
+                    $salonSmsBalance = \App\Models\SalonSmsBalance::firstOrCreate(
+                        ['salon_id' => $order->salon_id],
+                        ['balance' => 0]
+                    );
+                    $salonSmsBalance->increment('balance', $package->gift_sms_count);
+
+                    // Create SMS transaction record for gift
+                    \App\Models\SmsTransaction::create([
+                        'salon_id' => $order->salon_id,
+                        'type' => 'gift',
+                        'amount' => $package->gift_sms_count,
+                        'description' => "هدیه بسته امکانات - سفارش {$order->id}",
+                        'status' => 'completed',
+                    ]);
+
+                    Log::info("Added {$package->gift_sms_count} gift SMS to salon {$order->salon_id} for package {$package->name}");
+                }
+
                 // 4. Mark all *other* Transactions belonging to the same Order as 'expired'
                 $order->transactions()
                     ->where('id', '!=', $successfulTransaction->id)

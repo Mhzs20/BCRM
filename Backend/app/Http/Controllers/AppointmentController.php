@@ -24,7 +24,7 @@ use App\Services\AppointmentBookingService;
 use App\Services\SmsService;
 use App\Jobs\SendAppointmentConfirmationSms;
 use App\Jobs\SendAppointmentModificationSms;
-use Morilog\Jalali\Jalalian;
+use Morilog\Jalali\Jalalian;مم
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
@@ -39,13 +39,12 @@ class AppointmentController extends Controller
 {
     use StaffBreakTrait;
     /**
-     * بررسی تداخل‌های نوبت جدید با نوبت‌های موجود و استراحت‌های پرسنل
-     * @param int $salonId
+      * @param int $salonId
      * @param int $staffId
      * @param string $appointmentDate YYYY-MM-DD
      * @param string $startTime HH:MM
      * @param string $endTime HH:MM
-     * @param int|null $excludeAppointmentId ID نوبت برای حذف از بررسی (برای آپدیت)
+     * @param int|null $excludeAppointmentId ID  
      * @return array 
      */
     private function getAppointmentConflicts($salonId, $staffId, $appointmentDate, $startTime, $endTime, $excludeAppointmentId = null)
@@ -55,12 +54,10 @@ class AppointmentController extends Controller
 
         $conflicts = [];
 
-        // بررسی تداخل با استراحت‌های پرسنل
-        $staffBreakConflicts = $this->getStaffBreakConflicts($staffId, $appointmentDate, $startTime, $endTime);
+         $staffBreakConflicts = $this->getStaffBreakConflicts($staffId, $appointmentDate, $startTime, $endTime);
         $conflicts = array_merge($conflicts, $staffBreakConflicts);
 
-        // بررسی تداخل با نوبت‌های موجود
-        $query = Appointment::where('salon_id', $salonId)
+         $query = Appointment::where('salon_id', $salonId)
             ->where('appointment_date', $appointmentDate)
             ->where('status', '!=', 'canceled')
             ->with(['customer', 'services']);
@@ -91,8 +88,7 @@ class AppointmentController extends Controller
             }
         }
 
-        // بررسی تداخل با نوبت‌های در حال انتظار (pending appointments)
-        $pendingQuery = PendingAppointment::where('salon_id', $salonId)
+         $pendingQuery = PendingAppointment::where('salon_id', $salonId)
             ->where('appointment_date', $appointmentDate)
             ->notExpired()
             ->with(['customer']); // Load customer relationship
@@ -181,7 +177,6 @@ class AppointmentController extends Controller
             return response()->json(['message' => 'یکی از سرویس‌های انتخاب شده غیر فعال است و امکان ثبت نوبت وجود ندارد.'], 422);
         }
 
-        // بررسی تداخل‌ها
         $startTime = $validatedData['start_time'];
         $totalDuration = $validatedData['total_duration'] ?? 0;
         $endTime = Carbon::parse($startTime)->addMinutes($totalDuration)->format('H:i');
@@ -271,14 +266,11 @@ class AppointmentController extends Controller
             
             DB::commit();
 
-            // Load relationships before dispatching the job
-            $appointment->load(['customer', 'staff', 'services']);
+             $appointment->load(['customer', 'staff', 'services']);
 
-            // Get template ID for SMS
-            $templateId = $finalAppointmentData['confirmation_sms_template_id'] ?? null;
+             $templateId = $finalAppointmentData['confirmation_sms_template_id'] ?? null;
 
-            // Dispatch the job to send SMS in the background
-            SendAppointmentConfirmationSms::dispatch($customer, $appointment, $appointment->salon, $templateId);
+             SendAppointmentConfirmationSms::dispatch($customer, $appointment, $appointment->salon, $templateId);
             
             $message = 'نوبت با موفقیت ثبت شد. پیامک تایید به زودی ارسال خواهد شد.';
 
@@ -318,8 +310,7 @@ class AppointmentController extends Controller
 
         $validatedData = $request->validated();
 
-        // Always convert Jalali date to Gregorian before any processing
-        if (isset($validatedData['appointment_date'])) {
+         if (isset($validatedData['appointment_date'])) {
             try {
                 $jalaliDate = Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validatedData['appointment_date']));
                 $carbonDate = $jalaliDate->toCarbon('Asia/Tehran')->startOfDay(); // Explicitly set timezone and start of day
@@ -353,7 +344,7 @@ class AppointmentController extends Controller
         DB::beginTransaction();
 
         try {
-                // بررسی تداخل‌ها هنگام آپدیت
+           
                 $newEndTime = Carbon::parse($newStartTime)->addMinutes($newTotalDuration)->format('H:i');
                 $conflictingItems = $this->getAppointmentConflicts($salon->id, $newStaffId, $newDate, $newStartTime, $newEndTime, $appointment->id);
                 $hasConflicts = !empty($conflictingItems);
