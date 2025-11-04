@@ -58,8 +58,13 @@ class SmsCampaignController extends Controller
     {
         Gate::authorize('manageResources', $salon);
 
-        $query = $this->buildFilteredQuery($request, $salon);
-        $customers = $query->get();
+         if ($request->filled('part_of_name')) {
+            $namePart = $request->input('part_of_name');
+            $customers = $salon->customers()->where('sms_opt_out', false)->where('name', 'like', "%{$namePart}%")->get();
+        } else {
+            $query = $this->buildFilteredQuery($request, $salon);
+            $customers = $query->get();
+        }
         $customerCount = $customers->count();
         $totalCustomers = $salon->customers()->where('sms_opt_out', false)->count();
 
@@ -68,48 +73,39 @@ class SmsCampaignController extends Controller
                 'message' => 'هیچ مشتری‌ای با فیلترهای انتخابی یافت نشد.',
                 'customers' => [],
                 'total_customers_in_salon' => $totalCustomers,
-                'filters_applied' => $request->only(['min_age', 'max_age', 'profession_id', 'customer_group_id', 'how_introduced_id', 'min_appointments', 'max_appointments', 'min_payment', 'max_payment', 'customer_created_from', 'last_visit_from', 'satisfaction_min', 'satisfaction_max']),
+                'filters_applied' => $request->only([
+                    'part_of_name', 'satisfaction', 'gender', 'min_age', 'max_age', 
+                    'profession_id', 'customer_group_id', 'how_introduced_id', 
+                    'min_appointments', 'max_appointments', 'min_payment', 'max_payment', 
+                    'customer_created_from', 'last_visit_from', 'sms_template_id'
+                ]),
                 'error_type' => 'no_customers'
             ], 422);
         }
 
-        $message = $request->input('message', '');
         $usesTemplate = false;
         $smsTemplateId = null;
 
         if ($request->has('sms_template_id')) {
             $template = SalonSmsTemplate::find($request->input('sms_template_id'));
             if ($template) {
-                $message = $template->template;
                 $usesTemplate = true;
                 $smsTemplateId = $template->id;
             }
         }
 
-        $totalSmsParts = $customers->sum(function ($customer) use ($message) {
-            $finalMessage = str_replace('{customer_name}', $customer->name, $message);
-            return $this->smsService->calculateSmsCount($finalMessage);
-        });
-
-        $smsBalance = $salon->smsBalance()->first();
-        if (!$smsBalance || $smsBalance->balance < $totalSmsParts) {
-            $currentBalance = $smsBalance ? $smsBalance->balance : 0;
-            return response()->json([
-                'message' => 'اعتبار پیامک کافی نیست.',
-                'required_sms_count' => $totalSmsParts,
-                'current_balance' => $currentBalance,
-                'customers' => (new \Illuminate\Support\Collection([])),
-                'error_type' => 'insufficient_balance'
-            ], 422);
-        }
-
         $campaign = SmsCampaign::create([
             'salon_id' => $salon->id,
             'user_id' => Auth::id(),
-            'filters' => json_encode($request->validated(), JSON_UNESCAPED_UNICODE),
-            'message' => $message,
+            'filters' => json_encode($request->only([
+                'part_of_name', 'satisfaction', 'gender', 'min_age', 'max_age', 
+                'profession_id', 'customer_group_id', 'how_introduced_id', 
+                'min_appointments', 'max_appointments', 'min_payment', 'max_payment', 
+                'customer_created_from', 'last_visit_from', 'sms_template_id'
+            ]), JSON_UNESCAPED_UNICODE),
+            'message' => '',
             'customer_count' => $customerCount,
-            'total_cost' => $totalSmsParts,
+            'total_cost' => 0,
             'status' => 'draft',
             'approval_status' => $usesTemplate ? 'approved' : 'pending',
             'uses_template' => $usesTemplate,
@@ -145,12 +141,29 @@ class SmsCampaignController extends Controller
                 'approval_status' => $campaign->approval_status
             ], 422);
         }
+
+        // Validate and require message in submit stage
+        $request->validate([
+            'message' => 'required|string|max:1000',
+            'send_to_owner' => 'sometimes|boolean',
+        ]);
+
+        // Update campaign message before sending
+        $campaign->message = $request->input('message');
+        $campaign->save();
+
+        $sendToOwner = $request->boolean('send_to_owner', false);
         try {
-            DB::transaction(function () use ($salon, $campaign) {
+            DB::transaction(function () use ($salon, $campaign, $request, $sendToOwner) {
                 // Re-run & lock relevant data
                 $filters = is_string($campaign->filters) ? json_decode($campaign->filters, true) : $campaign->filters;
                 $filters = $filters ?: [];
                 $customers = $this->buildFilteredQuery(new Request($filters), $campaign->salon)->get();
+
+                 $deselectIds = $request->input('deselect_ids', []);
+                if (!empty($deselectIds)) {
+                    $customers = $customers->whereNotIn('id', $deselectIds);
+                }
 
                 // Build personalized messages
                 $messagesToInsert = $customers->map(function ($customer) use ($campaign) {
@@ -192,6 +205,15 @@ class SmsCampaignController extends Controller
                 if ($messagesToInsert->isNotEmpty()) {
                     $campaign->messages()->insert($messagesToInsert->toArray());
                 }
+
+                // Send SMS to salon owner if requested
+                if ($sendToOwner) {
+                    $ownerPhone = $salon->mobile ?? $salon->phone;
+                    if ($ownerPhone) {
+                        $ownerMessage = $campaign->message;
+                        app(\App\Services\SmsService::class)->sendSms($ownerPhone, $ownerMessage);
+                    }
+                }
             });
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 422);
@@ -210,12 +232,33 @@ class SmsCampaignController extends Controller
             'campaign_id' => $campaign->id,
             'requires_approval' => !$campaign->uses_template,
             'approval_status' => $campaign->approval_status,
+            'sent_to_owner' => $sendToOwner,
         ]);
     }
 
     private function buildFilteredQuery(Request $request, Salon $salon)
     {
         $query = $salon->customers()->where('sms_opt_out', false);
+        if ($request->filled('service_ids')) {
+            $serviceIds = $request->input('service_ids');
+            if (is_array($serviceIds) && count($serviceIds)) {
+                $query->whereIn('id', function($q) use ($salon, $serviceIds) {
+                    $q->select('customer_id')
+                      ->from('appointments')
+                      ->join('appointment_service', 'appointments.id', '=', 'appointment_service.appointment_id')
+                      ->where('appointments.salon_id', $salon->id)
+                      ->where('appointments.status', 'completed')
+                      ->whereIn('appointment_service.service_id', $serviceIds)
+                      ->groupBy('customer_id');
+                });
+            }
+        }
+
+        // فیلتر بر اساس قسمتی از نام
+        if ($request->filled('part_of_name')) {
+            $namePart = $request->input('part_of_name');
+            $query->where('name', 'like', "%{$namePart}%");
+        }
 
         if ($request->filled('min_age') || $request->filled('max_age')) {
             $query->whereNotNull('birth_date');
@@ -305,19 +348,27 @@ class SmsCampaignController extends Controller
             });
         }
 
-        if ($request->filled('satisfaction_min') || $request->filled('satisfaction_max')) {
-            $minSatisfaction = $request->input('satisfaction_min', 1);
-            $maxSatisfaction = $request->input('satisfaction_max', 5);
-            
-            $query->whereIn('id', function($q) use ($salon, $minSatisfaction, $maxSatisfaction) {
-                $q->select('customers.id')
-                  ->from('customers')
-                  ->join('appointments', 'customers.id', '=', 'appointments.customer_id')
-                  ->join('customer_feedback', 'appointments.id', '=', 'customer_feedback.appointment_id')
-                  ->where('appointments.salon_id', $salon->id)
-                  ->groupBy('customers.id')
-                  ->havingRaw('AVG(customer_feedback.rating) >= ? AND AVG(customer_feedback.rating) <= ?', [$minSatisfaction, $maxSatisfaction]);
-            });
+        if ($request->filled('satisfaction')) {
+            $satisfactionArr = $request->input('satisfaction');
+            if (is_array($satisfactionArr) && count($satisfactionArr)) {
+                $query->whereIn('id', function($q) use ($salon, $satisfactionArr) {
+                    $q->select('customers.id')
+                      ->from('customers')
+                      ->join('appointments', 'customers.id', '=', 'appointments.customer_id')
+                      ->join('customer_feedback', 'appointments.id', '=', 'customer_feedback.appointment_id')
+                      ->where('appointments.salon_id', $salon->id)
+                      ->groupBy('customers.id')
+                      ->havingRaw('ROUND(AVG(customer_feedback.rating)) IN (' . implode(',', $satisfactionArr) . ')');
+                });
+            }
+        }
+
+        // فیلتر جنسیت
+        if ($request->filled('gender')) {
+            $gender = $request->input('gender');
+            if (in_array($gender, ['male', 'female'])) {
+                $query->where('gender', $gender);
+            }
         }
 
         return $query;
@@ -578,6 +629,8 @@ class SmsCampaignController extends Controller
 
         $customerResource = \App\Http\Resources\CustomerSmsCampaignResource::collection($paginatedCustomers);
 
+        $enhancedFilters = $this->enhanceFiltersWithObjects($filters, $salon);
+
         return response()->json([
             'campaign_id' => $campaign->id,
             'customers' => $customerResource,
@@ -585,7 +638,7 @@ class SmsCampaignController extends Controller
             'current_page' => $paginatedCustomers->currentPage(),
             'per_page' => $paginatedCustomers->perPage(),
             'last_page' => $paginatedCustomers->lastPage(),
-            'filters_applied' => $filters,
+            'filters_applied' => $enhancedFilters,
         ]);
     }
 

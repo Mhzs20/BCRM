@@ -177,4 +177,50 @@ class PaymentGatewayController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Proxy gateway redirect to app deep-link.
+     *
+     * This endpoint is intentionally public: the payment gateway will redirect
+     * the user's browser here after payment. We take the original app deep-link
+     * provided by the client in the `app_return` query parameter and append the
+     * gateway's query params (e.g. Authority, Status) so the mobile app receives
+     * them when it opens.
+     * 
+     * Security: Only allows return://ziboxcrm.ir to prevent arbitrary deep-link redirects.
+     */
+    public function callbackProxy(Request $request)
+    {
+        $appReturn = $request->query('app_return');
+
+        if (empty($appReturn)) {
+            return response()->json(['message' => 'app_return parameter missing'], 400);
+        }
+
+        // Security: Only allow our specific app scheme to prevent arbitrary redirects
+        if ($appReturn !== 'return://ziboxcrm.ir') {
+            Log::warning('Unauthorized callback proxy attempt', [
+                'app_return' => $appReturn,
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+            return response()->json(['message' => 'Invalid app_return parameter'], 403);
+        }
+
+        // Build query string of gateway params, excluding app_return itself
+        $params = $request->query();
+        unset($params['app_return']);
+
+        $append = http_build_query($params);
+
+        $redirectUrl = $appReturn;
+        if (!empty($append)) {
+            $divider = strpos($appReturn, '?') === false ? '?' : '&';
+            $redirectUrl .= $divider . $append;
+        }
+
+        // Use an open redirect to the deep-link. For custom schemes the browser
+        // will try to open the mobile app.
+        return redirect()->away($redirectUrl);
+    }
 }

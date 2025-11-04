@@ -17,17 +17,20 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // Send SMS reminders every minute
-        $schedule->command('sms:send-reminders')->everyMinute();
+    // Send SMS reminders every minute
+    $schedule->command('sms:send-reminders')->everyMinute();
 
-        // Cancel past appointments - runs every 5 minutes for optimal user experience
-        $schedule->command('appointments:cancel-past')->everyFiveMinutes();
+    // Cancel past appointments - runs every 5 minutes for optimal user experience
+    $schedule->command('appointments:cancel-past')->everyFiveMinutes();
 
-        // Update reminder SMS status every 5 minutes
-        $schedule->command('sms:update-reminder-status')->everyFiveMinutes();
+    // Update reminder SMS status every 5 minutes
+    $schedule->command('sms:update-reminder-status')->everyFiveMinutes();
 
-        // Send renewal reminders daily at 10:00 AM
-        $schedule->command('reminders:send-renewal')->dailyAt('10:00');
+    // Send renewal reminders daily at 10:00 AM
+    $schedule->command('reminders:send-renewal')->dailyAt('10:00');
+
+    // Send birthday reminders daily at 09:00 AM
+    $schedule->command('reminders:send-birthday')->dailyAt('09:00');
     }
 
     /**

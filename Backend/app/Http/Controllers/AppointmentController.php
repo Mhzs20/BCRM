@@ -372,7 +372,6 @@ class AppointmentController extends Controller
                     $appointment->update($appointmentDetails['appointment_data']);
                     $appointment->services()->sync($appointmentDetails['service_pivot_data']);
 
-                    // ارسال پیامک بروزرسانی فقط اگر واقعا نوبت تغییر کرده باشد
                     if ($appointmentModified) {
                         $customer = $appointment->customer;
                         if ($customer) {
@@ -383,8 +382,29 @@ class AppointmentController extends Controller
 
             $updateData = Arr::except($validatedData, ['service_ids', 'internal_notes']);
 
+            $oldStatus = $appointment->status;
+            $newStatus = $updateData['status'] ?? $oldStatus;
+
             if (!empty($updateData)) {
                 $appointment->update($updateData);
+            }
+
+            $smsSent = false;
+            if ($newStatus === 'confirmed' && $oldStatus !== 'confirmed') {
+                $customer = $appointment->customer;
+                if ($customer) {
+                    $smsService = $this->smsService;
+                    $smsResult = $smsService->sendAppointmentConfirmation($customer, $appointment, $salon);
+                    if (isset($smsResult['status']) && $smsResult['status'] === 'success') {
+                        $smsSent = 'confirmation';
+                    }
+                }
+            } elseif ($appointmentModified && !($newStatus === 'confirmed' && $oldStatus !== 'confirmed')) {
+                $customer = $appointment->customer;
+                if ($customer) {
+                    \App\Jobs\SendAppointmentModificationSms::dispatch($customer, $appointment, $salon);
+                    $smsSent = 'modification';
+                }
             }
 
             // Manually update internal_note if present in validatedData
@@ -396,10 +416,16 @@ class AppointmentController extends Controller
             DB::commit();
 
             $message = 'نوبت با موفقیت به‌روزرسانی شد.';
+            if ($smsSent === 'confirmation') {
+                $message .= ' پیامک تایید نوبت ارسال شد.';
+            } elseif ($smsSent === 'modification') {
+                $message .= ' پیامک تغییر نوبت ارسال شد.';
+            }
 
             $appointment->refresh()->load(['customer', 'staff', 'services']);
             return response()->json([
                 'message' => $message, 
+                'sms_sent' => $smsSent,
                 'data' => new AppointmentResource($appointment),
                 'has_conflicts' => $hasConflicts,
                 'conflicting_appointments' => $conflictingItems
@@ -460,7 +486,7 @@ class AppointmentController extends Controller
 
             if (isset($validated['service_ids']) && !in_array(-1, $validated['service_ids'])) {
                 $query->whereHas('services', function ($q) use ($validated) {
-                    $q->whereIn('service_id', $validated['service_ids']);
+                    $q->whereIn('services.id', $validated['service_ids']);
                 });
             }
 
@@ -475,8 +501,7 @@ class AppointmentController extends Controller
         }
 
         /**
-         * بازه‌های خالی سالن با قابلیت pagination
-         */
+          */
         public function getAvailableSlotsPaginated(GetAvailableSlotsRequest $request, $salon_id)
         {
             $validated = $request->validated();
@@ -499,7 +524,7 @@ class AppointmentController extends Controller
 
                 if (isset($validated['service_ids']) && !in_array(-1, $validated['service_ids'])) {
                     $query->whereHas('services', function ($q) use ($validated) {
-                        $q->whereIn('service_id', $validated['service_ids']);
+                        $q->whereIn('services.id', $validated['service_ids']);
                     });
                 }
 
@@ -530,9 +555,7 @@ class AppointmentController extends Controller
             return response()->json(['data' => AppointmentResource::collection($appointments)]);
     }
     /**
-     * یک تابع کمکی خصوصی برای محاسبه دقیق بازه تاریخ یک ماه شمسی.
-     * این تابع از تکرار کد جلوگیری کرده و صحت محاسبات را تضمین می‌کند.
-     * @param int $year سال شمسی
+      * @param int $year سال شمسی
      * @param int $month ماه شمسی
      * @return array [Carbon $startDate, Carbon $endDate]
      */
@@ -540,12 +563,10 @@ class AppointmentController extends Controller
     {
         $paddedMonth = str_pad($month, 2, '0', STR_PAD_LEFT);
 
-        // تاریخ شروع ماه شمسی
-        $jalaliStartDate = Jalalian::fromFormat('Y-m-d', "$year-$paddedMonth-01");
+         $jalaliStartDate = Jalalian::fromFormat('Y-m-d', "$year-$paddedMonth-01");
         $startDate = $jalaliStartDate->toCarbon()->startOfDay();
 
-        // محاسبه دقیق تاریخ پایان ماه شمسی
-        $daysInMonth = $jalaliStartDate->getMonthDays();
+         $daysInMonth = $jalaliStartDate->getMonthDays();
         $jalaliEndDate = Jalalian::fromFormat('Y-m-d', "$year-$paddedMonth-$daysInMonth");
         $endDate = $jalaliEndDate->toCarbon()->endOfDay();
 
@@ -857,7 +878,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
                 $appointmentDetails['appointment_data'],
                 [
                     'total_price' => $validatedData['total_price'] ?? $appointmentDetails['appointment_data']['total_price'],
-                    'status' => 'pending',
+                    'status' => $validatedData['status'] ?? 'pending',
                     'internal_note' => $validatedData['internal_notes'] ?? null,
                     'deposit_required' => $validatedData['deposit_required'] ?? false,
                     'deposit_paid' => $validatedData['deposit_paid'] ?? false,
@@ -912,7 +933,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
                     'end_time' => $appointmentDetails['appointment_data']['end_time'],
                     'total_duration' => $validatedData['total_duration'],
                     'total_price' => $pendingData['total_price'],
-                    'status' => 'pending_confirmation',
+                    'status' => $pendingData['status'],
                     'notes' => $validatedData['notes'] ?? null,
                     'internal_note' => $validatedData['internal_notes'] ?? null,
                     'deposit_required' => $pendingData['deposit_required'],
@@ -1020,7 +1041,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
             // Ensure appointment_date is correctly set
             $appointmentData['appointment_date'] = $pendingAppointment->appointment_date->format('Y-m-d');
             $appointmentData['customer_id'] = $customer->id;
-            $appointmentData['status'] = 'pending_confirmation';
+            $appointmentData['status'] = $pendingAppointment->status;
 
             $appointment = new Appointment($appointmentData);
             $appointment->save();
@@ -1051,13 +1072,15 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
             // Load relationships
             $appointment->load(['customer', 'staff', 'services']);
 
-            // Send confirmation SMS
-            $templateId = $appointment->confirmation_sms_template_id;
-            SendAppointmentConfirmationSms::dispatch($customer, $appointment, $appointment->salon, $templateId);
+            // Send confirmation SMS only if status is confirmed
+            if ($appointment->status === 'confirmed') {
+                $templateId = $appointment->confirmation_sms_template_id;
+                SendAppointmentConfirmationSms::dispatch($customer, $appointment, $appointment->salon, $templateId);
+            }
 
             return response()->json([
                 'success' => true,
-                'message' => 'نوبت با موفقیت ثبت شد. پیامک تایید به زودی ارسال خواهد شد.',
+                'message' => 'نوبت با موفقیت ثبت شد.' . ($appointment->status === 'confirmed' ? ' پیامک تایید به زودی ارسال خواهد شد.' : ''),
                 'data' => new AppointmentResource($appointment)
             ], 201);
 
@@ -1188,6 +1211,46 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
             DB::rollBack();
             Log::error('خطا در ثبت نوبت قدیمی: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return response()->json(['message' => 'خطا در ثبت نوبت قدیمی رخ داد.', 'error_details_for_debug' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Send reminder SMS for a specific appointment
+     */
+    public function sendReminderSms(Request $request, $salon_id, Appointment $appointment)
+    {
+        try {
+            // Check if appointment belongs to the salon
+            if ($appointment->salon_id != $salon_id) {
+                return response()->json(['message' => 'نوبت متعلق به این سالن نیست.'], 403);
+            }
+
+            // Check if reminder SMS is enabled for this appointment
+            if (!$appointment->send_reminder_sms) {
+                return response()->json(['message' => 'ارسال پیامک یادآوری برای این نوبت فعال نیست.'], 400);
+            }
+
+            // Check if customer exists
+            if (!$appointment->customer) {
+                return response()->json(['message' => 'مشتری برای این نوبت یافت نشد.'], 404);
+            }
+
+            // Check if SMS already sent
+            if (in_array($appointment->reminder_sms_status, ['sent', 'delivered'])) {
+                return response()->json(['message' => 'پیامک یادآوری قبلاً ارسال شده است.'], 400);
+            }
+
+            // Dispatch the reminder SMS job
+            \App\Jobs\SendAppointmentReminderSms::dispatch($appointment, $appointment->salon);
+
+            // Update status to processing
+            $appointment->update(['reminder_sms_status' => 'processing']);
+
+            return response()->json(['message' => 'پیامک یادآوری با موفقیت ارسال شد.']);
+
+        } catch (\Exception $e) {
+            Log::error('خطا در ارسال پیامک یادآوری: ' . $e->getMessage());
+            return response()->json(['message' => 'خطا در ارسال پیامک یادآوری رخ داد.'], 500);
         }
     }
 }

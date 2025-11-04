@@ -24,6 +24,7 @@ use App\Http\Controllers\AppointmentReportController;
 use App\Http\Controllers\ManualSmsController;
 use App\Http\Controllers\SmsTransactionController;
 use App\Http\Controllers\SmsCampaignController;
+use App\Http\Controllers\BirthdayReminderController;
 use App\Http\Controllers\Api\AppController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\BannerController as ApiBannerController;
@@ -78,8 +79,7 @@ Route::middleware('auth:api')->group(function () {
         return $request->user();
     })->name('user.profile.default');
 
-    // کارت
-    Route::get('card-info', [\App\Http\Controllers\Api\CardSettingController::class, 'showCardInfo']);
+     Route::get('card-info', [\App\Http\Controllers\Api\CardSettingController::class, 'showCardInfo']);
 
     // Referral & Wallet APIs
     Route::prefix('referral')->name('referral.')->group(function () {
@@ -113,10 +113,27 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/active', [SalonController::class, 'getActiveSalon'])->name('active');
 
         Route::prefix('{salon}')->whereNumber('salon')->scopeBindings()->group(function() {
+             Route::get('renewal-reminders/settings/summary', [ServiceRenewalController::class, 'getRenewalSettingsSummary'])->name('renewal_reminders.settings.summary');
             Route::get('/', [SalonController::class, 'getSalon'])->name('show');
             Route::put('/', [SalonController::class, 'updateSalon'])->name('update');
             Route::delete('/', [SalonController::class, 'deleteSalon'])->name('destroy');
             Route::post('/select-active', [SalonController::class, 'selectActiveSalon'])->name('select_active');
+             Route::get('renewal-reminders/services/settings', [ServiceRenewalController::class, 'getMultipleServiceSettings'])->name('renewal_reminders.services.multiple_settings');
+            Route::put('renewal-reminders/services/settings', [ServiceRenewalController::class, 'updateMultipleServiceSettings'])->name('renewal_reminders.services.update_multiple_settings');
+            // Birthday Reminder Routes - Protected by Feature Package
+            Route::prefix('birthday-reminders')->name('birthday_reminders.')
+                ->middleware('feature:پیامک یادآوری ترمیم و تولد')
+                ->group(function () {
+                    Route::get('stats', [BirthdayReminderController::class, 'stats'])->name('stats');
+                    Route::get('groups', [BirthdayReminderController::class, 'groups'])->name('groups');
+                    Route::get('templates', [BirthdayReminderController::class, 'templates'])->name('templates');
+                    Route::get('settings/summary', [BirthdayReminderController::class, 'summary'])->name('settings.summary');
+                    Route::put('groups/settings', [BirthdayReminderController::class, 'updateSettings'])->name('groups.update_settings');
+                    Route::post('groups/{groupId}/toggle', [BirthdayReminderController::class, 'toggleGroup'])->name('groups.toggle');
+                    Route::post('global-toggle', [BirthdayReminderController::class, 'globalToggle'])->name('global_toggle');
+                    Route::delete('groups/{groupId}/settings', [BirthdayReminderController::class, 'deleteGroupSettings'])->name('groups.delete_settings');
+                    Route::get('groups/{groupId}/settings', [BirthdayReminderController::class, 'groupSettings'])->name('groups.settings');
+                });
 
             Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete'])->name('customers.bulkDelete');
             Route::get('customers/{customer}/appointments', [CustomerController::class, 'listCustomerAppointments'])->name('customers.appointments');
@@ -166,8 +183,7 @@ Route::middleware('auth:api')->group(function () {
 
             Route::get('appointments/available-slots', [AppointmentController::class, 'getAvailableSlots'])->name('appointments.availableSlots');
 
-            // اندپوینت جدید paginated برای بازه‌های خالی سالن
-            Route::get('appointments/available-slots/paginated', [AppointmentController::class, 'getAvailableSlotsPaginated'])->name('appointments.availableSlotsPaginated');
+             Route::get('appointments/available-slots/paginated', [AppointmentController::class, 'getAvailableSlotsPaginated'])->name('appointments.availableSlotsPaginated');
             Route::get('appointments/calendar', [AppointmentController::class, 'getCalendarAppointments'])->name('appointments.calendar');
             Route::post('appointments/prepare', [AppointmentController::class, 'prepareAppointment'])->name('appointments.prepare');
             Route::post('appointments/submit', [AppointmentController::class, 'submitAppointment'])->name('appointments.submit');
@@ -311,11 +327,9 @@ Route::middleware('auth:api')->post('manual-sms/{salon}/send', [ManualSmsControl
 Route::get('/app-history', [AppController::class, 'latestHistory']);
 Route::get('/staff/{staffId}/appointments', [AppController::class, 'getStaffAppointments'])->whereNumber('staffId');
 
-// اندپوینت جدید paginated برای لیست نوبت‌های کارمند
-Route::get('/staff/{staffId}/appointments/paginated', [AppController::class, 'getStaffAppointmentsPaginated'])->whereNumber('staffId');
+ Route::get('/staff/{staffId}/appointments/paginated', [AppController::class, 'getStaffAppointmentsPaginated'])->whereNumber('staffId');
 
-// اندپوینت جدید paginated برای لیست نوبت‌های مشتری سالن
-Route::get('/salons/{salon}/customers/{customer}/appointments/paginated', [CustomerController::class, 'listCustomerAppointmentsPaginated'])
+ Route::get('/salons/{salon}/customers/{customer}/appointments/paginated', [CustomerController::class, 'listCustomerAppointmentsPaginated'])
     ->whereNumber('salon')
     ->whereNumber('customer');
 
@@ -325,6 +339,14 @@ Route::middleware('auth:api')->group(function () {
 });
 
 Route::get('/banners', [ApiBannerController::class, 'index']);
+
+// Public proxy endpoint used to forward gateway redirects to mobile deep-links.
+// Example: gateway will be given
+// https://api.example.com/api/payment/callback-proxy?app_return=return%3A%2F%2Fziboxcrm.ir
+// and after gateway redirects here with Authority/Status params, this proxy
+// will redirect the browser to the app deep-link with those params appended.
+Route::get('payment/callback-proxy', [\App\Http\Controllers\PaymentGatewayController::class, 'callbackProxy'])
+    ->name('payment.callback_proxy');
 
 Route::middleware('auth:api')->post('/appointments/{appointment}/send-satisfaction-survey', [SatisfactionController::class, 'sendSurvey'])->name('api.appointments.send-satisfaction-survey');
 

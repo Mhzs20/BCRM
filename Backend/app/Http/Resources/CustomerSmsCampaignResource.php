@@ -24,6 +24,7 @@ class CustomerSmsCampaignResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'phone_number' => $this->phone_number,
             'gender' => $this->gender,
             'service' => $lastService ? $lastService->name : null,
             'created_at' => Jalalian::fromCarbon($this->created_at)->format('Y/m/d'),
