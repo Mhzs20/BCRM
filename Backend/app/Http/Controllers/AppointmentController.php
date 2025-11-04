@@ -24,7 +24,7 @@ use App\Services\AppointmentBookingService;
 use App\Services\SmsService;
 use App\Jobs\SendAppointmentConfirmationSms;
 use App\Jobs\SendAppointmentModificationSms;
-use Morilog\Jalali\Jalalian;مم
+use Morilog\Jalali\Jalalian;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
