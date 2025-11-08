@@ -274,20 +274,20 @@ class SmsCampaignController extends Controller
 
         if ($request->filled('profession_id')) {
             $query->whereHas('profession', function($q) use ($salon, $request) {
-                $q->where('salon_id', $salon->id)
-                  ->whereIn('id', $request->input('profession_id'));
+                $q->where('professions.salon_id', $salon->id)
+                  ->whereIn('professions.id', $request->input('profession_id'));
             });
         }
         if ($request->filled('customer_group_id')) {
             $query->whereHas('customerGroups', function($q) use ($salon, $request) {
-                $q->where('salon_id', $salon->id)
-                  ->whereIn('id', $request->input('customer_group_id'));
+                $q->where('customer_groups.salon_id', $salon->id)
+                  ->whereIn('customer_groups.id', $request->input('customer_group_id'));
             });
         }
         if ($request->filled('how_introduced_id')) {
             $query->whereHas('howIntroduced', function($q) use ($salon, $request) {
-                $q->where('salon_id', $salon->id)
-                  ->whereIn('id', $request->input('how_introduced_id'));
+                $q->where('how_introduceds.salon_id', $salon->id)
+                  ->whereIn('how_introduceds.id', $request->input('how_introduced_id'));
             });
         }
 

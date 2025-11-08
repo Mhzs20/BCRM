@@ -7,7 +7,14 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\CorsMiddleware;
 
-return Application::configure(basePath: dirname(__DIR__))
+/**
+ * Create and configure the application instance, then explicitly bind the
+ * Console Kernel contract to the app's Kernel implementation. This ensures
+ * the framework resolves `Illuminate\Contracts\Console\Kernel` to
+ * `App\Console\Kernel`, which is required so scheduled tasks defined in
+ * `app/Console/Kernel.php` are loaded.
+ */
+$app = Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
@@ -28,3 +35,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions) {
     })
     ->create();
+
+// Explicitly bind the Console Kernel contract to the application's Kernel
+// implementation so the framework uses our `App\Console\Kernel` class.
+$app->singleton(
+    Illuminate\Contracts\Console\Kernel::class,
+    App\Console\Kernel::class
+);
+
+return $app;
