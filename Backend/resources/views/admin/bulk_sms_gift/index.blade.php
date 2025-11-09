@@ -146,8 +146,25 @@
     </div>
 
     <div class="bg-white shadow-xl rounded-lg overflow-hidden mt-12">
-        <form action="{{ route('admin.bulk-sms-gift.send') }}" method="POST">
+        <form action="{{ route('admin.bulk-sms-gift.send') }}" method="POST" id="bulkGiftForm">
             @csrf
+            
+            <!-- Hidden inputs to preserve filters -->
+            <input type="hidden" name="search" value="{{ request('search') }}">
+            <input type="hidden" name="status" value="{{ request('status') }}">
+            <input type="hidden" name="province_id" value="{{ request('province_id') }}">
+            <input type="hidden" name="city_id" value="{{ request('city_id') }}">
+            <input type="hidden" name="business_category_id" value="{{ request('business_category_id') }}">
+            <input type="hidden" name="business_subcategory_id" value="{{ request('business_subcategory_id') }}">
+            <input type="hidden" name="sms_balance_status" value="{{ request('sms_balance_status') }}">
+            <input type="hidden" name="min_sms_balance" value="{{ request('min_sms_balance') }}">
+            <input type="hidden" name="max_sms_balance" value="{{ request('max_sms_balance') }}">
+            <input type="hidden" name="last_sms_purchase" value="{{ request('last_sms_purchase') }}">
+            <input type="hidden" name="monthly_sms_consumption" value="{{ request('monthly_sms_consumption') }}">
+            <input type="hidden" name="gender" value="{{ request('gender') }}">
+            <input type="hidden" name="min_age" value="{{ request('min_age') }}">
+            <input type="hidden" name="max_age" value="{{ request('max_age') }}">
+            
             <div class="p-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div>
@@ -161,9 +178,62 @@
                         @error('message') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                 </div>
-                <button type="submit" id="sendGiftButton" class="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition ease-in-out duration-150">
-                    <i class="ri-send-plane-line ml-2"></i> ارسال پیامک هدیه به سالن‌های انتخاب شده
-                </button>
+                <div class="flex gap-3 mb-6" id="actionButtons">
+                    <button type="submit" id="sendGiftButton" class="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition ease-in-out duration-150">
+                        <i class="ri-send-plane-line ml-2"></i> ارسال پیامک هدیه به سالن‌های انتخابی
+                    </button>
+                    <button type="button" onclick="showPackageActivationSection()" class="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition ease-in-out duration-150">
+                        <i class="ri-gift-line ml-2"></i> فعال‌سازی پکیج هدیه
+                    </button>
+                </div>
+            </div>
+
+            <!-- Package Activation Section (Hidden by default) -->
+            <div id="packageActivationSection" class="p-6 bg-purple-50 border-t border-purple-200 hidden">
+                <h3 class="text-lg font-semibold text-purple-900 mb-4">
+                    <i class="ri-gift-line ml-2"></i>
+                    فعال‌سازی گروهی پکیج امکانات هدیه
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="package_id" class="block text-sm font-medium text-gray-700 mb-1">انتخاب پکیج</label>
+                        <select name="package_id" id="package_id" class="form-select w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring focus:ring-purple-500 focus:ring-opacity-50 p-2.5 text-gray-900 bg-white">
+                            <option value="">انتخاب کنید</option>
+                            @foreach($packages as $package)
+                                <option value="{{ $package->id }}" data-sms="{{ $package->gift_sms_count }}" data-duration="{{ $package->duration_days }}">
+                                    {{ $package->name }} 
+                                    @if($package->gift_sms_count > 0)
+                                        ({{ $package->gift_sms_count }} پیامک هدیه)
+                                    @endif
+                                    - {{ number_format($package->price / 10) }} تومان
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('package_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="duration_months" class="block text-sm font-medium text-gray-700 mb-1">مدت اعتبار (ماه)</label>
+                        <select name="duration_months" id="duration_months" class="form-select w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring focus:ring-purple-500 focus:ring-opacity-50 p-2.5 text-gray-900 bg-white">
+                            <option value="1">1 ماه</option>
+                            <option value="2">2 ماه</option>
+                            <option value="3" selected>3 ماه</option>
+                            <option value="6">6 ماه</option>
+                            <option value="12">12 ماه</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="packageInfo" class="mb-4 p-3 bg-white rounded-lg border border-purple-200 hidden">
+                    <p class="text-sm text-gray-700"><strong>اطلاعات پکیج:</strong></p>
+                    <p class="text-sm text-gray-600" id="packageDescription"></p>
+                </div>
+                <div class="flex gap-3">
+                    <button type="button" onclick="submitPackageActivation()" class="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition ease-in-out duration-150">
+                        <i class="ri-check-line ml-2"></i> فعال‌سازی پکیج برای سالن‌های انتخابی
+                    </button>
+                    <button type="button" onclick="hidePackageActivationSection()" class="inline-flex items-center px-5 py-2.5 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition ease-in-out duration-150">
+                        <i class="ri-close-line ml-2"></i> انصراف
+                    </button>
+                </div>
             </div>
 
             <table class="min-w-full divide-y divide-gray-200">
@@ -349,6 +419,72 @@
             });
         });
     });
+</script>
+
+<script>
+    function showPackageActivationSection() {
+        document.getElementById('packageActivationSection').classList.remove('hidden');
+        document.getElementById('actionButtons').classList.add('hidden');
+    }
+
+    function hidePackageActivationSection() {
+        document.getElementById('packageActivationSection').classList.add('hidden');
+        document.getElementById('actionButtons').classList.remove('hidden');
+        document.getElementById('package_id').value = '';
+        document.getElementById('packageInfo').classList.add('hidden');
+    }
+
+    // Show package info when selected
+    document.addEventListener('DOMContentLoaded', function() {
+        const packageSelect = document.getElementById('package_id');
+        const packageInfo = document.getElementById('packageInfo');
+        const packageDescription = document.getElementById('packageDescription');
+
+        if (packageSelect) {
+            packageSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                if (this.value) {
+                    const smsCount = selectedOption.getAttribute('data-sms');
+                    const duration = selectedOption.getAttribute('data-duration');
+                    packageDescription.innerHTML = `
+                        پکیج انتخابی: <strong>${selectedOption.text}</strong><br>
+                        پیامک هدیه: <strong>${smsCount} عدد</strong><br>
+                        مدت پیش‌فرض: <strong>${duration} روز</strong>
+                    `;
+                    packageInfo.classList.remove('hidden');
+                } else {
+                    packageInfo.classList.add('hidden');
+                }
+            });
+        }
+    });
+
+    function submitPackageActivation() {
+        const packageId = document.getElementById('package_id').value;
+        if (!packageId) {
+            alert('لطفاً یک پکیج انتخاب کنید');
+            return;
+        }
+
+        const checkboxes = document.querySelectorAll('.salon-checkbox:checked');
+        if (checkboxes.length === 0) {
+            alert('لطفاً حداقل یک سالن را انتخاب کنید');
+            return;
+        }
+
+        if (!confirm(`آیا از فعال‌سازی پکیج برای ${checkboxes.length} سالن اطمینان دارید؟`)) {
+            return;
+        }
+
+        // Change form action and submit
+        const form = document.getElementById('bulkGiftForm');
+        form.action = "{{ route('admin.bulk-sms-gift.activate-package') }}";
+        
+        // Remove amount and message fields requirement for package activation
+        document.getElementById('amount').removeAttribute('required');
+        
+        form.submit();
+    }
 </script>
 
 <!-- Persian Date Picker CSS and JS -->
