@@ -99,6 +99,7 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
     // Bulk SMS Gift
     Route::get('bulk-sms-gift', [AdminBulkSmsGiftController::class, 'index'])->name('bulk-sms-gift.index');
     Route::post('bulk-sms-gift', [AdminBulkSmsGiftController::class, 'sendGift'])->name('bulk-sms-gift.send');
+    Route::post('bulk-sms-gift/activate-package', [AdminBulkSmsGiftController::class, 'bulkActivatePackage'])->name('bulk-sms-gift.activate-package');
     Route::get('bulk-sms-gift/history', [AdminBulkSmsGiftController::class, 'giftHistory'])->name('bulk-sms-gift.history');
 
     // Bulk SMS
