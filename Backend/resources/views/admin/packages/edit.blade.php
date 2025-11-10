@@ -136,13 +136,25 @@
                     </div>
 
                     <!-- Active Status -->
-                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4">
                         <label class="flex items-center cursor-pointer">
                             <input type="checkbox" name="is_active" value="1" {{ old('is_active', $package->is_active) ? 'checked' : '' }}
                                    class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 w-5 h-5">
                             <span class="mr-3">
                                 <span class="text-base font-medium text-gray-900">فعال‌سازی پکیج</span>
                                 <p class="text-sm text-gray-600">پکیج بلافاصله برای کاربران قابل مشاهده خواهد بود</p>
+                            </span>
+                        </label>
+                        
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" name="is_gift_only" value="1" {{ old('is_gift_only', $package->is_gift_only) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-amber-600 shadow-sm focus:border-amber-300 focus:ring focus:ring-amber-200 focus:ring-opacity-50 w-5 h-5">
+                            <span class="mr-3">
+                                <span class="text-base font-medium text-gray-900">
+                                    <i class="ri-gift-2-line text-amber-600"></i>
+                                    پکیج ویژه هدیه
+                                </span>
+                                <p class="text-sm text-gray-600">این پکیج فقط از پنل ادمین قابل فعال‌سازی است و در لیست عمومی پکیج‌ها نمایش داده نمی‌شود</p>
                             </span>
                         </label>
                     </div>
