@@ -63,9 +63,15 @@
                                     #{{ $package->id }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="flex items-center">
-                                        <i class="ri-inbox-line text-indigo-600 text-xl ml-2"></i>
-                                        <span class="text-sm font-semibold text-gray-900">{{ $package->name }}</span>
+                                    <div class="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                        <i class="ri-inbox-line text-indigo-600 text-xl"></i>
+                                        {{ $package->name }}
+                                        @if($package->is_gift_only)
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                                                <i class="ri-gift-2-line ml-1"></i>
+                                                هدیه
+                                            </span>
+                                        @endif
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">

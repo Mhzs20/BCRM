@@ -28,6 +28,7 @@ class StorePackageRequest extends FormRequest
             'gift_sms_count' => 'required|integer|min:0',
             'duration_days' => 'required|integer|min:1|max:3650',
             'is_active' => 'boolean',
+            'is_gift_only' => 'boolean',
             'options' => 'nullable|array',
             'options.*' => 'exists:options,id',
         ];

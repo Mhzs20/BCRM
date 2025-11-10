@@ -39,6 +39,7 @@ class PackageController extends Controller
 
             $packages = Package::with('options')
                 ->where('is_active', true)
+                ->where('is_gift_only', false) // فقط پکیج‌های عادی نمایش داده شوند
                 ->get()
                 ->map(function ($package) {
                     return [
@@ -91,7 +92,10 @@ class PackageController extends Controller
                 ], 403);
             }
 
-            $package = Package::with('options')->where('is_active', true)->find($id);
+            $package = Package::with('options')
+                ->where('is_active', true)
+                ->where('is_gift_only', false) // فقط پکیج‌های عادی قابل مشاهده هستند
+                ->find($id);
 
             if (!$package) {
                 return response()->json([
@@ -155,7 +159,10 @@ class PackageController extends Controller
         }
 
         // SECURITY: Always calculate amount from database, never trust client input
-        $package = Package::where('id', $packageId)->where('is_active', true)->first();
+        $package = Package::where('id', $packageId)
+            ->where('is_active', true)
+            ->where('is_gift_only', false) // پکیج‌های هدیه فقط از پنل ادمین قابل فعال‌سازی هستند
+            ->first();
 
         if (!$package) {
             return response()->json([

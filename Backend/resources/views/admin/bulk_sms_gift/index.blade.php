@@ -194,37 +194,28 @@
                     <i class="ri-gift-line ml-2"></i>
                     فعال‌سازی گروهی پکیج امکانات هدیه
                 </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label for="package_id" class="block text-sm font-medium text-gray-700 mb-1">انتخاب پکیج</label>
-                        <select name="package_id" id="package_id" class="form-select w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring focus:ring-purple-500 focus:ring-opacity-50 p-2.5 text-gray-900 bg-white">
-                            <option value="">انتخاب کنید</option>
-                            @foreach($packages as $package)
-                                <option value="{{ $package->id }}" data-sms="{{ $package->gift_sms_count }}" data-duration="{{ $package->duration_days }}">
-                                    {{ $package->name }} 
-                                    @if($package->gift_sms_count > 0)
-                                        ({{ $package->gift_sms_count }} پیامک هدیه)
-                                    @endif
-                                    - {{ number_format($package->price / 10) }} تومان
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('package_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                    </div>
-                    <div>
-                        <label for="duration_months" class="block text-sm font-medium text-gray-700 mb-1">مدت اعتبار (ماه)</label>
-                        <select name="duration_months" id="duration_months" class="form-select w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring focus:ring-purple-500 focus:ring-opacity-50 p-2.5 text-gray-900 bg-white">
-                            <option value="1">1 ماه</option>
-                            <option value="2">2 ماه</option>
-                            <option value="3" selected>3 ماه</option>
-                            <option value="6">6 ماه</option>
-                            <option value="12">12 ماه</option>
-                        </select>
-                    </div>
+                <div class="mb-4">
+                    <label for="package_id" class="block text-sm font-medium text-gray-700 mb-1">انتخاب پکیج</label>
+                    <select name="package_id" id="package_id" class="form-select w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring focus:ring-purple-500 focus:ring-opacity-50 p-2.5 text-gray-900 bg-white">
+                        <option value="">انتخاب کنید</option>
+                        @foreach($packages as $package)
+                            <option value="{{ $package->id }}" 
+                                    data-sms="{{ $package->gift_sms_count }}" 
+                                    data-duration="{{ $package->duration_days }}"
+                                    data-description="{{ $package->description }}">
+                                {{ $package->name }} 
+                                @if($package->gift_sms_count > 0)
+                                    ({{ number_format($package->gift_sms_count) }} پیامک هدیه)
+                                @endif
+                                - {{ number_format($package->duration_days) }} روز اعتبار
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('package_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
-                <div id="packageInfo" class="mb-4 p-3 bg-white rounded-lg border border-purple-200 hidden">
-                    <p class="text-sm text-gray-700"><strong>اطلاعات پکیج:</strong></p>
-                    <p class="text-sm text-gray-600" id="packageDescription"></p>
+                <div id="packageInfo" class="mb-4 p-4 bg-white rounded-lg border border-purple-200 hidden">
+                    <p class="text-sm font-semibold text-gray-800 mb-2">اطلاعات پکیج انتخاب شده:</p>
+                    <div id="packageDescription" class="text-sm text-gray-600"></div>
                 </div>
                 <div class="flex gap-3">
                     <button type="button" onclick="submitPackageActivation()" class="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition ease-in-out duration-150">
@@ -240,7 +231,11 @@
                 <thead class="bg-gray-50">
                     <tr>
                         <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <input type="checkbox" id="select-all-salons" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <div class="flex items-center gap-2">
+                                <input type="checkbox" id="select-all-salons" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                <span class="text-xs normal-case" id="selection-info"></span>
+                            </div>
+                            <input type="hidden" name="select_all_filtered" id="select_all_filtered" value="0">
                         </th>
                         <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                             نام سالن
@@ -300,6 +295,43 @@
                 {{ $salons->appends(request()->query())->links() }}
             </div>
         </form>
+    </div>
+</div>
+
+<div id="selectionStatusBar" class="hidden fixed bottom-0 left-0 right-0 bg-blue-600 text-white shadow-lg z-50">
+    <div class="container mx-auto px-4 py-3">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <i class="ri-checkbox-multiple-line text-2xl"></i>
+                <div>
+                    <p class="font-semibold" id="selectionStatusText">در حال انتخاب...</p>
+                    <p class="text-xs opacity-90" id="selectionStatusHint">برای انتخاب همه سالن‌های فیلتر شده، "انتخاب همه" را در بالای جدول بزنید</p>
+                </div>
+            </div>
+            <button onclick="clearSelectionStatus()" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded text-sm">
+                لغو انتخاب‌ها
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="persistSelectionWarning" class="hidden fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-yellow-50 border border-yellow-200 rounded-lg shadow-lg p-4 z-50">
+    <div class="flex items-start">
+        <i class="ri-information-line text-yellow-600 text-xl ml-2 mt-1"></i>
+        <div class="flex-1">
+            <p class="text-sm text-yellow-800 font-semibold mb-1">توجه!</p>
+            <p class="text-xs text-yellow-700">
+                برای انتخاب سالن‌ها در چند صفحه مختلف، از گزینه 
+                <strong>"انتخاب همه سالن‌های فیلتر شده"</strong> 
+                استفاده کنید یا ابتدا فیلترهای خود را اعمال کنید و سپس "انتخاب همه" را بزنید.
+            </p>
+            <button onclick="document.getElementById('persistSelectionWarning').classList.add('hidden')" class="mt-2 text-xs text-yellow-600 hover:text-yellow-800 underline">
+                متوجه شدم
+            </button>
+        </div>
+        <button onclick="document.getElementById('persistSelectionWarning').classList.add('hidden')" class="text-yellow-600 hover:text-yellow-800">
+            <i class="ri-close-line text-lg"></i>
+        </button>
     </div>
 </div>
 @endsection
@@ -401,22 +433,114 @@
         // Select All / Deselect All functionality
         const selectAllCheckbox = document.getElementById('select-all-salons');
         const salonCheckboxes = document.querySelectorAll('.salon-checkbox');
+        const selectAllFilteredInput = document.getElementById('select_all_filtered');
+        const selectionInfo = document.getElementById('selection-info');
+        const totalFiltered = {{ $totalFilteredCount ?? 0 }};
+        const currentPageCount = {{ $salons->count() }};
 
         selectAllCheckbox.addEventListener('change', function() {
             salonCheckboxes.forEach(checkbox => {
                 checkbox.checked = this.checked;
             });
+            
+            if (this.checked && totalFiltered > currentPageCount) {
+                // Show option to select all filtered
+                selectionInfo.innerHTML = `
+                    <span class="text-blue-600 cursor-pointer hover:underline" onclick="selectAllFiltered()">
+                        ${currentPageCount} سالن در این صفحه انتخاب شد. 
+                        <strong>همه ${totalFiltered.toLocaleString('fa-IR')} سالن فیلتر شده را انتخاب کنید؟</strong>
+                    </span>
+                `;
+            } else {
+                selectionInfo.innerHTML = '';
+                selectAllFilteredInput.value = '0';
+            }
         });
 
         salonCheckboxes.forEach(checkbox => {
             checkbox.addEventListener('change', function() {
                 if (!this.checked) {
                     selectAllCheckbox.checked = false;
+                    selectionInfo.innerHTML = '';
+                    selectAllFilteredInput.value = '0';
                 } else {
                     const allChecked = Array.from(salonCheckboxes).every(cb => cb.checked);
                     selectAllCheckbox.checked = allChecked;
                 }
             });
+        });
+
+        window.selectAllFiltered = function() {
+            selectAllFilteredInput.value = '1';
+            selectionInfo.innerHTML = `
+                <span class="text-green-600">
+                    <strong>همه ${totalFiltered.toLocaleString('fa-IR')} سالن فیلتر شده انتخاب شدند.</strong>
+                    <span class="text-blue-600 cursor-pointer hover:underline mr-2" onclick="clearSelection()">لغو</span>
+                </span>
+            `;
+        };
+
+        window.clearSelection = function() {
+            selectAllFilteredInput.value = '0';
+            selectAllCheckbox.checked = false;
+            salonCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            selectionInfo.innerHTML = '';
+            updateSelectionStatus();
+        };
+
+        window.clearSelectionStatus = function() {
+            clearSelection();
+            document.getElementById('selectionStatusBar').classList.add('hidden');
+        };
+
+        // Update selection status bar
+        function updateSelectionStatus() {
+            const statusBar = document.getElementById('selectionStatusBar');
+            const statusText = document.getElementById('selectionStatusText');
+            const checkedCount = Array.from(salonCheckboxes).filter(cb => cb.checked).length;
+            const selectAllFiltered = selectAllFilteredInput.value === '1';
+
+            if (selectAllFiltered) {
+                statusBar.classList.remove('hidden');
+                statusText.textContent = `همه ${totalFiltered.toLocaleString('fa-IR')} سالن فیلتر شده انتخاب شده‌اند`;
+            } else if (checkedCount > 0) {
+                statusBar.classList.remove('hidden');
+                statusText.textContent = `${checkedCount} سالن در این صفحه انتخاب شده`;
+            } else {
+                statusBar.classList.add('hidden');
+            }
+        }
+
+        // Update status on checkbox changes
+        salonCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', updateSelectionStatus);
+        });
+
+        selectAllCheckbox.addEventListener('change', updateSelectionStatus);
+
+        // Show warning if user tries to navigate to another page with selections
+        let hasSelections = false;
+        salonCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                hasSelections = Array.from(salonCheckboxes).some(cb => cb.checked);
+            });
+        });
+
+        // Intercept pagination clicks
+        document.addEventListener('click', function(e) {
+            const paginationLink = e.target.closest('a[href*="page="]');
+            if (paginationLink && hasSelections && selectAllFilteredInput.value !== '1') {
+                e.preventDefault();
+                const warning = document.getElementById('persistSelectionWarning');
+                warning.classList.remove('hidden');
+                
+                // Auto hide after 10 seconds
+                setTimeout(() => {
+                    warning.classList.add('hidden');
+                }, 10000);
+            }
         });
     });
 </script>
@@ -446,10 +570,24 @@
                 if (this.value) {
                     const smsCount = selectedOption.getAttribute('data-sms');
                     const duration = selectedOption.getAttribute('data-duration');
+                    const description = selectedOption.getAttribute('data-description');
+                    
                     packageDescription.innerHTML = `
-                        پکیج انتخابی: <strong>${selectedOption.text}</strong><br>
-                        پیامک هدیه: <strong>${smsCount} عدد</strong><br>
-                        مدت پیش‌فرض: <strong>${duration} روز</strong>
+                        <div class="space-y-2">
+                            <div class="flex items-center">
+                                <i class="ri-gift-line text-purple-600 ml-2"></i>
+                                <span><strong>نام پکیج:</strong> ${selectedOption.text.split(' - ')[0]}</span>
+                            </div>
+                            ${description ? `<div class="flex items-start"><i class="ri-information-line text-purple-600 ml-2 mt-1"></i><span><strong>توضیحات:</strong> ${description}</span></div>` : ''}
+                            <div class="flex items-center">
+                                <i class="ri-message-3-line text-green-600 ml-2"></i>
+                                <span><strong>پیامک هدیه:</strong> ${parseInt(smsCount).toLocaleString('fa-IR')} عدد</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="ri-time-line text-blue-600 ml-2"></i>
+                                <span><strong>مدت اعتبار:</strong> ${parseInt(duration).toLocaleString('fa-IR')} روز (${Math.ceil(duration/30)} ماه)</span>
+                            </div>
+                        </div>
                     `;
                     packageInfo.classList.remove('hidden');
                 } else {
@@ -466,13 +604,23 @@
             return;
         }
 
+        const selectAllFiltered = document.getElementById('select_all_filtered').value === '1';
         const checkboxes = document.querySelectorAll('.salon-checkbox:checked');
-        if (checkboxes.length === 0) {
+        const totalFiltered = {{ $totalFilteredCount ?? 0 }};
+        
+        if (!selectAllFiltered && checkboxes.length === 0) {
             alert('لطفاً حداقل یک سالن را انتخاب کنید');
             return;
         }
 
-        if (!confirm(`آیا از فعال‌سازی پکیج برای ${checkboxes.length} سالن اطمینان دارید؟`)) {
+        let confirmMessage = '';
+        if (selectAllFiltered) {
+            confirmMessage = `آیا از فعال‌سازی پکیج برای همه ${totalFiltered.toLocaleString('fa-IR')} سالن فیلتر شده اطمینان دارید؟`;
+        } else {
+            confirmMessage = `آیا از فعال‌سازی پکیج برای ${checkboxes.length} سالن انتخاب شده اطمینان دارید؟`;
+        }
+
+        if (!confirm(confirmMessage)) {
             return;
         }
 

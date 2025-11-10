@@ -142,11 +142,14 @@ class AdminBulkSmsGiftController extends Controller
         }
 
         $salons = $query->paginate(10); // Paginate the results
+        
+        // Get total count of filtered salons (for select all functionality)
+        $totalFilteredCount = $query->count();
 
         // Get all active packages for the bulk activation feature
         $packages = Package::where('is_active', true)->get();
 
-        return view('admin.bulk_sms_gift.index', compact('salons', 'provinces', 'cities', 'businessCategories', 'businessSubcategories', 'packages'));
+        return view('admin.bulk_sms_gift.index', compact('salons', 'provinces', 'cities', 'businessCategories', 'businessSubcategories', 'packages', 'totalFilteredCount'));
     }
 
     public function sendGift(Request $request, SmsService $smsService)
@@ -351,7 +354,7 @@ class AdminBulkSmsGiftController extends Controller
     {
         $request->validate([
             'package_id' => 'required|exists:packages,id',
-            'duration_months' => 'nullable|integer|min:1|max:12',
+            'select_all_filtered' => 'nullable|in:0,1',
             'salon_ids' => 'nullable|array',
             'salon_ids.*' => 'exists:salons,id',
             'search' => 'nullable|string|max:255',
@@ -477,13 +480,21 @@ class AdminBulkSmsGiftController extends Controller
 
         $salons = $query->get();
 
-        // If specific salon_ids are provided, filter the results further
-        if ($request->filled('salon_ids')) {
-            $salons = $salons->whereIn('id', $request->salon_ids);
+        // Check if user wants to select all filtered salons
+        $selectAllFiltered = $request->select_all_filtered == '1';
+        
+        if (!$selectAllFiltered) {
+            // If not selecting all, use only the specific salon_ids
+            if ($request->filled('salon_ids')) {
+                $salons = $salons->whereIn('id', $request->salon_ids);
+            } else {
+                return back()->with('error', 'لطفاً حداقل یک سالن را انتخاب کنید.');
+            }
         }
+        // If selectAllFiltered is true, use all filtered salons
 
         $package = Package::findOrFail($request->package_id);
-        $durationMonths = $request->duration_months ?? ($package->duration_days ? ceil($package->duration_days / 30) : 1);
+        $durationDays = $package->duration_days ?? 365; // استفاده از duration_days پکیج
         $count = 0;
         $errors = [];
 
@@ -504,7 +515,7 @@ class AdminBulkSmsGiftController extends Controller
                     'amount_paid' => 0, // هدیه
                     'status' => 'active',
                     'purchased_at' => now(),
-                    'expires_at' => now()->addMonths($durationMonths),
+                    'expires_at' => now()->addDays($durationDays), // استفاده از روز به جای ماه
                 ]);
 
                 // If package has gift SMS, increment salon SMS balance

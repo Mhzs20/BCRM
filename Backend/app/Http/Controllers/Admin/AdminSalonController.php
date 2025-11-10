@@ -611,6 +611,7 @@ class AdminSalonController extends Controller
                     'gift_sms_count' => $package->gift_sms_count,
                     'duration_days' => $package->duration_days,
                     'is_active' => $package->is_active,
+                    'is_gift_only' => $package->is_gift_only,
                     'is_current' => $currentPackage && $currentPackage->package_id === $package->id,
                     'options' => $package->options->map(function ($option) {
                         return [
