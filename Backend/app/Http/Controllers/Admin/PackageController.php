@@ -33,7 +33,7 @@ class PackageController extends Controller
      */
     public function store(StorePackageRequest $request)
     {
-        $package = Package::create($request->only(['name', 'description', 'price', 'gift_sms_count', 'duration_days', 'is_active']));
+        $package = Package::create($request->only(['name', 'description', 'price', 'gift_sms_count', 'duration_days', 'is_active', 'is_gift_only']));
         
         if ($request->has('options')) {
             $package->options()->sync($request->options);
@@ -67,7 +67,7 @@ class PackageController extends Controller
      */
     public function update(UpdatePackageRequest $request, Package $package)
     {
-        $package->update($request->only(['name', 'description', 'price', 'gift_sms_count', 'duration_days', 'is_active']));
+        $package->update($request->only(['name', 'description', 'price', 'gift_sms_count', 'duration_days', 'is_active', 'is_gift_only']));
         
         if ($request->has('options')) {
             $package->options()->sync($request->options);

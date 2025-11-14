@@ -21,6 +21,9 @@ class UpdateStaffRequest extends FormRequest
         if ($this->has('schedules') && is_string($this->schedules)) {
             $this->merge(['schedules' => json_decode($this->schedules, true)]);
         }
+        if ($this->has('breaks') && is_string($this->breaks)) {
+            $this->merge(['breaks' => json_decode($this->breaks, true)]);
+        }
     }
 
     public function rules(): array
@@ -44,6 +47,10 @@ class UpdateStaffRequest extends FormRequest
             'service_ids' => ['sometimes', 'nullable', 'array'],
             'service_ids.*' => ['integer', Rule::exists('services', 'id')->where('salon_id', $salon->id)],
             'hire_date' => ['sometimes', 'nullable', 'date'],
+            'breaks' => ['sometimes', 'nullable', 'array'],
+            'breaks.*.weekday' => ['required', 'integer', 'between:0,6'],
+            'breaks.*.start_time' => ['required', 'date_format:H:i'],
+            'breaks.*.end_time' => ['required', 'date_format:H:i', 'after:breaks.*.start_time'],
         ];
     }
 
@@ -70,6 +77,15 @@ class UpdateStaffRequest extends FormRequest
             'service_ids.array' => 'سرویس‌ها باید به صورت آرایه‌ای از شناسه‌ها ارسال شوند.',
             'service_ids.*.integer' => 'شناسه هر سرویس باید یک عدد صحیح باشد.',
             'service_ids.*.exists' => 'سرویس انتخاب شده معتبر نیست یا به این سالن تعلق ندارد.',
+            'breaks.array' => 'بازه‌های استراحت باید به صورت آرایه ارسال شوند.',
+            'breaks.*.weekday.required' => 'روز هفته برای بازه استراحت الزامی است.',
+            'breaks.*.weekday.integer' => 'روز هفته باید عدد باشد.',
+            'breaks.*.weekday.between' => 'روز هفته باید بین ۰ تا ۶ باشد.',
+            'breaks.*.start_time.required' => 'ساعت شروع استراحت الزامی است.',
+            'breaks.*.start_time.date_format' => 'فرمت ساعت شروع استراحت معتبر نیست (HH:MM).',
+            'breaks.*.end_time.required' => 'ساعت پایان استراحت الزامی است.',
+            'breaks.*.end_time.date_format' => 'فرمت ساعت پایان استراحت معتبر نیست (HH:MM).',
+            'breaks.*.end_time.after' => 'ساعت پایان استراحت باید بعد از ساعت شروع باشد.',
         ];
     }
 }

@@ -77,7 +77,7 @@ class StaffController extends Controller
         $this->authorize('viewAny', [Staff::class, $salon]);
 
         $query = $salon->staff()
-            ->with(['services:id,name', 'schedules']);
+            ->with(['services:id,name', 'schedules', 'breaks']);
 
         if ($request->filled('q')) {
             $searchTerm = $request->input('q');
@@ -106,6 +106,13 @@ class StaffController extends Controller
 
         $staffMembers->getCollection()->transform(function ($staff) {
             $staff->total_income = (float) $staff->total_income;
+            $staff->break_time = $staff->breaks->map(function($break) {
+                return [
+                    'weekday' => $break->weekday,
+                    'start_time' => $break->start_time,
+                    'end_time' => $break->end_time,
+                ];
+            });
             return $staff;
         });
 
@@ -152,7 +159,7 @@ class StaffController extends Controller
     public function show(Salon $salon, Staff $staff)
     {
         $this->authorize('view', $staff);
-        $staff->load(['services:id,name', 'schedules']);
+        $staff->load(['services:id,name', 'schedules', 'breaks']);
 
         $staffData = $staff->toArray();
         $staffData['total_income'] = (float) $staff->total_income;
@@ -198,7 +205,7 @@ class StaffController extends Controller
                     $this->syncBreaks($staff, $updateData['breaks']);
                 }
 
-            $staff->refresh()->load(['services:id,name', 'schedules']);
+            $staff->refresh()->load(['services:id,name', 'schedules', 'breaks']);
             return response()->json([
                 'success' => true,
                 'message' => 'اطلاعات پرسنل با موفقیت به‌روزرسانی شد.',

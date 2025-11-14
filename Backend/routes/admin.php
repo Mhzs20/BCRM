@@ -175,5 +175,4 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
     Route::get('options', [\App\Http\Controllers\Admin\OptionController::class, 'index'])->name('options.index');
     Route::post('options/{option}/toggle-status', [\App\Http\Controllers\Admin\OptionController::class, 'toggleStatus'])->name('options.toggle-status');
 });
-        // تنظیمات کارت
         Route::resource('card-setting', \App\Http\Controllers\Admin\CardSettingController::class);

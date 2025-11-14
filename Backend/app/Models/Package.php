@@ -16,6 +16,7 @@ class Package extends Model
         'gift_sms_count',
         'duration_days',
         'is_active',
+        'is_gift_only',
     ];
 
     protected $casts = [
@@ -23,6 +24,7 @@ class Package extends Model
         'gift_sms_count' => 'integer',
         'duration_days' => 'integer',
         'is_active' => 'boolean',
+        'is_gift_only' => 'boolean',
     ];
 
     /**
