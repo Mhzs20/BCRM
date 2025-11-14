@@ -57,10 +57,18 @@ class PaymentGatewayController extends Controller
             $invoice->detail('description', $description);
             $invoice->detail('mobile', $user->mobile);
 
-            // Set callback URL based on order type
-            $callbackUrl = $order->type === 'wallet_package' 
-                ? route('payment.wallet.callback')
-                : route('payment.verify');
+            // Prefer callback_url from order metadata if provided, otherwise
+            // fall back to default callbacks based on order type.
+            $callbackUrl = null;
+            if (!empty($order->metadata) && is_array($order->metadata) && !empty($order->metadata['callback_url'])) {
+                $callbackUrl = $order->metadata['callback_url'];
+            }
+
+            if (empty($callbackUrl)) {
+                $callbackUrl = $order->type === 'wallet_package'
+                    ? route('payment.wallet.callback')
+                    : route('payment.verify');
+            }
 
             // Create payment
             $payment = Payment::via('zarinpal')->callbackUrl($callbackUrl);

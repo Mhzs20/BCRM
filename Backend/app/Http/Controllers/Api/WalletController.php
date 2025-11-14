@@ -91,52 +91,316 @@ class WalletController extends Controller
     }
 
     /**
-     * Add credit to wallet (for testing or admin purposes)
+     * Add credit to wallet with payment gateway (manual charge with custom amount)
      */
     public function addCredit(Request $request)
     {
-        $request->validate([
-            'amount' => 'required|numeric|min:1',
-            'description' => 'nullable|string|max:255',
-        ]);
-
         try {
+            $validated = $request->validate([
+                'amount' => 'required|numeric|min:10000|max:50000000',
+                'salon_id' => 'required|exists:salons,id',
+                'callback_url' => ['required', 'regex:/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//'], // Allow custom schemes
+                'description' => 'nullable|string|max:255',
+                'discount_code' => 'nullable|string|exists:discount_codes,code',
+            ]);
+            
             $user = $request->user();
             
+            // Check if salon belongs to the user
+            $salon = $user->salons()->find($request->salon_id);
+            if (!$salon) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'سالن انتخابی متعلق به شما نیست.'
+                ], 403);
+            }
+
+            // Calculate amount (from user input)
+            $amount = $request->amount;
+            $originalAmount = $amount;
+            $discountPercentage = 0;
+            $discountCode = null;
+
+            // Check and apply discount code if provided
+            if ($request->discount_code) {
+                $discountCodeModel = \App\Models\DiscountCode::where('code', $request->discount_code)
+                    ->where('is_active', true)
+                    ->first();
+
+                if (!$discountCodeModel) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'کد تخفیف نامعتبر است.',
+                    ], 400);
+                }
+
+                if (!$discountCodeModel->isValid()) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'کد تخفیف منقضی شده یا غیرفعال است.',
+                    ], 400);
+                }
+
+                if (!$discountCodeModel->canUserUse($user)) {
+                    \Illuminate\Support\Facades\Log::warning('Unauthorized discount code usage attempt', [
+                        'user_id' => $user->id,
+                        'discount_code' => $request->discount_code,
+                        'ip' => $request->ip(),
+                    ]);
+                    
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'شما مجاز به استفاده از این کد تخفیف نیستید.',
+                    ], 403);
+                }
+
+                // Check minimum order amount
+                if ($discountCodeModel->min_order_amount && $amount < $discountCodeModel->min_order_amount) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "حداقل مبلغ سفارش برای استفاده از این کد تخفیف " . number_format($discountCodeModel->min_order_amount) . " تومان است.",
+                    ], 400);
+                }
+
+                // Apply discount
+                $discountAmount = $discountCodeModel->calculateDiscount($amount);
+                $amount = $amount - $discountAmount;
+                $discountCode = $request->discount_code;
+                
+                if ($discountCodeModel->type === 'percentage') {
+                    $discountPercentage = $discountCodeModel->value;
+                } else {
+                    $discountPercentage = (($originalAmount - $amount) / $originalAmount) * 100;
+                }
+            }
+
             DB::beginTransaction();
 
-            // Add to wallet balance
-            $user->increment('wallet_balance', $request->amount);
-
-            // Record transaction
-            WalletTransaction::create([
+            // Create order record
+            $order = Order::create([
                 'user_id' => $user->id,
-                'amount' => $request->amount,
-                'type' => 'manual_credit',
-                'description' => $request->description ?? 'شارژ دستی کیف پول',
-                'status' => 'completed',
-                'meta_data' => [
-                    'added_by' => 'user',
-                    'method' => 'manual'
+                'salon_id' => $request->salon_id,
+                'type' => 'wallet_charge',
+                'item_id' => null,
+                'item_title' => 'شارژ دلخواه کیف پول',
+                'amount' => $amount,
+                'original_amount' => $originalAmount,
+                'discount_amount' => $originalAmount - $amount,
+                'status' => 'pending',
+                'payment_method' => 'online',
+                'sms_count' => 0,
+                'discount_code' => $discountCode,
+                'discount_percentage' => $discountPercentage,
+                'metadata' => [
+                    'wallet_amount' => $originalAmount, // مبلغی که کاربر می‌خواهد شارژ کند
+                    'description' => $request->description ?? 'شارژ دلخواه کیف پول',
                 ]
             ]);
 
-            DB::commit();
+            // Create transaction record
+            $transaction = \App\Models\Transaction::create([
+                'order_id' => $order->id,
+                'gateway' => 'zarinpal',
+                'amount' => $amount,
+                'status' => 'pending',
+                'description' => 'در انتظار پرداخت',
+            ]);
+
+            try {
+                $invoice = new \Shetabit\Multipay\Invoice();
+                $invoice->amount($amount);
+                $invoice->detail('description', "شارژ کیف پول: " . number_format($originalAmount / 10) . " تومان - سفارش {$order->id}");
+                $invoice->detail('mobile', $user->mobile);
+
+                // Handle callback URL (support deep-links)
+                $providedCallback = $request->callback_url;
+                if (\Illuminate\Support\Str::startsWith($providedCallback, ['http://', 'https://']) === false) {
+                    if ($providedCallback !== 'return://ziboxcrm.ir') {
+                        \Illuminate\Support\Facades\Log::warning('Unauthorized callback scheme in wallet charge', [
+                            'callback_url' => $providedCallback,
+                            'user_id' => $user->id,
+                            'ip' => $request->ip(),
+                        ]);
+                        DB::rollBack();
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'callback_url نامعتبر است.',
+                        ], 400);
+                    }
+                    
+                    $proxy = route('payment.callback_proxy') . '?app_return=' . urlencode($providedCallback);
+                    $payment = \Shetabit\Payment\Facade\Payment::via('zarinpal')->callbackUrl($proxy);
+                } else {
+                    $payment = \Shetabit\Payment\Facade\Payment::via('zarinpal')->callbackUrl($providedCallback);
+                }
+
+                $payment->purchase(
+                    $invoice,
+                    function ($driver, $transactionId) use ($transaction) {
+                        $transaction->update(['transaction_id' => $transactionId]);
+                    }
+                );
+
+                $redirectionForm = $payment->pay();
+                $paymentUrl = (string) $redirectionForm;
+
+                DB::commit();
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'سفارش شارژ کیف پول ایجاد شد.',
+                    'data' => [
+                        'order_id' => $order->id,
+                        'amount' => $amount,
+                        'wallet_amount' => $originalAmount,
+                        'payment_url' => $paymentUrl,
+                        'authority' => $transaction->transaction_id,
+                    ]
+                ]);
+
+            } catch (\Exception $e) {
+                $transaction->update(['status' => 'failed', 'description' => 'خطا در ایجاد لینک پرداخت: ' . $e->getMessage()]);
+                $order->update(['status' => 'failed']);
+                DB::rollBack();
+                
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'خطا در ایجاد لینک پرداخت.',
+                ], 500);
+            }
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => 'خطا در ایجاد سفارش: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Verify wallet charge payment
+     */
+    public function verifyAddCredit(Request $request)
+    {
+        $request->validate([
+            'authority' => 'required|string',
+        ]);
+
+        $authority = $request->authority;
+        $user = $request->user();
+
+        // Find transaction by authority and ensure it belongs to the current user
+        $transaction = \App\Models\Transaction::where('transaction_id', $authority)
+            ->whereHas('order', function ($query) use ($user) {
+                $query->where('user_id', $user->id)->where('type', 'wallet_charge');
+            })
+            ->first();
+
+        if (!$transaction) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'تراکنش یافت نشد یا متعلق به این کاربر نیست.',
+            ], 404);
+        }
+
+        $order = $transaction->order;
+
+        // If order is already paid
+        if ($order->status === 'paid') {
+            $transaction->update([
+                'status' => 'expired',
+                'description' => 'این سفارش قبلا با موفقیت پرداخت شده است.',
+            ]);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'این خرید قبلا با موفقیت انجام شده است.',
+                'reference_id' => $transaction->reference_id,
+            ], 409);
+        }
+
+        // If transaction is already completed
+        if ($transaction->status === 'completed') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'این تراکنش قبلا با موفقیت تایید شده است.',
+                'reference_id' => $transaction->reference_id,
+            ], 409);
+        }
+
+        try {
+            DB::transaction(function () use ($transaction, $order, $authority) {
+                $expectedAmount = $transaction->amount;
+                
+                // Verify payment with Zarinpal
+                $receipt = \Shetabit\Payment\Facade\Payment::via('zarinpal')
+                    ->amount($expectedAmount)
+                    ->transactionId($authority)
+                    ->verify();
+
+                $referenceId = $receipt->getReferenceId();
+
+                // Update transaction
+                $transaction->update([
+                    'status' => 'completed',
+                    'reference_id' => $referenceId,
+                    'description' => 'پرداخت با موفقیت تایید شد',
+                ]);
+
+                // Dispatch event to update wallet balance
+                event(new \App\Events\PaymentSuccessful($order, $transaction));
+
+                \Illuminate\Support\Facades\Log::info('Wallet charge PaymentSuccessful event dispatched.', [
+                    'order_id' => $order->id,
+                    'transaction_id' => $transaction->id,
+                    'amount' => $expectedAmount,
+                    'reference_id' => $referenceId,
+                ]);
+            });
+
+            $order->refresh();
+            $transaction->refresh();
+            $user->refresh();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'موجودی با موفقیت اضافه شد',
+                'message' => 'پرداخت با موفقیت تایید شد.',
                 'data' => [
-                    'new_balance' => $user->fresh()->wallet_balance,
-                    'added_amount' => $request->amount
+                    'wallet_amount_added' => $order->metadata['wallet_amount'] ?? 0,
+                    'new_wallet_balance' => $user->wallet_balance ?? 0,
+                    'reference_id' => $transaction->reference_id,
+                    'order_status' => $order->status,
                 ]
             ]);
+            
+        } catch (\Shetabit\Multipay\Exceptions\InvalidPaymentException $e) {
+            $transaction->update(['status' => 'failed', 'description' => $e->getMessage()]);
+            $order->update(['status' => 'failed']);
+            
+            \Illuminate\Support\Facades\Log::warning('Wallet charge verification failed: ' . $e->getMessage(), [
+                'authority' => $authority,
+                'order_id' => $order->id
+            ]);
 
-        } catch (\Exception $e) {
-            DB::rollback();
             return response()->json([
                 'status' => 'error',
-                'message' => 'خطا در اضافه کردن موجودی: ' . $e->getMessage()
+                'message' => 'پرداخت ناموفق بود یا توسط کاربر لغو شده است.',
+                'error' => $e->getMessage(),
+            ], 400);
+            
+        } catch (\Exception $e) {
+            $transaction->update(['status' => 'failed', 'description' => 'خطای ناشناخته: ' . $e->getMessage()]);
+            $order->update(['status' => 'failed']);
+            
+            \Illuminate\Support\Facades\Log::error('Wallet charge verification error: ' . $e->getMessage(), [
+                'authority' => $authority,
+                'order_id' => $order->id
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'خطا در فرآیند تایید پرداخت.',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -538,6 +802,7 @@ class WalletController extends Controller
             $validator = Validator::make($request->all(), [
                 'amount' => 'required|numeric|min:10000|max:50000000', 
                 'description' => 'nullable|string|max:255',
+                'callback_url' => 'nullable|url'
             ]);
             
             if ($validator->fails()) {
@@ -561,6 +826,9 @@ class WalletController extends Controller
                 'amount' => $amount,
                 'sms_count' => 0,
                 'status' => 'pending',
+                'metadata' => [
+                    'callback_url' => $request->callback_url ?? null
+                ]
             ]);
             
             // Create wallet transaction record (pending)
@@ -589,8 +857,8 @@ class WalletController extends Controller
                     'transaction_id' => $transaction->id,
                     'amount' => $amount,
                     'description' => $description,
-                    'redirect_url' => url("/api/wallet/charge/verify/{$order->id}"),
-                    // Add ZarinPal specific data here when implemented
+                    'payment_url' => route('payment.gateway', $order->id),
+                    'callback_url' => $request->callback_url ?? null
                 ]
             ]);
             
