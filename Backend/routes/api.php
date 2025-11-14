@@ -281,6 +281,9 @@ Route::middleware('auth:api')->group(function () {
         Route::get('wallet/callback', [\App\Http\Controllers\PaymentGatewayController::class, 'walletCallback'])->name('wallet.callback');
     });
 
+    // SMS Package List with Discount Code Support
+    Route::get('sms-packages', [\App\Http\Controllers\Api\SmsPackageController::class, 'index'])->name('sms_packages.index');
+
     Route::prefix('discount')->name('discount.')->group(function () {
         Route::post('validate', [\App\Http\Controllers\DiscountCodeController::class, 'validateCode'])->name('validate');
         Route::post('apply', [\App\Http\Controllers\DiscountCodeController::class, 'applyCode'])->name('apply');

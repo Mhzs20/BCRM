@@ -12,6 +12,7 @@ class DiscountCode extends Model
         'code',
         'type',
         'value',
+        'percentage', // Keep for backward compatibility
         'min_order_amount',
         'max_discount_amount',
         'starts_at',
@@ -21,7 +22,7 @@ class DiscountCode extends Model
         'user_filter_type',
         'description',
         'usage_limit',
-        'usage_count',
+        'used_count',
     ];
 
     protected $casts = [
@@ -32,7 +33,7 @@ class DiscountCode extends Model
         'min_order_amount' => 'decimal:2',
         'max_discount_amount' => 'decimal:2',
         'target_users' => 'array',
-        'usage_count' => 'integer',
+        'used_count' => 'integer',
         'usage_limit' => 'integer',
     ];
 
@@ -42,24 +43,38 @@ class DiscountCode extends Model
     public function isValid(): bool
     {
         if (!$this->is_active) {
+            \Log::info("DiscountCode {$this->code} is not active");
             return false;
         }
 
         // Check if discount has started
         if ($this->starts_at && now()->lessThan($this->starts_at)) {
+            \Log::info("DiscountCode {$this->code} hasn't started yet", [
+                'starts_at' => $this->starts_at,
+                'now' => now()
+            ]);
             return false;
         }
 
         // Check if discount has expired
         if ($this->expires_at && now()->greaterThan($this->expires_at)) {
+            \Log::info("DiscountCode {$this->code} has expired", [
+                'expires_at' => $this->expires_at,
+                'now' => now()
+            ]);
             return false;
         }
 
         // Check usage limit - now based on unique salons count
         if ($this->usage_limit && $this->salonUsages()->count() >= $this->usage_limit) {
+            \Log::info("DiscountCode {$this->code} usage limit reached", [
+                'usage_limit' => $this->usage_limit,
+                'used_count' => $this->salonUsages()->count()
+            ]);
             return false;
         }
 
+        \Log::info("DiscountCode {$this->code} is valid");
         return true;
     }
 
@@ -69,24 +84,36 @@ class DiscountCode extends Model
     public function canUserUse($user): bool
     {
         if (!$this->isValid()) {
+            \Log::info("DiscountCode {$this->code} - user cannot use: code is not valid");
             return false;
         }
 
         // SECURITY: Check if salon has already used this discount code
         if ($user->active_salon_id && $this->hasBeenUsedBySalon($user->active_salon_id)) {
+            \Log::info("DiscountCode {$this->code} - user cannot use: salon has already used this code", [
+                'salon_id' => $user->active_salon_id
+            ]);
             return false;
         }
 
         // If no filter is set, all users can use it
         if ($this->user_filter_type === 'all' || !$this->target_users) {
+            \Log::info("DiscountCode {$this->code} - user can use: no filters set");
             return true;
         }
 
         // Check filtered criteria
         if ($this->user_filter_type === 'filtered' && $this->target_users) {
-            return $this->userMatchesFilters($user, $this->target_users);
+            $matches = $this->userMatchesFilters($user, $this->target_users);
+            \Log::info("DiscountCode {$this->code} - user filter check", [
+                'matches' => $matches,
+                'target_users' => $this->target_users,
+                'user_id' => $user->id
+            ]);
+            return $matches;
         }
 
+        \Log::info("DiscountCode {$this->code} - user can use: default true");
         return true;
     }
 

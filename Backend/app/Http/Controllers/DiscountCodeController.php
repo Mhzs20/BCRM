@@ -36,22 +36,36 @@ class DiscountCodeController extends Controller
             return response()->json(['message' => 'کد تخفیف منقضی شده است.'], 400);
         }
 
+        // Check if discount has started
+        if ($discountCode->starts_at && Carbon::now()->lessThan($discountCode->starts_at)) {
+            return response()->json(['message' => 'کد تخفیف هنوز فعال نشده است.'], 400);
+        }
+
         // Check usage limit
-        if ($discountCode->usage_limit && $discountCode->usage_count >= $discountCode->usage_limit) {
+        if ($discountCode->usage_limit && $discountCode->used_count >= $discountCode->usage_limit) {
             return response()->json(['message' => 'تعداد استفاده از این کد تخفیف به حد مجاز رسیده است.'], 400);
         }
 
+        // Check minimum order amount
+        if ($discountCode->min_order_amount && $request->amount < $discountCode->min_order_amount) {
+            return response()->json([
+                'message' => 'حداقل مبلغ سفارش برای استفاده از این کد تخفیف ' . number_format($discountCode->min_order_amount) . ' تومان است.'
+            ], 400);
+        }
+
         $originalAmount = $request->amount;
-        $discountAmount = ($originalAmount * $discountCode->percentage) / 100;
+        $discountAmount = $discountCode->calculateDiscount($originalAmount);
         $finalAmount = $originalAmount - $discountAmount;
 
         return response()->json([
             'message' => 'کد تخفیف معتبر است.',
-            'discount_percentage' => $discountCode->percentage,
+            'type' => $discountCode->type,
+            'value' => $discountCode->value,
+            'discount_percentage' => $discountCode->type === 'percentage' ? $discountCode->value : 0,
             'original_amount' => $originalAmount,
             'discount_amount' => $discountAmount,
             'final_amount' => $finalAmount,
-            'usage_count' => $discountCode->usage_count,
+            'used_count' => $discountCode->used_count,
             'usage_limit' => $discountCode->usage_limit,
             'description' => $discountCode->description,
         ]);
@@ -84,19 +98,21 @@ class DiscountCodeController extends Controller
         }
 
         // Increment usage count
-        $discountCode->incrementUsage();
+        $discountCode->increment('used_count');
 
         $originalAmount = $request->amount;
-        $discountAmount = ($originalAmount * $discountCode->percentage) / 100;
+        $discountAmount = $discountCode->calculateDiscount($originalAmount);
         $finalAmount = $originalAmount - $discountAmount;
 
         return response()->json([
             'message' => 'کد تخفیف با موفقیت اعمال شد.',
-            'discount_percentage' => $discountCode->percentage,
+            'type' => $discountCode->type,
+            'value' => $discountCode->value,
+            'discount_percentage' => $discountCode->type === 'percentage' ? $discountCode->value : 0,
             'original_amount' => $originalAmount,
             'discount_amount' => $discountAmount,
             'final_amount' => $finalAmount,
-            'usage_count' => $discountCode->usage_count,
+            'used_count' => $discountCode->used_count,
             'usage_limit' => $discountCode->usage_limit,
             'applied_at' => Carbon::now()->toISOString(),
         ]);

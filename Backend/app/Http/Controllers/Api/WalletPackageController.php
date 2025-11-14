@@ -17,33 +17,111 @@ class WalletPackageController extends Controller
     public function index(Request $request)
     {
         try {
+            // Check for discount code in request
+            $discountCode = null;
+            $discountCodeModel = null;
+            $user = $request->user();
+
+            if ($request->filled('discount_code')) {
+                $discountCodeModel = \App\Models\DiscountCode::where('code', $request->discount_code)
+                    ->where('is_active', true)
+                    ->first();
+
+                if ($discountCodeModel && $discountCodeModel->isValid()) {
+                    // Check if user can use this code
+                    if ($user && $discountCodeModel->canUserUse($user)) {
+                        $discountCode = $discountCodeModel;
+                    }
+                }
+            }
+
             $packages = WalletPackage::active()
                 ->orderBy('sort_order', 'asc')
                 ->orderBy('price', 'asc')
                 ->get()
-                ->map(function ($package) {
+                ->map(function ($package) use ($discountCode, $user) {
+                    $originalPrice = $package->price;
+                    $packageDiscountPercentage = $package->discount_percentage;
+                    $packageDiscountAmount = $package->discount_amount;
+                    $packageFinalPrice = $package->final_price;
+                    
+                    $finalPrice = $packageFinalPrice;
+                    $appliedDiscountPercentage = $packageDiscountPercentage;
+                    $appliedDiscountAmount = $packageDiscountAmount;
+                    $codeApplied = false;
+                    $codeDiscountPercentage = 0;
+
+                    // Apply discount code if available and better than package discount
+                    if ($discountCode) {
+                        // Calculate discount code percentage
+                        if ($discountCode->type === 'percentage') {
+                            $codeDiscountPercentage = $discountCode->value;
+                        } elseif ($discountCode->type === 'fixed') {
+                            // Convert fixed amount to percentage for comparison
+                            $codeDiscountPercentage = ($discountCode->value / $originalPrice) * 100;
+                        }
+
+                        // Apply code only if its discount is better than package discount
+                        if ($codeDiscountPercentage > $packageDiscountPercentage) {
+                            // Check minimum order amount against original price
+                            if (!$discountCode->min_order_amount || $originalPrice >= $discountCode->min_order_amount) {
+                                $codeDiscountAmount = $discountCode->calculateDiscount($originalPrice);
+                                $finalPrice = $originalPrice - $codeDiscountAmount;
+                                $appliedDiscountPercentage = $codeDiscountPercentage;
+                                $appliedDiscountAmount = $codeDiscountAmount;
+                                $codeApplied = true;
+                            }
+                        }
+                    }
+
                     return [
                         'id' => $package->id,
                         'title' => $package->title,
                         'description' => $package->description,
                         'amount' => $package->amount,
-                        'price' => $package->price,
-                        'final_price' => $package->final_price,
-                        'discount_percentage' => $package->discount_percentage,
-                        'discount_amount' => $package->discount_amount,
+                        'price' => $originalPrice,
+                        'final_price' => $finalPrice,
+                        'discount_percentage' => round($appliedDiscountPercentage, 2),
+                        'discount_amount' => $appliedDiscountAmount,
+                        'package_discount_percentage' => $packageDiscountPercentage,
+                        'package_discount_amount' => $packageDiscountAmount,
+                        'code_discount_percentage' => $codeApplied ? round($codeDiscountPercentage, 2) : 0,
+                        'discount_source' => $codeApplied ? 'code' : ($packageDiscountPercentage > 0 ? 'package' : 'none'),
                         'is_featured' => $package->is_featured,
                         'icon' => $package->icon,
                         'color' => $package->color,
                         'formatted_amount' => $package->formatted_amount,
-                        'formatted_price' => $package->formatted_price,
-                        'formatted_final_price' => $package->formatted_final_price,
+                        'formatted_price' => number_format($originalPrice / 10) . ' تومان',
+                        'formatted_final_price' => number_format($finalPrice / 10) . ' تومان',
+                        'formatted_you_save' => $appliedDiscountAmount > 0 
+                            ? number_format($appliedDiscountAmount / 10) . ' تومان صرفه‌جویی' 
+                            : null,
                     ];
                 });
 
-            return response()->json([
+            $response = [
                 'status' => 'success',
                 'data' => $packages
-            ]);
+            ];
+
+            // Add discount code info if applied
+            if ($discountCode) {
+                $response['discount_code'] = [
+                    'code' => $discountCode->code,
+                    'description' => $discountCode->description,
+                    'type' => $discountCode->type,
+                    'value' => $discountCode->value,
+                    'applied' => true,
+                ];
+            } elseif ($request->filled('discount_code')) {
+                $response['discount_code'] = [
+                    'code' => $request->discount_code,
+                    'applied' => false,
+                    'message' => 'کد تخفیف نامعتبر یا منقضی شده است.',
+                ];
+            }
+
+            return response()->json($response);
 
         } catch (\Exception $e) {
             return response()->json([
