@@ -16,7 +16,327 @@
 @endsection
 
 @section('content')
-    <div class="max-w-6xl mx-auto">
+    <div class="max-w-6xl mx-auto space-y-8">
+        
+        <!-- User Targeting Section - MOVED TO TOP -->
+        <div class="bg-white shadow-lg rounded-xl overflow-hidden">
+            <div class="bg-gradient-to-r from-orange-500 to-yellow-600 px-8 py-6">
+                <div class="flex items-center">
+                    <div class="bg-white/10 rounded-lg p-3 ml-4">
+                        <i class="ri-user-search-line text-2xl text-white"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-white">هدف‌گذاری کاربران</h3>
+                        <p class="text-orange-100 text-sm">تعیین کنید این کد تخفیف برای چه کسانی قابل استفاده باشد</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label class="relative cursor-pointer radio-option">
+                        <input type="radio" 
+                               name="targeting_type" 
+                               value="all" 
+                               {{ (!request('filter_applied') && !request('form_user_filter_type')) || request('form_user_filter_type') === 'all' ? 'checked' : '' }}
+                               class="sr-only radio-input">
+                        <div class="radio-card flex items-center p-6 border-2 border-gray-200 rounded-lg transition-all duration-200 hover:border-gray-300">
+                            <div class="radio-circle flex items-center justify-center w-6 h-6 border-2 border-gray-300 rounded-full mr-3 transition-all duration-200">
+                                <div class="radio-dot w-3 h-3 bg-indigo-500 rounded-full transform scale-0 transition-transform duration-200"></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center">
+                                    <i class="ri-group-line text-2xl text-gray-500 ml-2"></i>
+                                    <span class="text-base font-semibold text-gray-900">همه کاربران</span>
+                                </div>
+                                <p class="text-sm text-gray-500 mt-1">کد تخفیف برای همه سالن‌ها قابل استفاده باشد</p>
+                            </div>
+                        </div>
+                    </label>
+                    
+                    <label class="relative cursor-pointer radio-option">
+                        <input type="radio" 
+                               name="targeting_type" 
+                               value="filtered" 
+                               {{ request('filter_applied') || request('form_user_filter_type') === 'filtered' ? 'checked' : '' }}
+                               class="sr-only radio-input">
+                        <div class="radio-card flex items-center p-6 border-2 border-gray-200 rounded-lg transition-all duration-200 hover:border-gray-300">
+                            <div class="radio-circle flex items-center justify-center w-6 h-6 border-2 border-gray-300 rounded-full mr-3 transition-all duration-200">
+                                <div class="radio-dot w-3 h-3 bg-indigo-500 rounded-full transform scale-0 transition-transform duration-200"></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center">
+                                    <i class="ri-filter-3-line text-2xl text-gray-500 ml-2"></i>
+                                    <span class="text-base font-semibold text-gray-900">کاربران فیلتر شده</span>
+                                </div>
+                                <p class="text-sm text-gray-500 mt-1">کد تخفیف فقط برای سالن‌های خاص</p>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Options Panel -->
+        <div id="filter-options" class="bg-white shadow-lg rounded-xl overflow-hidden" style="display: {{ request('filter_applied') || request('form_user_filter_type') === 'filtered' ? 'block' : 'none' }};">
+            <div class="bg-gradient-to-r from-blue-500 to-cyan-600 px-8 py-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <div class="bg-white/10 rounded-lg p-3 ml-4">
+                            <i class="ri-filter-3-line text-2xl text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-white">فیلتر سالن‌ها</h3>
+                            <p class="text-blue-100 text-sm">سالن‌های مورد نظر خود را انتخاب کنید</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    <div>
+                        <label for="filter_province_id" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="ri-map-pin-line text-gray-400 ml-1"></i>
+                            استان
+                        </label>
+                        <select id="filter_province_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                            <option value="">همه استان‌ها</option>
+                            @foreach($provinces as $province)
+                                <option value="{{ $province->id }}" {{ request('province_id') == $province->id ? 'selected' : '' }}>
+                                    {{ $province->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="filter_city_id" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="ri-building-line text-gray-400 ml-1"></i>
+                            شهر
+                        </label>
+                        <select id="filter_city_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                            <option value="">همه شهرها</option>
+                            @if(isset($cities))
+                                @foreach($cities as $city)
+                                    <option value="{{ $city->id }}" {{ request('city_id') == $city->id ? 'selected' : '' }}>
+                                        {{ $city->name }}
+                                    </option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="filter_business_category_id" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="ri-store-line text-gray-400 ml-1"></i>
+                            دسته‌بندی کسب‌وکار
+                        </label>
+                        <select id="filter_business_category_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                            <option value="">همه دسته‌ها</option>
+                            @foreach($businessCategories as $category)
+                                <option value="{{ $category->id }}" {{ request('business_category_id') == $category->id ? 'selected' : '' }}>
+                                    {{ $category->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="filter_business_subcategory_id" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="ri-list-check-line text-gray-400 ml-1"></i>
+                            زیردسته کسب‌وکار
+                        </label>
+                        <select id="filter_business_subcategory_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                            <option value="">همه زیردسته‌ها</option>
+                            @if(isset($businessSubcategories))
+                                @foreach($businessSubcategories as $subcategory)
+                                    <option value="{{ $subcategory->id }}" {{ request('business_subcategory_id') == $subcategory->id ? 'selected' : '' }}>
+                                        {{ $subcategory->name }}
+                                    </option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="filter_status" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="ri-toggle-line text-gray-400 ml-1"></i>
+                            وضعیت سالن
+                        </label>
+                        <select id="filter_status" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                            <option value="">همه</option>
+                            <option value="1" {{ request('status') === '1' ? 'selected' : '' }}>فعال</option>
+                            <option value="0" {{ request('status') === '0' ? 'selected' : '' }}>غیرفعال</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="ri-message-line text-gray-400 ml-1"></i>
+                            محدوده اعتبار پیامک
+                        </label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <input type="number" 
+                                       id="filter_min_sms_balance" 
+                                       placeholder="حداقل"
+                                       min="0"
+                                       value="{{ request('min_sms_balance') }}"
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                            </div>
+                            <div>
+                                <input type="number" 
+                                       id="filter_max_sms_balance" 
+                                       placeholder="حداکثر"
+                                       min="0"
+                                       value="{{ request('max_sms_balance') }}"
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="filter_last_sms_purchase" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="ri-shopping-cart-line text-gray-400 ml-1"></i>
+                            آخرین خرید پیامک
+                        </label>
+                        <select id="filter_last_sms_purchase" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                            <option value="">همه</option>
+                            <option value="last_month" {{ request('last_sms_purchase') === 'last_month' ? 'selected' : '' }}>یک ماه اخیر</option>
+                            <option value="last_3_months" {{ request('last_sms_purchase') === 'last_3_months' ? 'selected' : '' }}>سه ماه اخیر</option>
+                            <option value="last_6_months" {{ request('last_sms_purchase') === 'last_6_months' ? 'selected' : '' }}>شش ماه اخیر</option>
+                            <option value="more_than_6_months" {{ request('last_sms_purchase') === 'more_than_6_months' ? 'selected' : '' }}>بیشتر از شش ماه</option>
+                            <option value="never" {{ request('last_sms_purchase') === 'never' ? 'selected' : '' }}>تاکنون خرید نکرده</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="filter_monthly_sms_consumption" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="ri-bar-chart-line text-gray-400 ml-1"></i>
+                            مصرف ماهانه پیامک
+                        </label>
+                        <select id="filter_monthly_sms_consumption" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                            <option value="">همه</option>
+                            <option value="high" {{ request('monthly_sms_consumption') === 'high' ? 'selected' : '' }}>زیاد (بیشتر از ۵۰۰)</option>
+                            <option value="medium" {{ request('monthly_sms_consumption') === 'medium' ? 'selected' : '' }}>متوسط (۱۰۰ تا ۵۰۰)</option>
+                            <option value="low" {{ request('monthly_sms_consumption') === 'low' ? 'selected' : '' }}>کم (کمتر از ۱۰۰)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="filter_gender" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="ri-user-line text-gray-400 ml-1"></i>
+                            جنسیت سالن‌دار
+                        </label>
+                        <select id="filter_gender" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                            <option value="">همه</option>
+                            <option value="male" {{ request('gender') === 'male' ? 'selected' : '' }}>مرد</option>
+                            <option value="female" {{ request('gender') === 'female' ? 'selected' : '' }}>زن</option>
+                            <option value="other" {{ request('gender') === 'other' ? 'selected' : '' }}>سایر</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="filter_min_age" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="ri-calendar-line text-gray-400 ml-1"></i>
+                            حداقل سن
+                        </label>
+                        <input type="number" 
+                               id="filter_min_age" 
+                               placeholder="مثال: ۲۵"
+                               min="18" 
+                               max="120"
+                               value="{{ request('min_age') }}"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                    </div>
+                    
+                    <div>
+                        <label for="filter_max_age" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="ri-calendar-line text-gray-400 ml-1"></i>
+                            حداکثر سن
+                        </label>
+                        <input type="number" 
+                               id="filter_max_age" 
+                               placeholder="مثال: ۴۰"
+                               min="18" 
+                               max="120"
+                               value="{{ request('max_age') }}"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                    </div>
+                </div>
+
+                <div class="flex justify-center gap-6">
+                    <button type="button" id="apply-filter-btn" class="inline-flex items-center px-7 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 transform hover:scale-105">
+                        <i class="ri-search-line text-lg ml-2"></i>
+                        <span>اعمال فیلتر و مشاهده نتایج</span>
+                    </button>
+                    <a href="{{ route('admin.discount-codes.create') }}" class="inline-flex items-center px-7 py-3 border border-gray-300 text-sm font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200">
+                        <i class="ri-close-line text-lg ml-2"></i>
+                        <span>پاک کردن فیلترها</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Filtered Results Display -->
+            @if(request('filter_applied'))
+                <div class="border-t border-gray-200 bg-gray-50">
+                    <div class="px-6 py-4">
+                        <h4 class="text-sm font-medium text-gray-900 mb-2">نتایج فیلتر شده</h4>
+                        <p class="text-sm text-gray-600 mb-4">تعداد سالن‌های یافت شده: <span class="font-bold text-indigo-600">{{ $filteredSalons ? $filteredSalons->count() : 0 }}</span></p>
+                        
+                        @if($filteredSalons && $filteredSalons->count() > 0)
+                            <div class="max-h-96 overflow-y-auto bg-white rounded-lg border">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50 sticky top-0">
+                                        <tr>
+                                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">نام سالن</th>
+                                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">مالک</th>
+                                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شهر</th>
+                                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">دسته‌بندی</th>
+                                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">وضعیت</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        @foreach($filteredSalons as $salon)
+                                            <tr class="hover:bg-gray-50">
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <div class="text-sm font-medium text-gray-900">{{ $salon->name }}</div>
+                                                    <div class="text-sm text-gray-500">{{ $salon->phone ?? '-' }}</div>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {{ $salon->owner->name ?? 'نامشخص' }}
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <div class="text-sm text-gray-900">{{ $salon->city->name ?? '-' }}</div>
+                                                    <div class="text-sm text-gray-500">{{ $salon->city->province->name ?? '-' }}</div>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <div class="text-sm text-gray-900">{{ $salon->businessCategory->name ?? '-' }}</div>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $salon->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                                        {{ $salon->is_active ? 'فعال' : 'غیرفعال' }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @else
+                            <div class="bg-white rounded-lg border px-6 py-8 text-center">
+                                <i class="ri-user-search-line text-4xl text-gray-400 mb-4"></i>
+                                <p class="text-lg font-medium text-gray-500 mb-2">هیچ سالنی یافت نشد</p>
+                                <p class="text-sm text-gray-400">لطفاً فیلترهای دیگری را امتحان کنید.</p>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @endif
+        </div>
+
+        <!-- Main Discount Code Form -->
         <div class="bg-white shadow-lg rounded-xl overflow-hidden">
             <!-- Header Section -->
             <div class="bg-gradient-to-r from-indigo-500 to-purple-600 px-8 py-6">
@@ -172,26 +492,50 @@
                         </div>
 
                         <!-- Minimum Order Amount -->
-                        <div class="mt-6">
-                            <label for="min_order_amount" class="block text-sm font-medium text-gray-700 mb-2">
-                                <i class="ri-shopping-cart-line text-gray-400 ml-1"></i>
-                                حداقل مبلغ سفارش (تومان)
-                            </label>
-                            <input type="number" 
-                                   name="min_order_amount" 
-                                   id="min_order_amount"
-                                   value="{{ old('min_order_amount', request('form_min_order_amount')) }}"
-                                   min="0"
-                                   step="1000"
-                                   placeholder="مثال: 50000"
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 @error('min_order_amount') border-red-500 @enderror">
-                            @error('min_order_amount')
-                                <p class="mt-2 text-sm text-red-600 flex items-center">
-                                    <i class="ri-error-warning-line ml-1"></i>
-                                    {{ $message }}
-                                </p>
-                            @enderror
-                            <p class="mt-2 text-sm text-gray-500">حداقل مبلغ سفارش برای استفاده از این کد</p>
+                        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="min_order_amount" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="ri-shopping-cart-line text-gray-400 ml-1"></i>
+                                    حداقل مبلغ سفارش (تومان)
+                                </label>
+                                <input type="number" 
+                                       name="min_order_amount" 
+                                       id="min_order_amount"
+                                       value="{{ old('min_order_amount', request('form_min_order_amount')) }}"
+                                       min="0"
+                                       step="1000"
+                                       placeholder="مثال: 50000"
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 @error('min_order_amount') border-red-500 @enderror">
+                                @error('min_order_amount')
+                                    <p class="mt-2 text-sm text-red-600 flex items-center">
+                                        <i class="ri-error-warning-line ml-1"></i>
+                                        {{ $message }}
+                                    </p>
+                                @enderror
+                                <p class="mt-2 text-sm text-gray-500">حداقل مبلغ سفارش برای استفاده از این کد</p>
+                            </div>
+
+                            <div>
+                                <label for="max_discount_amount" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="ri-money-dollar-box-line text-gray-400 ml-1"></i>
+                                    حداکثر مبلغ تخفیف (تومان)
+                                </label>
+                                <input type="number" 
+                                       name="max_discount_amount" 
+                                       id="max_discount_amount"
+                                       value="{{ old('max_discount_amount', request('form_max_discount_amount')) }}"
+                                       min="0"
+                                       step="1000"
+                                       placeholder="مثال: 100000"
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 @error('max_discount_amount') border-red-500 @enderror">
+                                @error('max_discount_amount')
+                                    <p class="mt-2 text-sm text-red-600 flex items-center">
+                                        <i class="ri-error-warning-line ml-1"></i>
+                                        {{ $message }}
+                                    </p>
+                                @enderror
+                                <p class="mt-2 text-sm text-gray-500">حداکثر مبلغ تخفیف که می‌تواند اعمال شود (برای تخفیف درصدی)</p>
+                            </div>
                         </div>
                     </div>
 
@@ -270,84 +614,25 @@
                         </div>
                     </div>
 
-                    <!-- User Targeting Section -->
-                    <div class="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-6 border border-orange-100">
-                        <div class="flex items-center mb-6">
-                            <div class="bg-orange-100 rounded-lg p-2 ml-3">
-                                <i class="ri-user-search-line text-orange-600 text-lg"></i>
-                            </div>
-                            <h4 class="text-lg font-semibold text-gray-900">هدف‌گذاری کاربران</h4>
-                        </div>
-                        
-                        <div class="space-y-4">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <label class="relative cursor-pointer radio-option">
-                                    <input type="radio" name="user_filter_type" value="all" 
-                                           {{ old('user_filter_type', request('form_user_filter_type', 'all')) === 'all' ? 'checked' : '' }}
-                                           class="sr-only radio-input">
-                                    <div class="radio-card flex items-center p-4 border-2 border-gray-200 rounded-lg transition-all duration-200 hover:border-gray-300">
-                                        <div class="radio-circle flex items-center justify-center w-6 h-6 border-2 border-gray-300 rounded-full mr-3 transition-all duration-200">
-                                            <div class="radio-dot w-3 h-3 bg-indigo-500 rounded-full transform scale-0 transition-transform duration-200"></div>
-                                        </div>
-                                        <div>
-                                            <div class="flex items-center">
-                                                <i class="ri-group-line text-lg text-gray-500 ml-2"></i>
-                                                <span class="text-sm font-medium text-gray-900">همه کاربران</span>
-                                            </div>
-                                            <p class="text-xs text-gray-500 mt-1">کد تخفیف برای همه سالن‌ها قابل استفاده باشد</p>
-                                        </div>
-                                    </div>
-                                </label>
-                                
-                                <label class="relative cursor-pointer radio-option">
-                                    <input type="radio" name="user_filter_type" value="filtered" 
-                                           {{ old('user_filter_type', request('form_user_filter_type')) === 'filtered' || request('filter_applied') ? 'checked' : '' }}
-                                           class="sr-only radio-input">
-                                    <div class="radio-card flex items-center p-4 border-2 border-gray-200 rounded-lg transition-all duration-200 hover:border-gray-300">
-                                        <div class="radio-circle flex items-center justify-center w-6 h-6 border-2 border-gray-300 rounded-full mr-3 transition-all duration-200">
-                                            <div class="radio-dot w-3 h-3 bg-indigo-500 rounded-full transform scale-0 transition-transform duration-200"></div>
-                                        </div>
-                                        <div>
-                                            <div class="flex items-center">
-                                                <i class="ri-filter-3-line text-lg text-gray-500 ml-2"></i>
-                                                <span class="text-sm font-medium text-gray-900">کاربران فیلتر شده</span>
-                                            </div>
-                                            <p class="text-xs text-gray-500 mt-1">کد تخفیف فقط برای سالن‌های خاص</p>
-                                        </div>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-
-                        {{-- Hidden filter fields for submission --}}
-                        <div class="hidden">
-                            <input type="hidden" name="filter_province_id" value="{{ request('province_id') }}">
-                            <input type="hidden" name="filter_city_id" value="{{ request('city_id') }}">
-                            <input type="hidden" name="filter_business_category_id" value="{{ request('business_category_id') }}">
-                            <input type="hidden" name="filter_business_subcategory_id" value="{{ request('business_subcategory_id') }}">
-                            <input type="hidden" name="filter_status" value="{{ request('status') }}">
-                            <input type="hidden" name="filter_sms_balance_status" value="{{ request('sms_balance_status') }}">
-                            <input type="hidden" name="filter_min_sms_balance" value="{{ request('min_sms_balance') }}">
-                            <input type="hidden" name="filter_max_sms_balance" value="{{ request('max_sms_balance') }}">
-                            <input type="hidden" name="filter_last_sms_purchase" value="{{ request('last_sms_purchase') }}">
-                            <input type="hidden" name="filter_monthly_sms_consumption" value="{{ request('monthly_sms_consumption') }}">
-                            <input type="hidden" name="filter_gender" value="{{ request('gender') }}">
-                            <input type="hidden" name="filter_min_age" value="{{ request('min_age') }}">
-                            <input type="hidden" name="filter_max_age" value="{{ request('max_age') }}">
-                        </div>
+                    {{-- Hidden filter fields for submission --}}
+                    <div class="hidden" id="hidden-filters">
+                        <input type="hidden" name="user_filter_type" id="hidden_user_filter_type" value="{{ old('user_filter_type', request('form_user_filter_type', request('filter_applied') ? 'filtered' : 'all')) }}">
+                        <input type="hidden" name="filter_province_id" id="hidden_filter_province_id" value="{{ request('province_id') }}">
+                        <input type="hidden" name="filter_city_id" id="hidden_filter_city_id" value="{{ request('city_id') }}">
+                        <input type="hidden" name="filter_business_category_id" id="hidden_filter_business_category_id" value="{{ request('business_category_id') }}">
+                        <input type="hidden" name="filter_business_subcategory_id" id="hidden_filter_business_subcategory_id" value="{{ request('business_subcategory_id') }}">
+                        <input type="hidden" name="filter_status" id="hidden_filter_status" value="{{ request('status') }}">
+                        <input type="hidden" name="filter_sms_balance_status" id="hidden_filter_sms_balance_status" value="{{ request('sms_balance_status') }}">
+                        <input type="hidden" name="filter_min_sms_balance" id="hidden_filter_min_sms_balance" value="{{ request('min_sms_balance') }}">
+                        <input type="hidden" name="filter_max_sms_balance" id="hidden_filter_max_sms_balance" value="{{ request('max_sms_balance') }}">
+                        <input type="hidden" name="filter_last_sms_purchase" id="hidden_filter_last_sms_purchase" value="{{ request('last_sms_purchase') }}">
+                        <input type="hidden" name="filter_monthly_sms_consumption" id="hidden_filter_monthly_sms_consumption" value="{{ request('monthly_sms_consumption') }}">
+                        <input type="hidden" name="filter_gender" id="hidden_filter_gender" value="{{ request('gender') }}">
+                        <input type="hidden" name="filter_min_age" id="hidden_filter_min_age" value="{{ request('min_age') }}">
+                        <input type="hidden" name="filter_max_age" id="hidden_filter_max_age" value="{{ request('max_age') }}">
                     </div>
 
-                    <!-- Final Settings -->
-                    <div class="bg-gray-50 rounded-xl p-6">
-                        <div class="flex items-center mb-6">
-                            <div class="bg-green-100 rounded-lg p-2 ml-3">
-                                <i class="ri-toggle-line text-green-600 text-lg"></i>
-                            </div>
-                            <h4 class="text-lg font-semibold text-gray-900">تنظیمات نهایی</h4>
-                        </div>
-                    </div>
-
-                    <!-- Active Status - Outside the box -->
+                    <!-- Active Status -->
                     <div class="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
                         <div class="flex items-center">
                             <div class="bg-green-100 rounded-lg p-2 ml-3">
@@ -363,7 +648,7 @@
                                    name="is_active" 
                                    id="is_active"
                                    value="1"
-                                   {{ old('is_active', request('form_is_active', '1')) === '1' ? 'checked' : '' }}
+                                   {{ old('is_active', request('form_is_active', true)) ? 'checked' : '' }}
                                    class="sr-only peer">
                             <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:-translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:right-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                             <span class="mr-3 text-sm font-medium text-gray-700">فعال</span>
@@ -389,275 +674,6 @@
         </div>
     </div>
     </div>
-
-    <!-- Filter Options (outside main form) -->
-    <div id="filter-options" class="mt-8 bg-white shadow-lg rounded-xl overflow-hidden" style="display: {{ request('filter_applied') ? 'block' : 'none' }};">
-        <!-- Filter Header -->
-        <div class="bg-gradient-to-r from-blue-500 to-cyan-600 px-8 py-6">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="bg-white/10 rounded-lg p-3 ml-4">
-                        <i class="ri-filter-3-line text-2xl text-white"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-bold text-white">فیلتر سالن‌ها</h3>
-                        <p class="text-blue-100 text-sm">سالن‌های مورد نظر خود را انتخاب کنید</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="p-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                <div>
-                    <label for="filter_province_id" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="ri-map-pin-line text-gray-400 ml-1"></i>
-                        استان
-                    </label>
-                    <select id="filter_province_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
-                        <option value="">همه استان‌ها</option>
-                        @foreach($provinces as $province)
-                            <option value="{{ $province->id }}" {{ request('province_id') == $province->id ? 'selected' : '' }}>
-                                {{ $province->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label for="filter_city_id" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="ri-building-line text-gray-400 ml-1"></i>
-                        شهر
-                    </label>
-                    <select id="filter_city_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
-                        <option value="">همه شهرها</option>
-                        @if(isset($cities))
-                            @foreach($cities as $city)
-                                <option value="{{ $city->id }}" {{ request('city_id') == $city->id ? 'selected' : '' }}>
-                                    {{ $city->name }}
-                                </option>
-                            @endforeach
-                        @endif
-                    </select>
-                </div>
-
-                <div>
-                    <label for="filter_business_category_id" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="ri-store-line text-gray-400 ml-1"></i>
-                        دسته‌بندی کسب‌وکار
-                    </label>
-                    <select id="filter_business_category_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
-                        <option value="">همه دسته‌ها</option>
-                        @foreach($businessCategories as $category)
-                            <option value="{{ $category->id }}" {{ request('business_category_id') == $category->id ? 'selected' : '' }}>
-                                {{ $category->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label for="filter_business_subcategory_id" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="ri-list-check-line text-gray-400 ml-1"></i>
-                        زیردسته کسب‌وکار
-                    </label>
-                    <select id="filter_business_subcategory_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
-                        <option value="">همه زیردسته‌ها</option>
-                        @if(isset($businessSubcategories))
-                            @foreach($businessSubcategories as $subcategory)
-                                <option value="{{ $subcategory->id }}" {{ request('business_subcategory_id') == $subcategory->id ? 'selected' : '' }}>
-                                    {{ $subcategory->name }}
-                                </option>
-                            @endforeach
-                        @endif
-                    </select>
-                </div>
-
-                <div>
-                    <label for="filter_status" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="ri-toggle-line text-gray-400 ml-1"></i>
-                        وضعیت سالن
-                    </label>
-                    <select id="filter_status" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
-                        <option value="">همه</option>
-                        <option value="1" {{ request('status') === '1' ? 'selected' : '' }}>فعال</option>
-                        <option value="0" {{ request('status') === '0' ? 'selected' : '' }}>غیرفعال</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="ri-message-line text-gray-400 ml-1"></i>
-                        محدوده اعتبار پیامک
-                    </label>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <input type="number" 
-                                   id="filter_min_sms_balance" 
-                                   placeholder="حداقل اعتبار"
-                                   min="0"
-                                   value="{{ request('min_sms_balance') }}"
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
-                        </div>
-                        <div>
-                            <input type="number" 
-                                   id="filter_max_sms_balance" 
-                                   placeholder="حداکثر اعتبار"
-                                   min="0"
-                                   value="{{ request('max_sms_balance') }}"
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
-                        </div>
-                    </div>
-                    <p class="mt-2 text-xs text-gray-500">اعتبار را به عدد وارد کنید (مثال: ۱۰۰ تا ۵۰۰)</p>
-                </div>
-
-                <div>
-                    <label for="filter_last_sms_purchase" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="ri-shopping-cart-line text-gray-400 ml-1"></i>
-                        آخرین خرید پیامک
-                    </label>
-                    <select id="filter_last_sms_purchase" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
-                        <option value="">همه</option>
-                        <option value="last_month" {{ request('last_sms_purchase') === 'last_month' ? 'selected' : '' }}>یک ماه اخیر</option>
-                        <option value="last_3_months" {{ request('last_sms_purchase') === 'last_3_months' ? 'selected' : '' }}>سه ماه اخیر</option>
-                        <option value="last_6_months" {{ request('last_sms_purchase') === 'last_6_months' ? 'selected' : '' }}>شش ماه اخیر</option>
-                        <option value="more_than_6_months" {{ request('last_sms_purchase') === 'more_than_6_months' ? 'selected' : '' }}>بیشتر از شش ماه</option>
-                        <option value="never" {{ request('last_sms_purchase') === 'never' ? 'selected' : '' }}>تاکنون خرید نکرده</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label for="filter_monthly_sms_consumption" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="ri-bar-chart-line text-gray-400 ml-1"></i>
-                        مصرف ماهانه پیامک
-                    </label>
-                    <select id="filter_monthly_sms_consumption" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
-                        <option value="">همه</option>
-                        <option value="high" {{ request('monthly_sms_consumption') === 'high' ? 'selected' : '' }}>زیاد (بیشتر از ۵۰۰)</option>
-                        <option value="medium" {{ request('monthly_sms_consumption') === 'medium' ? 'selected' : '' }}>متوسط (۱۰۰ تا ۵۰۰)</option>
-                        <option value="low" {{ request('monthly_sms_consumption') === 'low' ? 'selected' : '' }}>کم (کمتر از ۱۰۰)</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label for="filter_gender" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="ri-user-line text-gray-400 ml-1"></i>
-                        جنسیت سالن‌دار
-                    </label>
-                    <select id="filter_gender" class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
-                        <option value="">همه</option>
-                        <option value="male" {{ request('gender') === 'male' ? 'selected' : '' }}>مرد</option>
-                        <option value="female" {{ request('gender') === 'female' ? 'selected' : '' }}>زن</option>
-                        <option value="other" {{ request('gender') === 'other' ? 'selected' : '' }}>سایر</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label for="filter_min_age" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="ri-calendar-line text-gray-400 ml-1"></i>
-                        حداقل سن سالن‌دار
-                    </label>
-                    <input type="number" 
-                           id="filter_min_age" 
-                           placeholder="برای مثال: ۲۵"
-                           min="18" 
-                           max="120"
-                           value="{{ request('min_age') }}"
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
-                </div>
-                <div>
-                    <label for="filter_max_age" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="ri-calendar-line text-gray-400 ml-1"></i>
-                        حداکثر سن سالن‌دار
-                    </label>
-                    <input type="number" 
-                           id="filter_max_age" 
-                           placeholder="برای مثال: ۴۰"
-                           min="18" 
-                           max="120"
-                           value="{{ request('max_age') }}"
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
-                </div>
-            </div>
-
-            <div class="flex justify-center gap-6">
-                <button type="button" id="apply-filter-btn" class="inline-flex items-center px-7 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 transform hover:scale-105">
-                    <i class="ri-search-line text-lg ml-2"></i>
-                    <span>اعمال فیلتر</span>
-                </button>
-                <a href="{{ route('admin.export.discount-code-users', request()->query()) }}" class="inline-flex items-center px-7 py-3 border border-green-600 text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-green-600 to-lime-500 hover:from-green-700 hover:to-lime-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-200 transform hover:scale-105">
-                    <i class="ri-file-excel-line text-lg ml-2"></i>
-                    <span>خروجی اکسل</span>
-                </a>
-                <a href="{{ route('admin.discount-codes.create') }}" class="inline-flex items-center px-7 py-3 border border-gray-300 text-sm font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200">
-                    <i class="ri-close-line text-lg ml-2"></i>
-                    <span>پاک کردن  فیلترها</span>
-                </a>
-            </div>
-        </div>
-
-        <!-- Filtered Results Display -->
-        @if(request('filter_applied'))
-            <div class="border-t border-gray-200 bg-gray-50">
-                <div class="px-6 py-4">
-                    <h4 class="text-sm font-medium text-gray-900 mb-2">نتایج فیلتر شده</h4>
-                    <p class="text-sm text-gray-600 mb-4">تعداد سالن‌های یافت شده: {{ $filteredSalons ? $filteredSalons->count() : 0 }}</p>
-                    
-                    @if($filteredSalons && $filteredSalons->count() > 0)
-                        <div class="max-h-96 overflow-y-auto bg-white rounded-lg border">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50 sticky top-0">
-                                    <tr>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">نام سالن</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">مالک</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">شهر</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">دسته‌بندی</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">تاریخ ثبت‌نام</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">وضعیت</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
-                                    @foreach($filteredSalons as $salon)
-                                        <tr class="hover:bg-gray-50">
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm font-medium text-gray-900">{{ $salon->name }}</div>
-                                                <div class="text-sm text-gray-500">{{ $salon->phone ?? '-' }}</div>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900">{{ $salon->owner->name ?? 'نامشخص' }}</div>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900">{{ $salon->city->name ?? '-' }}</div>
-                                                <div class="text-sm text-gray-500">{{ $salon->city->province->name ?? '-' }}</div>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900">{{ $salon->businessCategory->name ?? '-' }}</div>
-                                                <div class="text-sm text-gray-500">{{ $salon->businessSubcategories->pluck('name')->implode(', ') ?: '-' }}</div>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900">{{ \Morilog\Jalali\Jalalian::forge($salon->created_at)->format('Y/m/d') }}</div>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $salon->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                                                    {{ $salon->is_active ? 'فعال' : 'غیرفعال' }}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @else
-                        <div class="bg-white rounded-lg border px-6 py-8 text-center">
-                            <i class="ri-user-search-line text-4xl text-gray-400 mb-4"></i>
-                            <p class="text-lg font-medium text-gray-500 mb-2">هیچ سالنی یافت نشد</p>
-                            <p class="text-sm text-gray-400">لطفاً فیلترهای دیگری را امتحان کنید.</p>
-                        </div>
-                    @endif
-                </div>
-            </div>
-        @endif
-    </div>
 @endsection
 
 @push('scripts')
@@ -666,16 +682,17 @@
     document.addEventListener('DOMContentLoaded', function() {
         const codeInput = document.getElementById('code');
         const expiresAtInput = document.getElementById('expires_at');
-        const userFilterTypeRadios = document.querySelectorAll('input[name="user_filter_type"]');
+        const targetingTypeRadios = document.querySelectorAll('input[name="targeting_type"]');
         const filterOptions = document.getElementById('filter-options');
         const provinceSelect = document.getElementById('filter_province_id');
         const citySelect = document.getElementById('filter_city_id');
         const businessCategorySelect = document.getElementById('filter_business_category_id');
         const businessSubcategorySelect = document.getElementById('filter_business_subcategory_id');
         const applyFilterBtn = document.getElementById('apply-filter-btn');
+        const hiddenUserFilterType = document.getElementById('hidden_user_filter_type');
 
         // Generate random code function
-        function generateCode() {
+        window.generateCode = function() {
             const codeInput = document.getElementById('code');
             const newCode = 'DC' + Math.random().toString(36).substr(2, 8).toUpperCase();
             codeInput.value = newCode;
@@ -747,16 +764,15 @@
             input.addEventListener('change', updateRadioButtons);
         });
 
-        // Set default expiry date (30 days from now)
-        if (expiresAtInput && !expiresAtInput.value) {
-            const today = new Date();
-            today.setDate(today.getDate() + 30);
-            expiresAtInput.value = today.toISOString().split('T')[0];
-        }
-
-        // Handle user filter type changes
-        userFilterTypeRadios.forEach(radio => {
+        // Handle targeting type changes
+        targetingTypeRadios.forEach(radio => {
             radio.addEventListener('change', function() {
+                // Update hidden field
+                if (hiddenUserFilterType) {
+                    hiddenUserFilterType.value = this.value;
+                }
+                
+                // Show/hide filter options
                 if (this.value === 'filtered') {
                     filterOptions.style.display = 'block';
                 } else {
@@ -771,12 +787,35 @@
                 const params = new URLSearchParams();
                 params.append('filter_applied', '1');
                 
-                // Save current form values to preserve them after redirect
-                const formData = new FormData(document.querySelector('form'));
-                for (let [key, value] of formData.entries()) {
-                    if (key !== '_token' && value) {
-                        params.append('form_' + key, value);
+                // Save ALL current form values to preserve them after redirect
+                const mainForm = document.querySelector('form[action*="discount-codes.store"]');
+                if (mainForm) {
+                    const formElements = mainForm.elements;
+                    for (let i = 0; i < formElements.length; i++) {
+                        const element = formElements[i];
+                        
+                        // Skip the token field and hidden filter fields
+                        if (element.name === '_token' || element.name.startsWith('filter_') || element.name === 'user_filter_type') continue;
+                        
+                        // Handle different input types
+                        if (element.type === 'checkbox') {
+                            // Save checkbox state: 1 if checked, 0 if not
+                            params.append('form_' + element.name, element.checked ? '1' : '0');
+                        } else if (element.type === 'radio') {
+                            if (element.checked) {
+                                params.append('form_' + element.name, element.value);
+                            }
+                        } else if (element.value && element.value !== '') {
+                            // For text, number, select, textarea
+                            params.append('form_' + element.name, element.value);
+                        }
                     }
+                }
+                
+                // Save targeting type
+                const targetingTypeChecked = document.querySelector('input[name="targeting_type"]:checked');
+                if (targetingTypeChecked) {
+                    params.append('form_user_filter_type', targetingTypeChecked.value);
                 }
                 
                 // Collect filter values
@@ -809,6 +848,40 @@
                 window.location.href = '{{ route("admin.discount-codes.create") }}?' + params.toString();
             });
         }
+
+        // Update hidden filter fields when filter dropdowns change
+        function updateHiddenFilters() {
+            const filterFieldsMap = [
+                { select: 'filter_province_id', hidden: 'hidden_filter_province_id' },
+                { select: 'filter_city_id', hidden: 'hidden_filter_city_id' },
+                { select: 'filter_business_category_id', hidden: 'hidden_filter_business_category_id' },
+                { select: 'filter_business_subcategory_id', hidden: 'hidden_filter_business_subcategory_id' },
+                { select: 'filter_status', hidden: 'hidden_filter_status' },
+                { select: 'filter_sms_balance_status', hidden: 'hidden_filter_sms_balance_status' },
+                { select: 'filter_min_sms_balance', hidden: 'hidden_filter_min_sms_balance' },
+                { select: 'filter_max_sms_balance', hidden: 'hidden_filter_max_sms_balance' },
+                { select: 'filter_last_sms_purchase', hidden: 'hidden_filter_last_sms_purchase' },
+                { select: 'filter_monthly_sms_consumption', hidden: 'hidden_filter_monthly_sms_consumption' },
+                { select: 'filter_gender', hidden: 'hidden_filter_gender' },
+                { select: 'filter_min_age', hidden: 'hidden_filter_min_age' },
+                { select: 'filter_max_age', hidden: 'hidden_filter_max_age' }
+            ];
+
+            filterFieldsMap.forEach(field => {
+                const selectElement = document.getElementById(field.select);
+                const hiddenElement = document.getElementById(field.hidden);
+                
+                if (selectElement && hiddenElement) {
+                    // Add event listener for change
+                    selectElement.addEventListener('change', function() {
+                        hiddenElement.value = this.value;
+                    });
+                }
+            });
+        }
+
+        // Initialize hidden filter updates
+        updateHiddenFilters();
 
         // Handle province change
         if (provinceSelect) {

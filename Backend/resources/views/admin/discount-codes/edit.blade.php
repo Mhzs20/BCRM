@@ -375,16 +375,12 @@
                     <div class="flex justify-center items-center gap-4 pt-6 border-t border-gray-200 mt-6">
                         <div class="flex justify-center items-center gap-4 w-full">
                             <button type="submit" class="flex items-center gap-2 px-5 py-2 border border-blue-600 text-sm font-semibold rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 transform hover:scale-105">
-                                <i class="ri-search-line text-lg"></i>
-                                <span>اعمال فیلتر</span>
+                                <i class="ri-save-line text-lg"></i>
+                                <span>به‌روزرسانی کد تخفیف</span>
                             </button>
-                            <a href="{{ route('admin.export.discount-codes', request()->query()) }}" class="flex items-center gap-2 px-5 py-2 border border-green-600 text-sm font-semibold rounded-lg shadow-sm text-white bg-gradient-to-r from-green-600 to-lime-500 hover:from-green-700 hover:to-lime-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-200 transform hover:scale-105">
-                                <i class="ri-file-excel-line text-lg"></i>
-                                <span>خروجی اکسل</span>
-                            </a>
-                            <a href="{{ route('admin.discount-codes.edit', $discountCode->id) }}" class="flex items-center gap-2 px-5 py-2 border border-gray-300 text-sm font-semibold rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 transform hover:scale-105">
-                                <i class="ri-close-line text-lg"></i>
-                                <span>پاک کردن فیلترها</span>
+                            <a href="{{ route('admin.discount-codes.index') }}" class="flex items-center gap-2 px-5 py-2 border border-gray-300 text-sm font-semibold rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 transform hover:scale-105">
+                                <i class="ri-arrow-right-line text-lg"></i>
+                                <span>انصراف</span>
                             </a>
                         </div>
                     </div>
@@ -586,14 +582,10 @@
 
             <div class="flex justify-center items-center gap-4 pt-6 border-t border-gray-200 mt-6">
                 <div class="flex justify-center items-center gap-4 w-full">
-                    <button type="submit" class="flex items-center gap-2 px-5 py-2 border border-blue-600 text-sm font-semibold rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 transform hover:scale-105">
+                    <button type="button" id="apply-filter-btn" class="flex items-center gap-2 px-5 py-2 border border-blue-600 text-sm font-semibold rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 transform hover:scale-105">
                         <i class="ri-search-line text-lg"></i>
                         <span>اعمال فیلتر</span>
                     </button>
-                    <a href="{{ route('admin.export.discount-codes', request()->query()) }}" class="flex items-center gap-2 px-5 py-2 border border-green-600 text-sm font-semibold rounded-lg shadow-sm text-white bg-gradient-to-r from-green-600 to-lime-500 hover:from-green-700 hover:to-lime-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-200 transform hover:scale-105">
-                        <i class="ri-file-excel-line text-lg"></i>
-                        <span>خروجی اکسل</span>
-                    </a>
                     <a href="{{ route('admin.discount-codes.edit', $discountCode->id) }}" class="flex items-center gap-2 px-5 py-2 border border-gray-300 text-sm font-semibold rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 transform hover:scale-105">
                         <i class="ri-close-line text-lg"></i>
                         <span>پاک کردن فیلترها</span>
