@@ -8,6 +8,8 @@ use App\Models\WalletTransaction;
 use App\Models\Package;
 use App\Models\SmsPackage;
 use App\Models\Order;
+use App\Models\SalonSmsBalance;
+use App\Models\SmsTransaction;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -60,11 +62,32 @@ class WalletController extends Controller
             $page = $request->get('page', 1);
             $perPage = $request->get('per_page', 20);
             $type = $request->get('type'); // filter by type
+            $dateFrom = $request->get('date_from');
+            $dateTo = $request->get('date_to');
+            $sortBy = $request->get('sort_by', 'created_at'); // created_at, amount
+            $sortOrder = $request->get('sort_order', 'desc'); // asc, desc
             
             $query = $user->walletTransactions();
             
+            // Filter by type
             if ($type) {
                 $query->where('type', $type);
+            }
+            
+            // Filter by date range
+            if ($dateFrom) {
+                $query->where('created_at', '>=', $dateFrom);
+            }
+            
+            if ($dateTo) {
+                $query->where('created_at', '<=', $dateTo . ' 23:59:59');
+            }
+            
+            // Sorting
+            if (in_array($sortBy, ['created_at', 'amount']) && in_array($sortOrder, ['asc', 'desc'])) {
+                $query->orderBy($sortBy, $sortOrder);
+            } else {
+                $query->orderBy('created_at', 'desc');
             }
             
             $transactions = $query->paginate($perPage, ['*'], 'page', $page);
@@ -620,8 +643,26 @@ class WalletController extends Controller
                 $order->id
             );
             
-            // Add SMS credits to salon
-            $salon->increment('sms_balance', $smsPackage->sms_count);
+            // Ensure salon has SMS balance record and increment purchased credits
+            $salonSmsBalance = SalonSmsBalance::firstOrCreate(
+                ['salon_id' => $salon->id],
+                ['balance' => 0]
+            );
+            $salonSmsBalance->increment('balance', $smsPackage->sms_count);
+
+            // Record purchase transaction for reporting/history
+            SmsTransaction::create([
+                'user_id' => $user->id,
+                'salon_id' => $salon->id,
+                'sms_package_id' => $smsPackage->id,
+                'sms_type' => 'purchase',
+                'type' => 'purchase',
+                'amount' => $smsPackage->sms_count,
+                'sms_count' => $smsPackage->sms_count,
+                'description' => "خرید بسته پیامک - سفارش {$order->id}",
+                'status' => 'completed',
+                'reference_id' => (string) $transaction->id,
+            ]);
             
             // Process purchase for referral rewards
             $user->processPurchaseForReferral($price);

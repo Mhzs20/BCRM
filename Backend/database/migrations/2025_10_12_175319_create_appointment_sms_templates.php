@@ -68,7 +68,7 @@ return new class extends Migration
             ],
             [
                 'title' => 'یادآوری نوبت - 24 ساعته',
-                'template' => 'سلام {{customer_name}}! 🕐 24 ساعت دیگه نوبت {{service_names}} داری. {{appointment_date}} ساعت {{start_time}} در {{salon_name}}. اگه نمیتونی بیای حتما خبرمون کن 📱'
+                'template' => 'سلام {{customer_name}}! 🕐 {{time_until_appointment_text}} نوبت {{service_names}} داری. {{appointment_date}} ساعت {{start_time}} در {{salon_name}}. اگه نمیتونی بیای حتما خبرمون کن 📱'
             ]
         ];
 

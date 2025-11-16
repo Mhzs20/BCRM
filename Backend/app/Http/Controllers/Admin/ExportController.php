@@ -6,7 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Salon;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Maatwebsite\Excel\Concerns\FromCollection;
+use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Facades\Excel;
@@ -16,62 +17,59 @@ class ExportController extends Controller
 {
     public function exportSalons(Request $request)
     {
-        $query = Salon::with(['owner', 'city', 'businessCategory', 'businessSubcategories', 'smsBalance', 'smsTransactions' => function($q) {
-            $q->selectRaw('salon_id, SUM(CASE WHEN type != "purchase" THEN amount ELSE 0 END) as total_consumed')
-              ->groupBy('salon_id');
-        }]);
+        $query = $this->buildExportQuery();
 
         // اعمال فیلترها
         $this->applyFilters($query, $request);
 
-        $salons = $query->get();
-
-        return Excel::download(new SalonsExport($salons), 'salons_' . now()->format('Y-m-d_H-i-s') . '.xlsx');
+        return Excel::download(new SalonsExport($query), 'salons_' . now()->format('Y-m-d_H-i-s') . '.xlsx');
     }
 
     public function exportBulkSmsUsers(Request $request)
     {
-        $query = Salon::with(['owner', 'city', 'businessCategory', 'businessSubcategories', 'smsBalance', 'smsTransactions' => function($q) {
-            $q->selectRaw('salon_id, SUM(CASE WHEN type != "purchase" THEN amount ELSE 0 END) as total_consumed')
-              ->groupBy('salon_id');
-        }]);
+        $query = $this->buildExportQuery();
 
         // اعمال فیلترها
         $this->applyFilters($query, $request);
 
-        $salons = $query->get();
-
-        return Excel::download(new BulkSmsUsersExport($salons), 'bulk_sms_users_' . now()->format('Y-m-d_H-i-s') . '.xlsx');
+        return Excel::download(new BulkSmsUsersExport($query), 'bulk_sms_users_' . now()->format('Y-m-d_H-i-s') . '.xlsx');
     }
 
     public function exportBulkSmsGiftUsers(Request $request)
     {
-        $query = Salon::with(['owner', 'city', 'businessCategory', 'businessSubcategories', 'smsBalance', 'smsTransactions' => function($q) {
-            $q->selectRaw('salon_id, SUM(CASE WHEN type != "purchase" THEN amount ELSE 0 END) as total_consumed')
-              ->groupBy('salon_id');
-        }]);
+        $query = $this->buildExportQuery();
 
         // اعمال فیلترها
         $this->applyFilters($query, $request);
 
-        $salons = $query->get();
-
-        return Excel::download(new BulkSmsGiftUsersExport($salons), 'bulk_sms_gift_users_' . now()->format('Y-m-d_H-i-s') . '.xlsx');
+        return Excel::download(new BulkSmsGiftUsersExport($query), 'bulk_sms_gift_users_' . now()->format('Y-m-d_H-i-s') . '.xlsx');
     }
 
     public function exportDiscountCodeUsers(Request $request)
     {
-        $query = Salon::with(['owner', 'city', 'businessCategory', 'businessSubcategories', 'smsBalance', 'smsTransactions' => function($q) {
-            $q->selectRaw('salon_id, SUM(CASE WHEN type != "purchase" THEN amount ELSE 0 END) as total_consumed')
-              ->groupBy('salon_id');
-        }]);
+        $query = $this->buildExportQuery();
 
         // اعمال فیلترها
         $this->applyFilters($query, $request);
 
-        $salons = $query->get();
+        return Excel::download(new DiscountCodeUsersExport($query), 'discount_code_users_' . now()->format('Y-m-d_H-i-s') . '.xlsx');
+    }
 
-        return Excel::download(new DiscountCodeUsersExport($salons), 'discount_code_users_' . now()->format('Y-m-d_H-i-s') . '.xlsx');
+    private function buildExportQuery()
+    {
+        return Salon::select([
+                'salons.*',
+                DB::raw('COALESCE(sms_consumed.total_consumed, 0) as total_sms_consumed')
+            ])
+            ->with(['owner', 'city.province', 'businessCategory', 'businessSubcategories', 'smsBalance'])
+            ->leftJoin(
+                DB::raw('(SELECT salon_id, SUM(CASE WHEN type != "purchase" THEN amount ELSE 0 END) as total_consumed 
+                         FROM sms_transactions 
+                         GROUP BY salon_id) as sms_consumed'),
+                'salons.id',
+                '=',
+                'sms_consumed.salon_id'
+            );
     }
 
     private function applyFilters($query, Request $request)
@@ -179,18 +177,18 @@ class ExportController extends Controller
 }
 
 // کلاس‌های Export برای هر نوع
-class SalonsExport implements FromCollection, WithHeadings, WithMapping
+class SalonsExport implements FromQuery, WithHeadings, WithMapping
 {
-    private $salons;
+    private $query;
 
-    public function __construct($salons)
+    public function __construct($query)
     {
-        $this->salons = $salons;
+        $this->query = $query;
     }
 
-    public function collection()
+    public function query()
     {
-        return $this->salons;
+        return $this->query;
     }
 
     public function headings(): array
@@ -225,23 +223,23 @@ class SalonsExport implements FromCollection, WithHeadings, WithMapping
             $salon->is_active ? 'فعال' : 'غیرفعال',
             Jalalian::forge($salon->created_at)->format('Y/m/d'),
             $salon->smsBalance->balance ?? 0,
-            $salon->smsTransactions->first()->total_consumed ?? 0
+            $salon->total_sms_consumed ?? 0
         ];
     }
 }
 
-class BulkSmsUsersExport implements FromCollection, WithHeadings, WithMapping
+class BulkSmsUsersExport implements FromQuery, WithHeadings, WithMapping
 {
-    private $salons;
+    private $query;
 
-    public function __construct($salons)
+    public function __construct($query)
     {
-        $this->salons = $salons;
+        $this->query = $query;
     }
 
-    public function collection()
+    public function query()
     {
-        return $this->salons;
+        return $this->query;
     }
 
     public function headings(): array
@@ -269,24 +267,24 @@ class BulkSmsUsersExport implements FromCollection, WithHeadings, WithMapping
             $salon->city->name ?? 'N/A',
             $salon->city->province->name ?? 'N/A',
             $salon->smsBalance->balance ?? 0,
-            $salon->smsTransactions->first()->total_consumed ?? 0,
+            $salon->total_sms_consumed ?? 0,
             $salon->smsBalance->monthly_consumption ?? 0
         ];
     }
 }
 
-class BulkSmsGiftUsersExport implements FromCollection, WithHeadings, WithMapping
+class BulkSmsGiftUsersExport implements FromQuery, WithHeadings, WithMapping
 {
-    private $salons;
+    private $query;
 
-    public function __construct($salons)
+    public function __construct($query)
     {
-        $this->salons = $salons;
+        $this->query = $query;
     }
 
-    public function collection()
+    public function query()
     {
-        return $this->salons;
+        return $this->query;
     }
 
     public function headings(): array
@@ -313,23 +311,23 @@ class BulkSmsGiftUsersExport implements FromCollection, WithHeadings, WithMappin
             $salon->city->name ?? 'N/A',
             $salon->city->province->name ?? 'N/A',
             $salon->smsBalance->balance ?? 0,
-            $salon->smsTransactions->first()->total_consumed ?? 0
+            $salon->total_sms_consumed ?? 0
         ];
     }
 }
 
-class DiscountCodeUsersExport implements FromCollection, WithHeadings, WithMapping
+class DiscountCodeUsersExport implements FromQuery, WithHeadings, WithMapping
 {
-    private $salons;
+    private $query;
 
-    public function __construct($salons)
+    public function __construct($query)
     {
-        $this->salons = $salons;
+        $this->query = $query;
     }
 
-    public function collection()
+    public function query()
     {
-        return $this->salons;
+        return $this->query;
     }
 
     public function headings(): array
@@ -362,7 +360,7 @@ class DiscountCodeUsersExport implements FromCollection, WithHeadings, WithMappi
             $salon->businessSubcategories->pluck('name')->implode(', ') ?: 'N/A',
             Jalalian::forge($salon->created_at)->format('Y/m/d'),
             $salon->smsBalance->balance ?? 0,
-            $salon->smsTransactions->first()->total_consumed ?? 0
+            $salon->total_sms_consumed ?? 0
         ];
     }
 }
