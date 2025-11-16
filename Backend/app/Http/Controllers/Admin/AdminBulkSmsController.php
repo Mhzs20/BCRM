@@ -7,11 +7,12 @@ use App\Models\City;
 use App\Models\Province;
 use App\Models\Salon;
 use App\Models\SmsTransaction;
-use App\Services\SmsService;
+use App\Services\BulkSmsFilterService;
 use Illuminate\Http\Request;
 use App\Models\BusinessCategory;
 use App\Models\BusinessSubcategory;
-use Carbon\Carbon;
+use App\Jobs\SendBulkSmsJob;
+use Illuminate\Support\Str;
 
 class AdminBulkSmsController extends Controller
 {
@@ -30,123 +31,24 @@ class AdminBulkSmsController extends Controller
             $businessSubcategories = BusinessSubcategory::where('category_id', $request->business_category_id)->get();
         }
 
+        $filters = $this->extractFilters($request);
+
         $query = Salon::with(['owner', 'city', 'smsBalance', 'smsTransactions']);
 
-        if ($request->filled('search')) {
-            $query->whereSearch($request->search);
-        }
-
-        if ($request->filled('status')) {
-            $query->where('is_active', $request->status);
-        }
-
-        if ($request->filled('province_id')) {
-            $query->whereHas('city', function ($q) use ($request) {
-                $q->where('province_id', $request->province_id);
-            });
-        }
-
-        if ($request->filled('city_id')) {
-            $query->where('city_id', $request->city_id);
-        }
-
-        if ($request->filled('business_category_id')) {
-            $query->where('business_category_id', $request->business_category_id);
-        }
-
-        if ($request->filled('business_subcategory_id')) {
-            $query->where('business_subcategory_id', $request->business_subcategory_id);
-        }
-
-        if ($request->filled('sms_balance_status')) {
-            $query->whereHas('smsBalance', function ($q) use ($request) {
-                if ($request->sms_balance_status == 'less_than_50') {
-                    $q->where('balance', '<', 50);
-                } elseif ($request->sms_balance_status == 'less_than_200') {
-                    $q->where('balance', '<', 200);
-                } elseif ($request->sms_balance_status == 'zero') {
-                    $q->where('balance', 0);
-                }
-            }, '>=', 1);
-        }
-
-        if ($request->filled('min_sms_balance') || $request->filled('max_sms_balance')) {
-            $query->whereHas('smsBalance', function ($q) use ($request) {
-                if ($request->filled('min_sms_balance') && $request->filled('max_sms_balance')) {
-                    $q->whereBetween('balance', [$request->min_sms_balance, $request->max_sms_balance]);
-                } elseif ($request->filled('min_sms_balance')) {
-                    $q->where('balance', '>=', $request->min_sms_balance);
-                } elseif ($request->filled('max_sms_balance')) {
-                    $q->where('balance', '<=', $request->max_sms_balance);
-                }
-            });
-        }
-
-        if ($request->filled('last_sms_purchase')) {
-            $now = Carbon::now();
-            if ($request->last_sms_purchase == 'last_month') {
-                $query->whereHas('smsTransactions', function ($q) use ($now) {
-                    $q->where('created_at', '>=', $now->subMonth());
-                });
-            } elseif ($request->last_sms_purchase == 'last_3_months') {
-                $query->whereHas('smsTransactions', function ($q) use ($now) {
-                    $q->where('created_at', '>=', $now->subMonths(3));
-                });
-            } elseif ($request->last_sms_purchase == 'last_6_months') {
-                $query->whereHas('smsTransactions', function ($q) use ($now) {
-                    $q->where('created_at', '>=', $now->subMonths(6));
-                });
-            } elseif ($request->last_sms_purchase == 'more_than_6_months') {
-                $query->whereHas('smsTransactions', function ($q) use ($now) {
-                    $q->where('created_at', '<', $now->subMonths(6));
-                });
-            } elseif ($request->last_sms_purchase == 'never') {
-                $query->whereDoesntHave('smsTransactions', function ($q) {
-                    $q->where('sms_type', 'purchase');
-                });
-            }
-        }
-
-        if ($request->filled('monthly_sms_consumption')) {
-            $query->where(function ($q) use ($request) {
-                $q->whereHas('smsTransactions', function ($subQ) use ($request) {
-                    $subQ->selectRaw('SUM(amount) as total_amount')
-                        ->whereBetween('created_at', [Carbon::now()->subMonth(), Carbon::now()])
-                        ->groupBy('salon_id')
-                        ->havingRaw($this->getMonthlyConsumptionCondition($request->monthly_sms_consumption));
-                });
-            });
-        }
-
-        if ($request->filled('gender')) {
-            $query->whereHas('owner', function ($q) use ($request) {
-                $q->where('gender', $request->gender);
-            });
-        }
-
-        if ($request->filled('min_age') || $request->filled('max_age')) {
-            $query->whereHas('owner', function ($q) use ($request) {
-                if ($request->filled('min_age') && $request->filled('max_age')) {
-                    $q->whereRaw("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN ? AND ?", [$request->min_age, $request->max_age]);
-                } elseif ($request->filled('min_age')) {
-                    $q->whereRaw("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) >= ?", [$request->min_age]);
-                } elseif ($request->filled('max_age')) {
-                    $q->whereRaw("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) <= ?", [$request->max_age]);
-                }
-            });
-        }
+        BulkSmsFilterService::apply($query, $filters);
 
         $salons = $query->paginate(10);
 
         return view('admin.bulk_sms.index', compact('salons', 'provinces', 'cities', 'businessCategories', 'businessSubcategories'));
     }
 
-    public function sendSms(Request $request, SmsService $smsService)
+    public function sendSms(Request $request)
     {
         $request->validate([
             'message' => 'required|string|max:500',
             'salon_ids' => 'nullable|array',
             'salon_ids.*' => 'exists:salons,id',
+            'send_to_all' => 'nullable|boolean',
             'search' => 'nullable|string|max:255',
             'status' => 'nullable|boolean',
             'province_id' => 'nullable|exists:provinces,id',
@@ -163,203 +65,63 @@ class AdminBulkSmsController extends Controller
             'max_age' => 'nullable|integer|min:18|max:120',
         ]);
 
+        $filters = $this->extractFilters($request);
+
         $query = Salon::with(['owner', 'city', 'smsBalance', 'smsTransactions']);
 
-        // Apply filters from the form
-        if ($request->filled('search')) {
-            $query->whereSearch($request->search);
-        }
+        BulkSmsFilterService::apply($query, $filters);
 
-        if ($request->filled('status')) {
-            $query->where('is_active', $request->status);
-        }
+        $sendToAll = $request->boolean('send_to_all');
+        $selectedSalonIds = $sendToAll ? null : $request->input('salon_ids', []);
 
-        if ($request->filled('province_id')) {
-            $query->whereHas('city', function ($q) use ($request) {
-                $q->where('province_id', $request->province_id);
-            });
-        }
-
-        if ($request->filled('city_id')) {
-            $query->where('city_id', $request->city_id);
-        }
-
-        if ($request->filled('business_category_id')) {
-            $query->where('business_category_id', $request->business_category_id);
-        }
-
-        if ($request->filled('business_subcategory_id')) {
-            $query->where('business_subcategory_id', $request->business_subcategory_id);
-        }
-
-        if ($request->filled('sms_balance_status')) {
-            $query->whereHas('smsBalance', function ($q) use ($request) {
-                if ($request->sms_balance_status == 'less_than_50') {
-                    $q->where('balance', '<', 50);
-                } elseif ($request->sms_balance_status == 'less_than_200') {
-                    $q->where('balance', '<', 200);
-                } elseif ($request->sms_balance_status == 'zero') {
-                    $q->where('balance', 0);
-                }
-            }, '>=', 1);
-        }
-
-        if ($request->filled('min_sms_balance') || $request->filled('max_sms_balance')) {
-            $query->whereHas('smsBalance', function ($q) use ($request) {
-                if ($request->filled('min_sms_balance') && $request->filled('max_sms_balance')) {
-                    $q->whereBetween('balance', [$request->min_sms_balance, $request->max_sms_balance]);
-                } elseif ($request->filled('min_sms_balance')) {
-                    $q->where('balance', '>=', $request->min_sms_balance);
-                } elseif ($request->filled('max_sms_balance')) {
-                    $q->where('balance', '<=', $request->max_sms_balance);
-                }
-            });
-        }
-
-        if ($request->filled('last_sms_purchase')) {
-            $now = Carbon::now();
-            if ($request->last_sms_purchase == 'last_month') {
-                $query->whereHas('smsTransactions', function ($q) use ($now) {
-                    $q->where('created_at', '>=', $now->subMonth());
-                });
-            } elseif ($request->last_sms_purchase == 'last_3_months') {
-                $query->whereHas('smsTransactions', function ($q) use ($now) {
-                    $q->where('created_at', '>=', $now->subMonths(3));
-                });
-            } elseif ($request->last_sms_purchase == 'last_6_months') {
-                $query->whereHas('smsTransactions', function ($q) use ($now) {
-                    $q->where('created_at', '>=', $now->subMonths(6));
-                });
-            } elseif ($request->last_sms_purchase == 'more_than_6_months') {
-                $query->whereHas('smsTransactions', function ($q) use ($now) {
-                    $q->where('created_at', '<', $now->subMonths(6));
-                });
-            } elseif ($request->last_sms_purchase == 'never') {
-                $query->doesntHave('smsTransactions');
+        if (!$sendToAll) {
+            $selectedSalonIds = array_unique(array_filter($selectedSalonIds));
+            if (empty($selectedSalonIds)) {
+                return back()->with('error', 'هیچ سالنی برای ارسال پیامک انتخاب نشده است.');
             }
+
+            $query->whereIn('id', $selectedSalonIds);
         }
 
-        if ($request->filled('monthly_sms_consumption')) {
-            $query->where(function ($q) use ($request) {
-                $q->whereHas('smsTransactions', function ($subQ) use ($request) {
-                    $subQ->selectRaw('SUM(amount) as total_amount')
-                        ->whereBetween('created_at', [Carbon::now()->subMonth(), Carbon::now()])
-                        ->groupBy('salon_id')
-                        ->havingRaw($this->getMonthlyConsumptionCondition($request->monthly_sms_consumption));
-                });
-            });
+        $targetCount = (clone $query)->count();
+
+        if ($targetCount === 0) {
+            return back()->with('error', 'هیچ سالنی با فیلترهای انتخابی برای ارسال پیامک یافت نشد.');
         }
 
-        if ($request->filled('gender')) {
-            $query->whereHas('owner', function ($q) use ($request) {
-                $q->where('gender', $request->gender);
-            });
-        }
+        $batchId = (string) Str::uuid();
 
-        if ($request->filled('min_age') || $request->filled('max_age')) {
-            $query->whereHas('owner', function ($q) use ($request) {
-                if ($request->filled('min_age') && $request->filled('max_age')) {
-                    $q->whereRaw("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN ? AND ?", [$request->min_age, $request->max_age]);
-                } elseif ($request->filled('min_age')) {
-                    $q->whereRaw("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) >= ?", [$request->min_age]);
-                } elseif ($request->filled('max_age')) {
-                    $q->whereRaw("TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) <= ?", [$request->max_age]);
-                }
-            });
-        }
+        SendBulkSmsJob::dispatch(
+            $request->message,
+            $filters,
+            $selectedSalonIds,
+            $sendToAll,
+            auth()->id(),
+            optional(auth()->user())->name,
+            $batchId
+        );
 
-        $salons = $query->get();
-
-        // If specific salon_ids are provided, filter the results further
-        if ($request->filled('salon_ids')) {
-            $salons = $salons->whereIn('id', $request->salon_ids);
-        }
-
-        $message = $request->message;
-        $successCount = 0;
-        $failureCount = 0;
-        $errors = [];
-
-        foreach ($salons as $salon) {
-            if ($salon->owner && $salon->owner->mobile) {
-                try {
-                    // Send SMS
-                    $result = $smsService->sendSms($salon->owner->mobile, $message);
-                    
-                    // Record transaction
-                    SmsTransaction::create([
-                        'salon_id' => $salon->id,
-                        'sms_type' => 'bulk',
-                        'amount' => 1, // One SMS per salon
-                        'description' => 'پیامک گروهی توسط ادمین',
-                        'receptor' => $salon->owner->mobile,
-                        'content' => $message,
-                        'status' => $result ? 'delivered' : 'failed',
-                    ]);
-
-                    if ($result) {
-                        $successCount++;
-                    } else {
-                        $failureCount++;
-                        $errors[] = "خطا در ارسال پیامک به {$salon->name} ({$salon->owner->mobile})";
-                    }
-                } catch (\Exception $e) {
-                    $failureCount++;
-                    $errors[] = "خطا در ارسال پیامک به {$salon->name}: " . $e->getMessage();
-                    
-                    // Record failed transaction
-                    SmsTransaction::create([
-                        'salon_id' => $salon->id,
-                        'sms_type' => 'bulk',
-                        'amount' => 1,
-                        'description' => 'پیامک گروهی توسط ادمین (ناموفق)',
-                        'receptor' => $salon->owner->mobile,
-                        'content' => $message,
-                        'status' => 'failed',
-                    ]);
-                }
-            } else {
-                $failureCount++;
-                $errors[] = "شماره موبایل برای مالک سالن {$salon->name} تعریف نشده است";
-            }
-        }
-
-        $message = "پیامک گروهی ارسال شد. موفق: {$successCount}، ناموفق: {$failureCount}";
-        
-        if ($failureCount > 0 && count($errors) > 0) {
-            $message .= "\nخطاها:\n" . implode("\n", array_slice($errors, 0, 5));
-            if (count($errors) > 5) {
-                $message .= "\n... و " . (count($errors) - 5) . " خطای دیگر";
-            }
-        }
-
-        if ($successCount > 0) {
-            return back()->with('success', $message);
-        } else {
-            return back()->with('error', $message);
-        }
+        return back()->with('success', "ارسال پیامک به {$targetCount} سالن در صف قرار گرفت. نتیجه را در تاریخچه‌ی ارسال پیامک‌ها بررسی کنید. شناسه دسته: {$batchId}");
     }
 
-    private function getMonthlyConsumptionCondition(string $status): string
+    private function extractFilters(Request $request): array
     {
-        return match ($status) {
-            'high' => 'total_amount > 500',
-            'medium' => 'total_amount >= 100 AND total_amount <= 500',
-            'low' => 'total_amount < 100',
-            default => '',
-        };
-    }
-
-    private function getAgeRange(string $ageRange): array
-    {
-        return match ($ageRange) {
-            '18-25' => [18, 25],
-            '26-35' => [26, 35],
-            '36-45' => [36, 45],
-            '46-60' => [46, 60],
-            '60+' => [60, 150], // Assuming max age 150
-            default => [0, 150],
-        };
+        return $request->only([
+            'search',
+            'status',
+            'province_id',
+            'city_id',
+            'business_category_id',
+            'business_subcategory_id',
+            'sms_balance_status',
+            'min_sms_balance',
+            'max_sms_balance',
+            'last_sms_purchase',
+            'monthly_sms_consumption',
+            'gender',
+            'min_age',
+            'max_age',
+        ]);
     }
 
     public function history(Request $request)

@@ -157,6 +157,8 @@
                 @endif
             @endforeach
             
+            <!-- Hidden flag to indicate sending to all filtered salons -->
+            <input type="hidden" name="send_to_all" id="send-to-all-hidden" value="1" disabled>
             <div class="p-6">
                 <div class="mb-6">
                     <label for="message" class="block text-sm font-medium text-gray-700 mb-1">متن پیامک <span class="text-red-500">*</span></label>
@@ -363,6 +365,7 @@
         const selectAllCheckbox = document.getElementById('select-all-salons');
         const salonCheckboxes = document.querySelectorAll('.salon-checkbox');
         const sendToAllCheckbox = document.getElementById('send-to-all');
+        const sendToAllHiddenInput = document.getElementById('send-to-all-hidden');
         const selectedCountElement = document.getElementById('selected-count');
 
         function updateSelectedCount() {
@@ -383,6 +386,9 @@
                 salonCheckboxes.forEach(checkbox => {
                     checkbox.checked = true;
                 });
+                if (sendToAllHiddenInput) sendToAllHiddenInput.disabled = false;
+            } else {
+                if (sendToAllHiddenInput) sendToAllHiddenInput.disabled = true;
             }
             updateSelectedCount();
         });
@@ -392,11 +398,13 @@
                 if (!this.checked) {
                     selectAllCheckbox.checked = false;
                     sendToAllCheckbox.checked = false;
+                    if (sendToAllHiddenInput) sendToAllHiddenInput.disabled = true;
                 } else {
                     const allChecked = Array.from(salonCheckboxes).every(cb => cb.checked);
                     selectAllCheckbox.checked = allChecked;
                     if (allChecked) {
                         sendToAllCheckbox.checked = true;
+                        if (sendToAllHiddenInput) sendToAllHiddenInput.disabled = false;
                     }
                 }
                 updateSelectedCount();

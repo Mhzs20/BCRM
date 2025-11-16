@@ -493,6 +493,64 @@ class SmsService
     }
 
     /**
+     * Generate human friendly countdown details until the appointment starts.
+     */
+    private function buildAppointmentCountdownData(Carbon $appointmentDateTime): array
+    {
+        $now = Carbon::now('Asia/Tehran');
+        $diffMinutes = (int) $now->diffInMinutes($appointmentDateTime, false);
+
+        if ($diffMinutes <= 0) {
+            $message = $diffMinutes === 0
+                ? 'نوبت همین حالا شروع می‌شود'
+                : 'زمان نوبت سپری شده است';
+
+            return [
+                'time_until_appointment_text' => $message,
+                'time_until_appointment_text_formal' => $message,
+                'time_until_appointment_total_minutes' => 0,
+                'time_until_appointment_total_hours' => 0,
+                'time_until_appointment_hours' => 0,
+                'time_until_appointment_minutes' => 0,
+                'is_appointment_in_past' => true,
+            ];
+        }
+
+        $days = intdiv($diffMinutes, 1440);
+        $remainingMinutesAfterDays = $diffMinutes % 1440;
+        $hoursWithinDay = intdiv($remainingMinutesAfterDays, 60);
+        $minutesWithinHour = $remainingMinutesAfterDays % 60;
+
+        $parts = [];
+        if ($days > 0) {
+            $parts[] = $days . ' روز';
+        }
+        if ($hoursWithinDay > 0) {
+            $parts[] = $hoursWithinDay . ' ساعت';
+        }
+        if ($minutesWithinHour > 0 && $days === 0) {
+            $parts[] = $minutesWithinHour . ' دقیقه';
+        }
+
+        if (empty($parts)) {
+            $parts[] = $diffMinutes . ' دقیقه';
+        }
+
+        $informalText = implode(' و ', $parts) . ' دیگه';
+        $formalText = implode(' و ', $parts) . ' دیگر';
+
+        return [
+            'time_until_appointment_text' => $informalText,
+            'time_until_appointment_text_formal' => $formalText,
+            'time_until_appointment_total_minutes' => $diffMinutes,
+            'time_until_appointment_total_hours' => round($diffMinutes / 60, 1),
+            'time_until_appointment_hours' => intdiv($diffMinutes, 60),
+            'time_until_appointment_minutes' => $diffMinutes % 60,
+            'is_appointment_in_past' => false,
+        ];
+    }
+
+    /**
      * Get standardized appointment data for templates
      */
     private function getAppointmentTemplateData(Appointment $appointment, array $additionalData = []): array
@@ -667,12 +725,19 @@ class SmsService
             $reminderTimeText = 'در تاریخ ' . Jalalian::fromCarbon($appointmentDateTime)->format('Y/m/d');
         }
 
-        $dataForTemplate = array_merge([
-            'customer_name' => $customer->name,
-            'salon_name' => $salon->name,
-            'reminder_time_text' => $reminderTimeText,
-            'details_url' => $detailsUrl,
-        ], $this->getAppointmentTemplateData($appointment));
+        $countdownData = $this->buildAppointmentCountdownData($appointmentDateTime);
+
+        $dataForTemplate = array_merge(
+            $this->getAppointmentTemplateData($appointment),
+            $countdownData,
+            [
+                'customer_name' => $customer->name,
+                'salon_name' => $salon->name,
+                'reminder_time_text' => $reminderTimeText,
+                'details_url' => $detailsUrl,
+                'configured_reminder_hours' => $appointment->reminder_time,
+            ]
+        );
         
         return $this->sendMessageUsingTemplate(
             $salon,
@@ -689,12 +754,19 @@ class SmsService
     public function sendManualAppointmentReminder(Customer $customer, Appointment $appointment, Salon $salon): array
     {
         $detailsUrl = url('a/' . $appointment->hash);
+        $appointmentDateTime = $this->getAppointmentDateTime($appointment);
+        $countdownData = $this->buildAppointmentCountdownData($appointmentDateTime);
 
-        $dataForTemplate = array_merge([
-            'customer_name' => $customer->name,
-            'salon_name' => $salon->name,
-            'details_url' => $detailsUrl,
-        ], $this->getAppointmentTemplateData($appointment));
+        $dataForTemplate = array_merge(
+            $this->getAppointmentTemplateData($appointment),
+            $countdownData,
+            [
+                'customer_name' => $customer->name,
+                'salon_name' => $salon->name,
+                'details_url' => $detailsUrl,
+                'configured_reminder_hours' => $appointment->reminder_time,
+            ]
+        );
         
         return $this->sendMessageUsingTemplate(
             $salon,
