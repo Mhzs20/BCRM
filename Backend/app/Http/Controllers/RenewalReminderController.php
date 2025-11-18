@@ -212,14 +212,34 @@ class RenewalReminderController extends Controller
             // جایگزینی متغیرها
             $previewMessage = $this->replaceTemplateVariables($template->template, $sampleData);
 
+            // محاسبه تعداد پارت‌ها و هزینه با استفاده از متد مدل
+            $estimatedParts = $template->calculateEstimatedParts(
+                $sampleData['customer_name'],
+                $sampleData['salon_name'],
+                [
+                    'service_name' => $sampleData['service_name'],
+                    'appointment_date' => $sampleData['appointment_date'],
+                    'appointment_time' => $sampleData['appointment_time']
+                ]
+            );
+            $estimatedCost = $template->calculateEstimatedCost(
+                $sampleData['customer_name'],
+                $sampleData['salon_name'],
+                [
+                    'service_name' => $sampleData['service_name'],
+                    'appointment_date' => $sampleData['appointment_date'],
+                    'appointment_time' => $sampleData['appointment_time']
+                ]
+            );
+
             return response()->json([
                 'message' => 'پیش‌نمایش قالب با موفقیت ایجاد شد.',
                 'preview' => [
                     'original_template' => $template->template,
                     'preview_message' => $previewMessage,
                     'sample_data' => $sampleData,
-                    'estimated_parts' => ceil(mb_strlen($previewMessage) / 70),
-                    'estimated_cost' => ceil(mb_strlen($previewMessage) / 70) * 100 // فرضی
+                    'estimated_parts' => $estimatedParts,
+                    'estimated_cost' => $estimatedCost
                 ]
             ]);
 

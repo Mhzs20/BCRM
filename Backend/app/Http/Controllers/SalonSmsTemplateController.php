@@ -96,7 +96,7 @@ class SalonSmsTemplateController extends Controller
                     continue;
                 }
 
-                SalonSmsTemplate::updateOrCreate(
+                $template = SalonSmsTemplate::updateOrCreate(
                     [
                         'salon_id' => null,
                         'event_type' => $eventType,
@@ -107,6 +107,9 @@ class SalonSmsTemplateController extends Controller
                         'is_active' => $templateData['is_active'],
                     ]
                 );
+                
+                // محاسبه و به‌روزرسانی estimated_parts و estimated_cost
+                $template->updateEstimatedValues();
             }
             DB::commit();
             return response()->json(['message' => 'قالب‌های پیامک با موفقیت ذخیره شدند.']);
@@ -190,6 +193,9 @@ class SalonSmsTemplateController extends Controller
             'is_active' => $data['is_active'] ?? true,
             'template_type' => 'custom'
         ]);
+        
+        // محاسبه و به‌روزرسانی estimated_parts و estimated_cost
+        $custom->updateEstimatedValues();
 
         return response()->json(['message' => 'قالب ایجاد شد.', 'data' => $custom]);
     }
@@ -215,6 +221,10 @@ class SalonSmsTemplateController extends Controller
             }
         }
         $template->update($data);
+        
+        // محاسبه و به‌روزرسانی estimated_parts و estimated_cost
+        $template->updateEstimatedValues();
+        
         return response()->json(['message' => 'قالب بروزرسانی شد.', 'data' => $template]);
     }
 

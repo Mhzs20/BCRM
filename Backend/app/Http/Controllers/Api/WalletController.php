@@ -11,9 +11,11 @@ use App\Models\Order;
 use App\Models\SalonSmsBalance;
 use App\Models\SmsTransaction;
 use App\Models\User;
+use App\Models\DiscountCode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class WalletController extends Controller
 {
@@ -141,7 +143,8 @@ class WalletController extends Controller
             // Calculate amount (from user input)
             $amount = $request->amount;
             $originalAmount = $amount;
-            $discountPercentage = 0;
+            $packageDiscountAmount = 0; // Manual charge has no package discount
+            $discountPercentageApplied = 0;
             $discountCode = null;
 
             // Check and apply discount code if provided
@@ -178,23 +181,20 @@ class WalletController extends Controller
                 }
 
                 // Check minimum order amount
-                if ($discountCodeModel->min_order_amount && $amount < $discountCodeModel->min_order_amount) {
+                if ($discountCodeModel->min_order_amount && $originalAmount < $discountCodeModel->min_order_amount) {
                     return response()->json([
                         'status' => 'error',
                         'message' => "حداقل مبلغ سفارش برای استفاده از این کد تخفیف " . number_format($discountCodeModel->min_order_amount) . " تومان است.",
                     ], 400);
                 }
 
-                // Apply discount
-                $discountAmount = $discountCodeModel->calculateDiscount($amount);
-                $amount = $amount - $discountAmount;
+                // Manual charge has no built-in discount, so apply code directly on original amount
+                $discountAmount = $discountCodeModel->calculateDiscount($originalAmount);
+                $amount = max(0, $originalAmount - $discountAmount);
                 $discountCode = $request->discount_code;
-                
-                if ($discountCodeModel->type === 'percentage') {
-                    $discountPercentage = $discountCodeModel->value;
-                } else {
-                    $discountPercentage = (($originalAmount - $amount) / $originalAmount) * 100;
-                }
+                $discountPercentageApplied = $discountCodeModel->type === 'percentage'
+                    ? $discountCodeModel->value
+                    : (($originalAmount - $amount) / ($originalAmount ?: 1)) * 100;
             }
 
             DB::beginTransaction();
@@ -208,15 +208,16 @@ class WalletController extends Controller
                 'item_title' => 'شارژ دلخواه کیف پول',
                 'amount' => $amount,
                 'original_amount' => $originalAmount,
-                'discount_amount' => $originalAmount - $amount,
+                'discount_amount' => ($originalAmount - $amount),
                 'status' => 'pending',
                 'payment_method' => 'online',
                 'sms_count' => 0,
                 'discount_code' => $discountCode,
-                'discount_percentage' => $discountPercentage,
+                'discount_percentage' => round($discountPercentageApplied, 2),
                 'metadata' => [
                     'wallet_amount' => $originalAmount, // مبلغی که کاربر می‌خواهد شارژ کند
                     'description' => $request->description ?? 'شارژ دلخواه کیف پول',
+                    'discount_source' => $discountCode ? 'code' : 'none',
                 ]
             ]);
 
@@ -588,6 +589,7 @@ class WalletController extends Controller
             $validator = Validator::make($request->all(), [
                 'sms_package_id' => 'required|exists:sms_packages,id',
                 'salon_id' => 'required|exists:salons,id',
+                'discount_code' => 'nullable|string|exists:discount_codes,code',
             ]);
             
             if ($validator->fails()) {
@@ -609,7 +611,80 @@ class WalletController extends Controller
             }
             
             $smsPackage = SmsPackage::findOrFail($request->sms_package_id);
-            $price = $smsPackage->discount_price ?: $smsPackage->price;
+            
+            // Calculate base price from package
+            $originalAmount = $smsPackage->price;
+            $packageDiscountAmount = $smsPackage->discount_price ? max(0, $originalAmount - $smsPackage->discount_price) : 0;
+            $packageDiscountPercentage = ($originalAmount > 0 && $packageDiscountAmount > 0)
+                ? ($packageDiscountAmount / $originalAmount) * 100
+                : 0;
+
+            $price = $originalAmount - $packageDiscountAmount;
+            $discountAmountApplied = $packageDiscountAmount;
+            $discountPercentageApplied = $packageDiscountPercentage;
+            $discountCode = null;
+
+            // Check and apply discount code if provided
+            if ($request->discount_code) {
+                $discountCodeModel = DiscountCode::where('code', $request->discount_code)
+                    ->where('is_active', true)
+                    ->first();
+
+                if (!$discountCodeModel) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'کد تخفیف نامعتبر است.',
+                    ], 400);
+                }
+
+                // Check if discount code is valid (including time and usage limits)
+                if (!$discountCodeModel->isValid()) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'کد تخفیف منقضی شده یا غیرفعال است.',
+                    ], 400);
+                }
+
+                // SECURITY: Check if user can use this discount code based on filter criteria
+                if (!$discountCodeModel->canUserUse($user)) {
+                    Log::warning('Unauthorized discount code usage attempt', [
+                        'user_id' => $user->id,
+                        'salon_id' => $request->salon_id,
+                        'discount_code' => $request->discount_code,
+                        'ip' => $request->ip(),
+                        'user_agent' => $request->userAgent(),
+                    ]);
+                    
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'شما مجاز به استفاده از این کد تخفیف نیستید.',
+                    ], 403);
+                }
+
+                // Check minimum order amount
+                if ($discountCodeModel->min_order_amount && $originalAmount < $discountCodeModel->min_order_amount) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "حداقل مبلغ سفارش برای استفاده از این کد تخفیف " . number_format($discountCodeModel->min_order_amount) . " تومان است.",
+                    ], 400);
+                }
+
+                // Determine whether the discount code gives a better percentage than package discount
+                $codeDiscountPercentage = 0;
+                if ($discountCodeModel->type === 'percentage') {
+                    $codeDiscountPercentage = $discountCodeModel->value;
+                } elseif ($discountCodeModel->type === 'fixed' && $originalAmount > 0) {
+                    $codeDiscountPercentage = ($discountCodeModel->value / $originalAmount) * 100;
+                }
+
+                if ($codeDiscountPercentage > $discountPercentageApplied) {
+                    $discountAmount = $discountCodeModel->calculateDiscount($originalAmount);
+                    $price = max(0, $originalAmount - $discountAmount);
+                    $discountAmountApplied = $discountAmount;
+                    $discountPercentageApplied = $codeDiscountPercentage;
+                    $discountCode = $request->discount_code;
+                }
+            }
             
             if (!$user->hasSufficientBalance($price)) {
                 return response()->json([
@@ -626,14 +701,22 @@ class WalletController extends Controller
             DB::beginTransaction();
             
             // Create order for SMS package
-            $order = Order::create([
+            $orderData = [
                 'user_id' => $user->id,
                 'salon_id' => $request->salon_id,
                 'sms_package_id' => $smsPackage->id,
                 'amount' => $price,
+                'original_amount' => $originalAmount,
+                'discount_amount' => $discountAmountApplied,
                 'sms_count' => $smsPackage->sms_count,
                 'status' => 'completed',
-            ]);
+            ];
+            
+            if ($discountCode) {
+                $orderData['discount_code'] = $discountCode;
+            }
+            
+            $order = Order::create($orderData);
             
             // Deduct from wallet
             $transaction = $user->deductFromWallet(
@@ -667,19 +750,36 @@ class WalletController extends Controller
             // Process purchase for referral rewards
             $user->processPurchaseForReferral($price);
             
+            // Record discount code usage if applied
+            if ($discountCode) {
+                $discountCodeModel = DiscountCode::where('code', $discountCode)->first();
+                if ($discountCodeModel) {
+                    $discountCodeModel->recordSalonUsage($request->salon_id, $order->id);
+                }
+            }
+            
             DB::commit();
+            
+            $responseData = [
+                'order_id' => $order->id,
+                'package_name' => $smsPackage->name,
+                'sms_count' => $smsPackage->sms_count,
+                'original_amount' => $originalAmount,
+                'discount_amount' => $discountAmountApplied,
+                'amount_paid' => $price,
+                'new_balance' => $user->fresh()->wallet_balance,
+                'transaction_id' => $transaction->id,
+            ];
+            
+            if ($discountCode) {
+                $responseData['discount_code'] = $discountCode;
+                $responseData['discount_percentage'] = round($discountPercentageApplied, 2);
+            }
             
             return response()->json([
                 'status' => 'success',
                 'message' => 'پکیج پیامک با موفقیت خریداری شد.',
-                'data' => [
-                    'order_id' => $order->id,
-                    'package_name' => $smsPackage->name,
-                    'sms_count' => $smsPackage->sms_count,
-                    'amount_paid' => $price,
-                    'new_balance' => $user->fresh()->wallet_balance,
-                    'transaction_id' => $transaction->id,
-                ]
+                'data' => $responseData
             ]);
             
         } catch (\Exception $e) {

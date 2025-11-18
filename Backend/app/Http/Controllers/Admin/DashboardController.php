@@ -59,8 +59,16 @@ class DashboardController extends Controller
                     $subQuery->whereNotNull('active_salon_id');
                 });
             })->whereMonth('created_at', $today->month)->count();
-        $kavenegarApi = new KavenegarApi(config('services.kavenegar.apikey'));
-        $totalSmsBalance = $kavenegarApi->AccountInfo()->remaincredit;
+        
+        // Get Kavenegar balance with error handling
+        try {
+            $kavenegarApi = new KavenegarApi(config('services.kavenegar.apikey'));
+            $totalSmsBalance = $kavenegarApi->AccountInfo()->remaincredit;
+        } catch (\Exception $e) {
+            // Log the error and set balance to 0 if API is unreachable
+            \Log::warning('Kavenegar API error: ' . $e->getMessage());
+            $totalSmsBalance = 0;
+        }
 
         // SMS Profitability Stats
         $smsPurchasePricePerPart = Setting::where('key', 'sms_purchase_price_per_part')->first();
@@ -212,7 +220,6 @@ class DashboardController extends Controller
             })
             ->toArray();
 
-        // اگر داده خالی بود، داده‌های نمونه اضافه کن
         if (empty($appointmentsData)) {
             $appointmentsData = [
                 ['month' => 'مهر ۱۴۰۳', 'count' => 10],
