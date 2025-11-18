@@ -29,6 +29,41 @@ class ReferralController extends Controller
             $stats = $user->getReferralStats();
             $settings = ReferralSetting::getActiveSettings();
             
+            // لیست افراد دعوت شده
+            $invitedUsers = $user->referrals()
+                ->with(['referred:id,name,mobile,created_at'])
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function($referral) {
+                    return [
+                        'name' => $referral->referred->name ?? 'کاربر',
+                        'mobile' => $referral->referred->mobile ?? '-',
+                        'status' => $referral->status,
+                        'status_display' => $this->getReferralStatusDisplay($referral->status),
+                        'registered_at' => $referral->registered_at ? $referral->registered_at->format('Y-m-d H:i') : null,
+                        'reward_amount' => $referral->total_reward_amount,
+                    ];
+                });
+            
+            // محاسبه تعداد باقیمانده از ظرفیت
+            $dailyLimit = $settings->daily_referral_limit ?? 0;
+            $monthlyLimit = $settings->monthly_referral_limit ?? 0;
+            $totalLimit = $settings->total_referral_limit ?? 0;
+            
+            $todayCount = $user->referrals()
+                ->whereDate('created_at', today())
+                ->count();
+            
+            $thisMonthCount = $user->referrals()
+                ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
+                ->count();
+            
+            $totalCount = $user->referrals()->count();
+            
+            $remainingDaily = $dailyLimit > 0 ? max(0, $dailyLimit - $todayCount) : null;
+            $remainingMonthly = $monthlyLimit > 0 ? max(0, $monthlyLimit - $thisMonthCount) : null;
+            $remainingTotal = $totalLimit > 0 ? max(0, $totalLimit - $totalCount) : null;
+            
             return response()->json([
                 'status' => 'success',
                 'data' => [
@@ -37,6 +72,31 @@ class ReferralController extends Controller
                     'can_refer_more' => $user->canReferMore(),
                     'monthly_limit' => $settings->monthly_referral_limit,
                     'system_active' => $settings->is_active,
+                    
+                    // لیست افراد دعوت شده
+                    'invited_users' => $invitedUsers,
+                    'total_invited' => $invitedUsers->count(),
+                    
+                    // ظرفیت باقیمانده
+                    'capacity' => [
+                        'daily_limit' => $dailyLimit,
+                        'monthly_limit' => $monthlyLimit,
+                        'total_limit' => $totalLimit,
+                        'remaining_daily' => $remainingDaily,
+                        'remaining_monthly' => $remainingMonthly,
+                        'remaining_total' => $remainingTotal,
+                        'today_count' => $todayCount,
+                        'this_month_count' => $thisMonthCount,
+                        'total_count' => $totalCount,
+                    ],
+                    
+                    // درصد هدیه برای خرید
+                    'reward_settings' => [
+                        'signup_reward_amount' => $settings->referral_reward_amount ?? 0,
+                        'purchase_reward_percentage' => $settings->order_reward_percentage ?? 0,
+                        'max_purchase_reward' => $settings->max_order_reward ?? 0,
+                        'min_purchase_amount' => $settings->min_purchase_amount ?? 0,
+                    ],
                 ]
             ]);
         } catch (\Exception $e) {
@@ -45,6 +105,21 @@ class ReferralController extends Controller
                 'message' => 'خطا در دریافت اطلاعات رفرال: ' . $e->getMessage()
             ], 500);
         }
+    }
+    
+    /**
+     * Get referral status display text
+     */
+    private function getReferralStatusDisplay($status)
+    {
+        return match($status) {
+            UserReferral::STATUS_PENDING => 'در انتظار',
+            UserReferral::STATUS_REGISTERED => 'ثبت‌نام شده',
+            UserReferral::STATUS_PURCHASED => 'خرید انجام شده',
+            UserReferral::STATUS_REWARDED => 'پاداش دریافت شده',
+            UserReferral::STATUS_CANCELLED => 'لغو شده',
+            default => $status
+        };
     }
 
     /**

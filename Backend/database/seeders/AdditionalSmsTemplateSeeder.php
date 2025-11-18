@@ -86,7 +86,9 @@ class AdditionalSmsTemplateSeeder extends Seeder
                     ->first();
                     
                 if (!$exists) {
-                    SalonSmsTemplate::create($template);
+                    $newTemplate = SalonSmsTemplate::create($template);
+                    // محاسبه و به‌روزرسانی estimated_parts و estimated_cost
+                    $newTemplate->updateEstimatedValues();
                     $newTemplatesCount++;
                     $this->command->info("✅ New template created for salon {$salon->name}: {$template['event_type']}");
                 } else {

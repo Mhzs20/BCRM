@@ -32,6 +32,8 @@ class ReferralSettingsController extends Controller
                 'order_reward_percentage' => 'nullable|numeric|min:0|max:100',
                 'max_order_reward' => 'nullable|numeric|min:0',
                 'max_referrals_per_month' => 'nullable|integer|min:0',
+                'daily_referral_limit' => 'nullable|integer|min:0',
+                'total_referral_limit' => 'nullable|integer|min:0',
                 'min_purchase_amount' => 'nullable|numeric|min:0',
                 'send_sms_notifications' => 'boolean',
                 'welcome_bonus' => 'nullable|numeric|min:0',
@@ -45,8 +47,8 @@ class ReferralSettingsController extends Controller
 
             $data = $request->only([
                 'referral_reward_amount', 'order_reward_percentage',
-                'max_order_reward', 'max_referrals_per_month', 'min_purchase_amount',
-                'welcome_bonus'
+                'max_order_reward', 'max_referrals_per_month', 'daily_referral_limit',
+                'total_referral_limit', 'min_purchase_amount', 'welcome_bonus'
             ]);
 
             // Convert checkboxes

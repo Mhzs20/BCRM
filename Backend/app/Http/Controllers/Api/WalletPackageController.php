@@ -195,10 +195,17 @@ class WalletPackageController extends Controller
                 ], 400);
             }
 
-            // Calculate amount (always from database, never trust client)
-            $amount = $package->final_price;
+            // Calculate base amounts (always from database, never trust client)
             $originalAmount = $package->price;
-            $discountPercentage = $package->discount_percentage;
+            $packageDiscountAmount = max(0, $originalAmount - $package->final_price);
+            $packageDiscountPercentage = $package->discount_percentage;
+            if ($packageDiscountPercentage === null && $originalAmount > 0) {
+                $packageDiscountPercentage = ($packageDiscountAmount / $originalAmount) * 100;
+            }
+
+            $amount = $originalAmount - $packageDiscountAmount;
+            $discountAmountApplied = $packageDiscountAmount;
+            $discountPercentageApplied = $packageDiscountPercentage ?? 0;
             $discountCode = null;
 
             // Check and apply additional discount code if provided
@@ -234,25 +241,33 @@ class WalletPackageController extends Controller
                     ], 403);
                 }
 
-                // Check minimum order amount
-                if ($discountCodeModel->min_order_amount && $amount < $discountCodeModel->min_order_amount) {
+                // Check minimum order amount against original package price
+                if ($discountCodeModel->min_order_amount && $originalAmount < $discountCodeModel->min_order_amount) {
                     return response()->json([
                         'status' => 'error',
                         'message' => "حداقل مبلغ سفارش برای استفاده از این کد تخفیف " . number_format($discountCodeModel->min_order_amount) . " تومان است.",
                     ], 400);
                 }
 
-                // Apply additional discount
-                $discountAmount = $discountCodeModel->calculateDiscount($amount);
-                $amount = $amount - $discountAmount;
-                $discountCode = $request->discount_code;
-                
+                // Decide whether discount code should override package discount
+                $codeDiscountPercentage = 0;
                 if ($discountCodeModel->type === 'percentage') {
-                    $discountPercentage = $discountPercentage + $discountCodeModel->value;
-                } else {
-                    $discountPercentage = (($originalAmount - $amount) / $originalAmount) * 100;
+                    $codeDiscountPercentage = $discountCodeModel->value;
+                } elseif ($discountCodeModel->type === 'fixed' && $originalAmount > 0) {
+                    $codeDiscountPercentage = ($discountCodeModel->value / $originalAmount) * 100;
+                }
+
+                if ($codeDiscountPercentage > $discountPercentageApplied) {
+                    // Apply only the better discount (on original amount to avoid double-discount)
+                    $discountAmount = $discountCodeModel->calculateDiscount($originalAmount);
+                    $amount = max(0, $originalAmount - $discountAmount);
+                    $discountAmountApplied = $discountAmount;
+                    $discountPercentageApplied = $codeDiscountPercentage;
+                    $discountCode = $request->discount_code;
                 }
             }
+
+            $discountPercentageApplied = round($discountPercentageApplied, 2);
 
             DB::beginTransaction();
 
@@ -265,15 +280,16 @@ class WalletPackageController extends Controller
                 'item_title' => $package->title,
                 'amount' => $amount,
                 'original_amount' => $originalAmount,
-                'discount_amount' => $originalAmount - $amount,
+                'discount_amount' => $discountAmountApplied,
                 'status' => 'pending',
                 'payment_method' => 'online',
                 'sms_count' => 0,
                 'discount_code' => $discountCode,
-                'discount_percentage' => $discountPercentage,
+                'discount_percentage' => $discountPercentageApplied,
                 'metadata' => [
                     'wallet_amount' => $package->amount,
                     'package_details' => $package->toArray(),
+                    'discount_source' => $discountCode ? 'code' : ($discountAmountApplied > 0 ? 'package' : 'none'),
                 ]
             ]);
 

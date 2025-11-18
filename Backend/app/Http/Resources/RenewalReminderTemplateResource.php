@@ -18,8 +18,8 @@ class RenewalReminderTemplateResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'template' => $this->template,
-            'estimated_parts' => ceil(mb_strlen($this->template) / 70),
-            'estimated_cost' => ceil(mb_strlen($this->template) / 70) * 100, // فرضی - 100 تومان هر قطعه
+            'estimated_parts' => $this->resource->calculateEstimatedParts(),
+            'estimated_cost' => (int)$this->resource->calculateEstimatedCost(),
             'variables' => $this->extractVariables($this->template),
         ];
     }

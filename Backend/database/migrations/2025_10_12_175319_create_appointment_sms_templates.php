@@ -85,7 +85,7 @@ return new class extends Migration
         }
 
         // بروزرسانی یا ایجاد تمپلیت‌های سیستم
-        SalonSmsTemplate::updateOrCreate([
+        $template1 = SalonSmsTemplate::updateOrCreate([
             'salon_id' => null,
             'event_type' => 'appointment_confirmation',
             'template_type' => 'system_event'
@@ -93,8 +93,9 @@ return new class extends Migration
             'template' => '{{customer_name}} عزیز، نوبت شما برای {{service_names}} در تاریخ {{appointment_date}} ساعت {{start_time}} در {{salon_name}} ثبت شد.',
             'is_active' => true
         ]);
+        $template1->updateEstimatedValues();
 
-        SalonSmsTemplate::updateOrCreate([
+        $template2 = SalonSmsTemplate::updateOrCreate([
             'salon_id' => null,
             'event_type' => 'appointment_reminder',
             'template_type' => 'system_event'
@@ -102,6 +103,7 @@ return new class extends Migration
             'template' => '{{customer_name}} عزیز، یادآور می‌شود که نوبت شما برای {{service_names}} فردا {{appointment_date}} ساعت {{start_time}} در {{salon_name}} می‌باشد.',
             'is_active' => true
         ]);
+        $template2->updateEstimatedValues();
     }
 
     /**

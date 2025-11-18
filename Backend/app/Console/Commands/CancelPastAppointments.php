@@ -48,18 +48,18 @@ class CancelPastAppointments extends Command
         
         foreach ($appointments as $appointment) {
             try {
-                // Update appointment status to cancelled
-                $appointment->update(['status' => 'cancelled']);
+                // Update appointment status to waiting
+                $appointment->update(['status' => 'waiting']);
                 $canceledCount++;
                 
                 $customerName = $appointment->customer ? $appointment->customer->name : 'نامشخص';
-                $this->line("نوبت ID {$appointment->id} برای مشتری {$customerName} در تاریخ {$appointment->appointment_date} ساعت {$appointment->start_time} لغو شد.");
+                $this->line("نوبت ID {$appointment->id} برای مشتری {$customerName} در تاریخ {$appointment->appointment_date} ساعت {$appointment->start_time} به وضعیت در انتظار تغییر یافت.");
             } catch (\Exception $e) {
-                $this->error("خطا در لغو نوبت ID {$appointment->id}: " . $e->getMessage());
+                $this->error("خطا در تغییر وضعیت نوبت ID {$appointment->id}: " . $e->getMessage());
             }
         }
 
-        $this->info("تعداد {$canceledCount} نوبت گذشته لغو شد.");
+        $this->info("تعداد {$canceledCount} نوبت گذشته به وضعیت در انتظار تغییر یافت.");
         
         return 0;
     }

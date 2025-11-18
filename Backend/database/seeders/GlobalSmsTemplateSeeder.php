@@ -86,7 +86,9 @@ class GlobalSmsTemplateSeeder extends Seeder
                 ->first();
                 
             if (!$exists) {
-                SalonSmsTemplate::create($template);
+                $newTemplate = SalonSmsTemplate::create($template);
+                // محاسبه و به‌روزرسانی estimated_parts و estimated_cost
+                $newTemplate->updateEstimatedValues();
                 $eventType = $template['event_type'] ?? 'custom';
                 $this->command->info("✅ Global template created: {$eventType}");
             } else {

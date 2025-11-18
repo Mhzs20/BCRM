@@ -17,6 +17,8 @@ class ReferralSetting extends Model
         'order_reward_percentage', 
         'max_order_reward',
         'max_referrals_per_month',
+        'daily_referral_limit',
+        'total_referral_limit',
         'min_purchase_amount',
         'send_sms_notifications',
         'welcome_bonus_message',
@@ -30,6 +32,8 @@ class ReferralSetting extends Model
         'order_reward_percentage' => 'decimal:2',
         'max_order_reward' => 'decimal:0',
         'max_referrals_per_month' => 'integer',
+        'daily_referral_limit' => 'integer',
+        'total_referral_limit' => 'integer',
         'min_purchase_amount' => 'decimal:0',
         'send_sms_notifications' => 'boolean',
     ];
