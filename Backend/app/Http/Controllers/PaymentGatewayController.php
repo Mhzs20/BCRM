@@ -43,10 +43,14 @@ class PaymentGatewayController extends Controller
             // Determine order type and set description
             if ($order->type === 'wallet_package') {
                 $package = WalletPackage::find($order->item_id);
-                $description = "شارژ کیف پول - {$order->item_title} - سفارش {$order->id}";
+                $description = "شارژ کیف پول - {$order->item_title} - سفارش# {$order->id}";
+            } else if ($order->type === 'wallet_charge') {
+                $amountInToman = number_format($order->amount / 10);
+                $customDescription = $order->metadata['description'] ?? 'شارژ کیف پول';
+                $description = "شارژ کیف پول - {$amountInToman} تومان - سفارش# {$order->id}";
             } else if ($order->sms_package_id) {
                 $package = SmsPackage::find($order->sms_package_id);
-                $description = "خرید بسته پیامک - {$package->name} - سفارش {$order->id}";
+                $description = "خرید بسته پیامک - {$package->name} - سفارش# {$order->id}";
             } else {
                 $description = "پرداخت سفارش {$order->id}";
             }

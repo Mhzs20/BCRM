@@ -53,6 +53,9 @@ class WalletManagementController extends Controller
                 'amount' => $amount,
                 'sms_count' => 0,
                 'status' => 'pending',
+                'metadata' => [
+                    'description' => $description,
+                ],
             ]);
 
             // Create wallet transaction record (pending)
