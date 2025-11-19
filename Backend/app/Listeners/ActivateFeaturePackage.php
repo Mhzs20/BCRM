@@ -4,6 +4,7 @@ namespace App\Listeners;
 
 use App\Events\FeaturePackagePurchased;
 use App\Models\UserPackage;
+use App\Models\DiscountCode;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
@@ -101,12 +102,25 @@ class ActivateFeaturePackage implements ShouldQueue
                         'amount' => $package->gift_sms_count,
                         'description' => "هدیه بسته امکانات - سفارش {$order->id}",
                         'status' => 'completed',
+                        'approved_by' => $order->user_id, // The user who purchased the package
                     ]);
 
                     Log::info("Added {$package->gift_sms_count} gift SMS to salon {$order->salon_id} for package {$package->name}");
                 }
 
-                // 4. Mark all *other* Transactions belonging to the same Order as 'expired'
+                // 6. SECURITY: Record discount code usage if used
+                if ($order->discount_code) {
+                    $discountCode = DiscountCode::where('code', $order->discount_code)->first();
+                    if ($discountCode) {
+                        // SECURITY: Record salon-specific usage to prevent reuse
+                        if ($order->salon_id) {
+                            $discountCode->recordSalonUsage($order->salon_id, $order->id);
+                            Log::info("Discount code {$order->discount_code} usage recorded for feature package. Salon {$order->salon_id} usage recorded for order {$order->id}.");
+                        }
+                    }
+                }
+
+                // 7. Mark all *other* Transactions belonging to the same Order as 'expired'
                 $order->transactions()
                     ->where('id', '!=', $successfulTransaction->id)
                     ->where('status', 'pending')

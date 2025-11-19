@@ -292,16 +292,78 @@ class AdminSalonController extends Controller
      */
     public function purchaseHistory(Salon $salon)
     {
-        // Get completed orders for this salon (new payment system)
-        $purchaseTransactions = $salon->orders()
-                                      ->with(['smsPackage', 'transactions' => function($query) {
-                                          $query->where('status', 'completed');
-                                      }])
-                                      ->where('status', 'paid')
-                                      ->latest()
-                                      ->paginate(10);
+        // Get all orders (purchases) for this salon
+        $orders = $salon->orders()
+                       ->with(['smsPackage', 'package', 'transactions'])
+                       ->latest()
+                       ->paginate(15, ['*'], 'orders_page');
 
-        return view('admin.salons.purchase_history', compact('salon', 'purchaseTransactions'));
+        // Get wallet transactions for the salon owner
+        $walletTransactions = \App\Models\WalletTransaction::where('user_id', $salon->user_id)
+                                                           ->latest()
+                                                           ->paginate(15, ['*'], 'wallet_page');
+
+        // Get SMS transactions (gifts, deductions, etc.)
+        $smsTransactions = $salon->smsTransactions()
+                                 ->latest()
+                                 ->paginate(15, ['*'], 'sms_page');
+
+        // Get payment gateway transactions through orders
+        $paymentTransactions = \App\Models\Transaction::whereHas('order', function($query) use ($salon) {
+                                                          $query->where('salon_id', $salon->id);
+                                                      })
+                                                      ->with('order')
+                                                      ->latest()
+                                                      ->paginate(15, ['*'], 'payment_page');
+
+        // Get admin gifts (free packages, gift SMS from admin, etc.)
+        $adminGifts = collect();
+        
+        // 1. Get gift SMS transactions from admin
+        $giftSms = $salon->smsTransactions()
+                        ->where('type', 'gift')
+                        ->with('approver') // Load admin who gave the gift
+                        ->latest()
+                        ->get()
+                        ->map(function($item) {
+                            $item->gift_type = 'sms_gift';
+                            return $item;
+                        });
+        
+        // 2. Get free activated packages (amount_paid = 0)
+        $freePackages = \App\Models\UserPackage::where('salon_id', $salon->id)
+                                                ->where('amount_paid', 0)
+                                                ->with(['package', 'order.user']) // Load package and admin who created the order
+                                                ->latest()
+                                                ->get()
+                                                ->map(function($item) {
+                                                    $item->gift_type = 'package_gift';
+                                                    return $item;
+                                                });
+        
+        // Merge all gifts and paginate manually
+        $adminGifts = $giftSms->merge($freePackages)->sortByDesc('created_at');
+        
+        // Manual pagination for merged collection
+        $perPage = 15;
+        $currentPage = \Illuminate\Pagination\Paginator::resolveCurrentPage('gifts_page');
+        $currentPageItems = $adminGifts->slice(($currentPage - 1) * $perPage, $perPage)->values();
+        $adminGiftsPaginated = new \Illuminate\Pagination\LengthAwarePaginator(
+            $currentPageItems,
+            $adminGifts->count(),
+            $perPage,
+            $currentPage,
+            ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath(), 'pageName' => 'gifts_page']
+        );
+
+        return view('admin.salons.purchase_history', compact(
+            'salon', 
+            'orders', 
+            'walletTransactions', 
+            'smsTransactions', 
+            'paymentTransactions',
+            'adminGiftsPaginated'
+        ));
     }
 
     /**
@@ -369,6 +431,7 @@ class AdminSalonController extends Controller
                 'receptor' => $salon->user->mobile,
                 'content' => $message,
                 'status' => 'delivered',
+                'approved_by' => auth()->id(),
             ]);
 
             // Optionally send a notification SMS
@@ -425,6 +488,7 @@ class AdminSalonController extends Controller
             'amount' => $request->amount,
             'description' => $request->description ?? 'شارژ هدیه توسط ادمین',
             'status' => 'completed',
+            'approved_by' => auth()->id(),
         ]);
 
         return back()->with('success', 'اعتبار پیامک با موفقیت به سالن اضافه شد.');
@@ -463,6 +527,7 @@ class AdminSalonController extends Controller
             'amount' => -$request->amount, // Store as negative value to indicate deduction
             'description' => $request->description ?? 'کسر اعتبار توسط ادمین',
             'status' => 'completed',
+            'approved_by' => auth()->id(),
         ]);
 
         return back()->with('success', 'اعتبار پیامک با موفقیت از سالن کاهش یافت.');

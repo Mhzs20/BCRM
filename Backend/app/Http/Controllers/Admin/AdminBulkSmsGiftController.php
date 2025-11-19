@@ -306,6 +306,7 @@ class AdminBulkSmsGiftController extends Controller
                 'receptor' => $salon->mobile,
                 'content' => $message,
                 'status' => 'delivered',
+                'approved_by' => auth()->id(),
             ]);
 
             // Optionally send a notification SMS
@@ -533,6 +534,7 @@ class AdminBulkSmsGiftController extends Controller
                         'amount' => $package->gift_sms_count,
                         'description' => "هدیه فعال‌سازی گروهی پکیج {$package->name}",
                         'status' => 'completed',
+                        'approved_by' => auth()->id(),
                     ]);
                 }
 
