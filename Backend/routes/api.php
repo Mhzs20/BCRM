@@ -97,8 +97,6 @@ Route::middleware('auth:api')->group(function () {
         Route::post('purchase/package', [\App\Http\Controllers\Api\WalletController::class, 'purchasePackage'])->name('purchase.package');
         Route::post('purchase/sms-package', [\App\Http\Controllers\Api\WalletController::class, 'purchaseSmsPackage'])->name('purchase.sms_package');
         Route::post('purchase/feature-package', [\App\Http\Controllers\Api\WalletController::class, 'purchaseFeaturePackageWithWallet'])->name('purchase.feature_package');
-        Route::post('charge', [\App\Http\Controllers\Api\WalletController::class, 'chargeWallet'])->name('charge');
-        Route::get('charge/verify/{orderId}', [\App\Http\Controllers\Api\WalletController::class, 'verifyWalletCharge'])->name('charge.verify');
     });
 
     Route::prefix('salons')->name('salons.')->group(function () {
