@@ -362,13 +362,6 @@ class AppointmentController extends Controller
 
                     $appointment->update($appointmentDetails['appointment_data']);
                     $appointment->services()->sync($appointmentDetails['service_pivot_data']);
-
-                    if ($appointmentModified) {
-                        $customer = $appointment->customer;
-                        if ($customer) {
-                            \App\Jobs\SendAppointmentModificationSms::dispatch($customer, $appointment, $salon);
-                        }
-                    }
                 }
 
             $updateData = Arr::except($validatedData, ['service_ids', 'internal_notes']);
