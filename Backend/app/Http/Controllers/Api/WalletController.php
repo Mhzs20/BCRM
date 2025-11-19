@@ -216,7 +216,7 @@ class WalletController extends Controller
                 'discount_percentage' => round($discountPercentageApplied, 2),
                 'metadata' => [
                     'wallet_amount' => $originalAmount, // مبلغی که کاربر می‌خواهد شارژ کند
-                    'description' => $request->description ?? 'شارژ دلخواه کیف پول',
+                    'description' => $request->description ?? 'شارژ کیف پول',
                     'discount_source' => $discountCode ? 'code' : 'none',
                 ]
             ]);
