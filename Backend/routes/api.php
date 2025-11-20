@@ -93,18 +93,10 @@ Route::middleware('auth:api')->group(function () {
         Route::get('transactions', [\App\Http\Controllers\Api\WalletController::class, 'getTransactions'])->name('transactions');
         Route::get('packages', [\App\Http\Controllers\Api\WalletController::class, 'getAvailablePackages'])->name('packages');
         Route::post('add-credit', [\App\Http\Controllers\Api\WalletController::class, 'addCredit'])->name('add_credit');
+        Route::post('add-credit/verify', [\App\Http\Controllers\Api\WalletController::class, 'verifyAddCredit'])->name('add_credit.verify');
         Route::post('purchase/package', [\App\Http\Controllers\Api\WalletController::class, 'purchasePackage'])->name('purchase.package');
         Route::post('purchase/sms-package', [\App\Http\Controllers\Api\WalletController::class, 'purchaseSmsPackage'])->name('purchase.sms_package');
-        
         Route::post('purchase/feature-package', [\App\Http\Controllers\Api\WalletController::class, 'purchaseFeaturePackageWithWallet'])->name('purchase.feature_package');
-        Route::post('charge', [\App\Http\Controllers\Api\WalletController::class, 'chargeWallet'])->name('charge');
-        
-        // Wallet charge packages
-        Route::get('charge-packages', [\App\Http\Controllers\Api\WalletPackageController::class, 'index'])->name('charge_packages');
-        Route::get('charge-packages/{package}', [\App\Http\Controllers\Api\WalletPackageController::class, 'show'])->name('charge_packages.show');
-        Route::post('charge-packages/{package}/purchase', [\App\Http\Controllers\Api\WalletPackageController::class, 'purchase'])->name('charge_packages.purchase');
-        Route::post('charge-packages/process-payment', [\App\Http\Controllers\Api\WalletPackageController::class, 'processPayment'])->name('charge_packages.process_payment');
-        Route::get('charge/verify/{orderId}', [\App\Http\Controllers\Api\WalletController::class, 'verifyWalletCharge'])->name('charge.verify');
     });
 
     Route::prefix('salons')->name('salons.')->group(function () {
@@ -248,6 +240,14 @@ Route::middleware('auth:api')->group(function () {
                 Route::post('/{id}/purchase', [\App\Http\Controllers\Api\PackageController::class, 'purchase'])->name('purchase');
                 Route::post('/verify', [\App\Http\Controllers\Api\PackageController::class, 'verify'])->name('verify');
             });
+
+            // Wallet Packages API (for charging wallet)
+            Route::prefix('wallet-packages')->name('wallet_packages.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Api\WalletPackageController::class, 'index'])->name('index');
+                Route::get('/{walletPackage}', [\App\Http\Controllers\Api\WalletPackageController::class, 'show'])->name('show');
+                Route::post('/{walletPackage}/purchase', [\App\Http\Controllers\Api\WalletPackageController::class, 'purchase'])->name('purchase');
+                Route::post('/verify', [\App\Http\Controllers\Api\WalletPackageController::class, 'verify'])->name('verify');
+            });
         });
     });
 
@@ -278,6 +278,9 @@ Route::middleware('auth:api')->group(function () {
         Route::get('gateway/{order}', [\App\Http\Controllers\PaymentGatewayController::class, 'redirect'])->name('gateway');
         Route::get('wallet/callback', [\App\Http\Controllers\PaymentGatewayController::class, 'walletCallback'])->name('wallet.callback');
     });
+
+    // SMS Package List with Discount Code Support
+    Route::get('sms-packages', [\App\Http\Controllers\Api\SmsPackageController::class, 'index'])->name('sms_packages.index');
 
     Route::prefix('discount')->name('discount.')->group(function () {
         Route::post('validate', [\App\Http\Controllers\DiscountCodeController::class, 'validateCode'])->name('validate');

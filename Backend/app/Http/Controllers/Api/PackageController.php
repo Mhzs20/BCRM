@@ -21,9 +21,9 @@ class PackageController extends Controller
 {
     /**
      * لیست تمام پکیج‌های فعال
-     * GET /api/salons/{salon}/feature-packages
+     * GET /api/salons/{salon}/feature-packages?discount_code=WINTER30
      */
-    public function index($salon)
+    public function index(Request $request, $salon)
     {
         try {
             // Verify salon belongs to user
@@ -37,16 +37,73 @@ class PackageController extends Controller
                 ], 403);
             }
 
+            // Check for discount code in request
+            $discountCode = null;
+            $discountCodeModel = null;
+
+            if ($request->filled('discount_code')) {
+                $discountCodeModel = \App\Models\DiscountCode::where('code', $request->discount_code)
+                    ->where('is_active', true)
+                    ->first();
+
+                if ($discountCodeModel && $discountCodeModel->isValid()) {
+                    // Check if user can use this code
+                    if ($user && $discountCodeModel->canUserUse($user)) {
+                        $discountCode = $discountCodeModel;
+                    }
+                }
+            }
+
             $packages = Package::with('options')
                 ->where('is_active', true)
                 ->where('is_gift_only', false) // فقط پکیج‌های عادی نمایش داده شوند
                 ->get()
-                ->map(function ($package) {
+                ->map(function ($package) use ($discountCode) {
+                    $originalPrice = (int) $package->price;
+                    
+                    // Feature packages don't have built-in discounts, so package discount is always 0
+                    $packageDiscountPercentage = 0;
+                    $packageDiscountAmount = 0;
+                    
+                    $finalPrice = $originalPrice;
+                    $appliedDiscountPercentage = 0;
+                    $appliedDiscountAmount = 0;
+                    $discountSource = 'none';
+                    $codeDiscountPercentage = 0;
+
+                    // Apply discount code if available
+                    if ($discountCode) {
+                        // Calculate discount code percentage
+                        if ($discountCode->type === 'percentage') {
+                            $codeDiscountPercentage = $discountCode->value;
+                        } elseif ($discountCode->type === 'fixed') {
+                            // Convert fixed amount to percentage for comparison
+                            $codeDiscountPercentage = ($discountCode->value / $originalPrice) * 100;
+                        }
+
+                        // Feature packages have no built-in discount, so any code discount is better
+                        // Check minimum order amount against original price
+                        if (!$discountCode->min_order_amount || $originalPrice >= $discountCode->min_order_amount) {
+                            $codeDiscountAmount = $discountCode->calculateDiscount($originalPrice);
+                            $finalPrice = $originalPrice - $codeDiscountAmount;
+                            $appliedDiscountPercentage = $codeDiscountPercentage;
+                            $appliedDiscountAmount = $codeDiscountAmount;
+                            $discountSource = 'code';
+                        }
+                    }
+
                     return [
                         'id' => $package->id,
                         'name' => $package->name,
                         'description' => $package->description,
-                        'price' => (int) $package->price,
+                        'price' => $originalPrice,
+                        'final_price' => $finalPrice,
+                        'discount_percentage' => round($appliedDiscountPercentage, 2),
+                        'discount_amount' => $appliedDiscountAmount,
+                        'package_discount_percentage' => $packageDiscountPercentage,
+                        'package_discount_amount' => $packageDiscountAmount,
+                        'code_discount_percentage' => $discountSource === 'code' ? round($codeDiscountPercentage, 2) : 0,
+                        'discount_source' => $discountSource,
                         'gift_sms_count' => $package->gift_sms_count,
                         'duration_days' => $package->duration_days,
                         'is_active' => $package->is_active,
@@ -57,14 +114,38 @@ class PackageController extends Controller
                                 'details' => $option->details,
                             ];
                         }),
+                        'formatted_price' => number_format($originalPrice / 10) . ' تومان',
+                        'formatted_final_price' => number_format($finalPrice / 10) . ' تومان',
+                        'formatted_you_save' => $appliedDiscountAmount > 0 
+                            ? number_format($appliedDiscountAmount / 10) . ' تومان صرفه‌جویی' 
+                            : null,
                         'created_at' => $package->created_at->toDateTimeString(),
                     ];
                 });
 
-            return response()->json([
+            $response = [
                 'success' => true,
                 'data' => $packages
-            ]);
+            ];
+
+            // Add discount code info if applied
+            if ($discountCode) {
+                $response['discount_code'] = [
+                    'code' => $discountCode->code,
+                    'description' => $discountCode->description,
+                    'type' => $discountCode->type,
+                    'value' => $discountCode->value,
+                    'applied' => true,
+                ];
+            } elseif ($request->filled('discount_code')) {
+                $response['discount_code'] = [
+                    'code' => $request->discount_code,
+                    'applied' => false,
+                    'message' => 'کد تخفیف نامعتبر یا منقضی شده است.',
+                ];
+            }
+
+            return response()->json($response);
         } catch (\Exception $e) {
             Log::error('Error fetching packages: ' . $e->getMessage());
             return response()->json([

@@ -9,7 +9,7 @@ use App\Models\UserPackage;
 
 class AddGiftSmsToSalon extends Command
 {
-    protected $signature = 'salon:add-gift-sms {salon_id}';
+    protected $signature = 'salon:add-gift-sms {salon_id} {--admin_id=}';
     protected $description = 'Add gift SMS to salon based on active package';
 
     public function handle()
@@ -40,13 +40,20 @@ class AddGiftSmsToSalon extends Command
         $salonSmsBalance->increment('balance', $package->gift_sms_count);
 
         // Create transaction record
-        SmsTransaction::create([
+        $transactionData = [
             'salon_id' => $salonId,
             'type' => 'gift',
             'amount' => $package->gift_sms_count,
             'description' => 'تصحیح: اضافه کردن پیامک هدیه پکیج ' . $package->name,
             'status' => 'completed',
-        ]);
+        ];
+        
+        // Add admin_id if provided
+        if ($this->option('admin_id')) {
+            $transactionData['approved_by'] = $this->option('admin_id');
+        }
+        
+        SmsTransaction::create($transactionData);
 
         $newBalance = $salonSmsBalance->fresh()->balance;
         $this->info("Old Balance: {$oldBalance}, New Balance: {$newBalance}");

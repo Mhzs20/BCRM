@@ -4,6 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\DiscountCode;
+use App\Models\Province;
+use App\Models\City;
+use App\Models\BusinessCategory;
+use App\Models\BusinessSubcategory;
 use App\Services\UserFilterService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -260,6 +264,9 @@ class DiscountCodeController extends Controller
             $data['target_users'] = null;
         }
 
+        // Set percentage to null since we're using type and value now
+        $data['percentage'] = null;
+
         $discountCode = DiscountCode::create($data);
         
         // Calculate target users count for display
@@ -296,7 +303,7 @@ class DiscountCodeController extends Controller
             }
             
             if (!empty($filters)) {
-                $filteredSalons = $filterService->getFilteredSalons($filters, 50);
+                $filteredSalons = $filterService->getFilteredSalons($filters)->paginate(50);
             }
         }
         
@@ -307,7 +314,7 @@ class DiscountCodeController extends Controller
         }
         
         if (request('business_category_id')) {
-            $businessSubcategories = BusinessSubcategory::where('business_category_id', request('business_category_id'))->get();
+            $businessSubcategories = BusinessSubcategory::where('category_id', request('business_category_id'))->get();
             $filterOptions['businessSubcategories'] = $businessSubcategories;
         }
         
@@ -398,6 +405,9 @@ class DiscountCodeController extends Controller
         } else {
             $data['target_users'] = null;
         }
+
+        // Set percentage to null since we're using type and value now
+        $data['percentage'] = null;
 
         $discountCode->update($data);
         

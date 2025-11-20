@@ -53,7 +53,7 @@ class GlobalSmsTemplateSeeder extends Seeder
             [
                 'salon_id' => null,
                 'event_type' => null, // Custom template
-                'template' => '{{customer_name}} عزیز، 24 ساعت تا نوبت {{service_names}} شما باقی مانده. {{appointment_date}} - {{start_time}} در {{salon_name}}. لطفا در صورت لغو اطلاع دهید.',
+                'template' => '{{customer_name}} عزیز، {{time_until_appointment_text_formal}} تا نوبت {{service_names}} شما باقی مانده. {{appointment_date}} - {{start_time}} در {{salon_name}}. لطفا در صورت لغو اطلاع دهید.',
                 'is_active' => true,
             ],
             
@@ -86,7 +86,9 @@ class GlobalSmsTemplateSeeder extends Seeder
                 ->first();
                 
             if (!$exists) {
-                SalonSmsTemplate::create($template);
+                $newTemplate = SalonSmsTemplate::create($template);
+                // محاسبه و به‌روزرسانی estimated_parts و estimated_cost
+                $newTemplate->updateEstimatedValues();
                 $eventType = $template['event_type'] ?? 'custom';
                 $this->command->info("✅ Global template created: {$eventType}");
             } else {

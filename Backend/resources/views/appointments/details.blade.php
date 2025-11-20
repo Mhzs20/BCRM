@@ -129,7 +129,7 @@
         </div>
         <div class="grid grid-cols-3 gap-2 mt-3.5">
             @if($appointment->salon->whatsapp)
-                <a href="https://wa.me/0098{{ $appointment->salon->whatsapp }}"
+                <a href="https://wa.me/+98{{ ltrim($appointment->salon->whatsapp, '0') }}"
                    class="bg-white rounded-lg shadow p-4 text-center">
                     <div
                         class="w-10 h-10 mx-auto  rounded-full flex items-center justify-center">

@@ -53,7 +53,7 @@ class SmsTemplateController extends Controller
         ]);
         foreach ($data['templates'] as $eventType => $tpl) {
             if (!in_array($eventType, self::ALLOWED_EVENT_TYPES)) continue;
-            SalonSmsTemplate::updateOrCreate([
+            $template = SalonSmsTemplate::updateOrCreate([
                 'salon_id' => null,
                 'event_type' => $eventType,
                 'template_type' => 'system_event'
@@ -61,6 +61,9 @@ class SmsTemplateController extends Controller
                 'template' => $tpl['template'],
                 'is_active' => $tpl['is_active'] ?? true,
             ]);
+            
+            // محاسبه و به‌روزرسانی estimated_parts و estimated_cost
+            $template->updateEstimatedValues();
         }
         return redirect()->route('admin.sms-templates.index')->with('success', 'قالب‌های سیستمی ذخیره شد.');
     }
@@ -87,7 +90,7 @@ class SmsTemplateController extends Controller
             }
         }
 
-        SalonSmsTemplate::create([
+        $template = SalonSmsTemplate::create([
             'salon_id' => null,
             'category_id' => $request->category_id,
             'title' => $request->title,
@@ -95,6 +98,10 @@ class SmsTemplateController extends Controller
             'is_active' => $request->boolean('is_active', true),
             'template_type' => 'custom'
         ]);
+        
+        // محاسبه و به‌روزرسانی estimated_parts و estimated_cost
+        $template->updateEstimatedValues();
+        
         return redirect()->route('admin.sms-templates.index')->with('success', 'قالب سفارشی ایجاد شد.');
     }
 
@@ -131,6 +138,10 @@ class SmsTemplateController extends Controller
             'template' => $request->template,
             'is_active' => $request->boolean('is_active', true),
         ]);
+        
+        // محاسبه و به‌روزرسانی estimated_parts و estimated_cost
+        $smsTemplate->updateEstimatedValues();
+        
         return redirect()->route('admin.sms-templates.index')->with('success', 'قالب بروزرسانی شد.');
     }
 

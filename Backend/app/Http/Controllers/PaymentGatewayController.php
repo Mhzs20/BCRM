@@ -43,10 +43,14 @@ class PaymentGatewayController extends Controller
             // Determine order type and set description
             if ($order->type === 'wallet_package') {
                 $package = WalletPackage::find($order->item_id);
-                $description = "شارژ کیف پول - {$order->item_title} - سفارش {$order->id}";
+                $description = "شارژ کیف پول - {$order->item_title} - سفارش# {$order->id}";
+            } else if ($order->type === 'wallet_charge') {
+                $amountInToman = number_format($order->amount / 10);
+                $customDescription = $order->metadata['description'] ?? 'شارژ کیف پول';
+                $description = "شارژ کیف پول - {$amountInToman} تومان - سفارش# {$order->id}";
             } else if ($order->sms_package_id) {
                 $package = SmsPackage::find($order->sms_package_id);
-                $description = "خرید بسته پیامک - {$package->name} - سفارش {$order->id}";
+                $description = "خرید بسته پیامک - {$package->name} - سفارش# {$order->id}";
             } else {
                 $description = "پرداخت سفارش {$order->id}";
             }
@@ -57,10 +61,18 @@ class PaymentGatewayController extends Controller
             $invoice->detail('description', $description);
             $invoice->detail('mobile', $user->mobile);
 
-            // Set callback URL based on order type
-            $callbackUrl = $order->type === 'wallet_package' 
-                ? route('payment.wallet.callback')
-                : route('payment.verify');
+            // Prefer callback_url from order metadata if provided, otherwise
+            // fall back to default callbacks based on order type.
+            $callbackUrl = null;
+            if (!empty($order->metadata) && is_array($order->metadata) && !empty($order->metadata['callback_url'])) {
+                $callbackUrl = $order->metadata['callback_url'];
+            }
+
+            if (empty($callbackUrl)) {
+                $callbackUrl = $order->type === 'wallet_package'
+                    ? route('payment.wallet.callback')
+                    : route('payment.verify');
+            }
 
             // Create payment
             $payment = Payment::via('zarinpal')->callbackUrl($callbackUrl);

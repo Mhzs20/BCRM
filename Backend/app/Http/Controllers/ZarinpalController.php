@@ -39,9 +39,15 @@ class ZarinpalController extends Controller
         $package = SmsPackage::findOrFail($request->package_id);
 
         // SECURITY: Always calculate amount from database, never trust client input
-        $amount = $package->discount_price ?? $package->price;
-        $originalAmount = $amount;
-        $discountPercentage = null;
+        $originalAmount = $package->price;
+        $packageDiscountAmount = $package->discount_price ? max(0, $originalAmount - $package->discount_price) : 0;
+        $packageDiscountPercentage = ($originalAmount > 0 && $packageDiscountAmount > 0)
+            ? ($packageDiscountAmount / $originalAmount) * 100
+            : 0;
+
+        $amount = $originalAmount - $packageDiscountAmount;
+        $discountAmountApplied = $packageDiscountAmount;
+        $discountPercentageApplied = $packageDiscountPercentage;
         $discountCode = null;
 
         // Check and apply discount code if provided
@@ -82,24 +88,27 @@ class ZarinpalController extends Controller
             }
 
             // Check minimum order amount
-            if ($discountCodeModel->min_order_amount && $amount < $discountCodeModel->min_order_amount) {
+            if ($discountCodeModel->min_order_amount && $originalAmount < $discountCodeModel->min_order_amount) {
                 return response()->json([
                     'status' => 'NOK',
                     'message' => "حداقل مبلغ سفارش برای استفاده از این کد تخفیف " . number_format($discountCodeModel->min_order_amount) . " تومان است.",
                 ], 400);
             }
 
-            // Apply discount using the model's calculation method
-            $originalAmount = $amount;
-            $discountAmount = $discountCodeModel->calculateDiscount($amount);
-            $amount = $amount - $discountAmount;
-            $discountCode = $request->discount_code;
-            
-            // Store discount info based on new structure
+            // Determine whether the discount code gives a better percentage than package discount
+            $codeDiscountPercentage = 0;
             if ($discountCodeModel->type === 'percentage') {
-                $discountPercentage = $discountCodeModel->value;
-            } else {
-                $discountPercentage = ($discountAmount / $originalAmount) * 100;
+                $codeDiscountPercentage = $discountCodeModel->value;
+            } elseif ($discountCodeModel->type === 'fixed' && $originalAmount > 0) {
+                $codeDiscountPercentage = ($discountCodeModel->value / $originalAmount) * 100;
+            }
+
+            if ($codeDiscountPercentage > $discountPercentageApplied) {
+                $discountAmount = $discountCodeModel->calculateDiscount($originalAmount);
+                $amount = max(0, $originalAmount - $discountAmount);
+                $discountAmountApplied = $discountAmount;
+                $discountPercentageApplied = $codeDiscountPercentage;
+                $discountCode = $request->discount_code;
             }
         }
 
@@ -119,8 +128,14 @@ class ZarinpalController extends Controller
             'sms_count' => $package->sms_count,
             'status' => 'pending',
             'discount_code' => $discountCode,
-            'discount_percentage' => $discountPercentage,
+            'discount_percentage' => round($discountPercentageApplied, 2),
             'original_amount' => $originalAmount,
+            'discount_amount' => $discountAmountApplied,
+            'metadata' => [
+                'package_discount_percentage' => round($packageDiscountPercentage, 2),
+                'package_discount_amount' => $packageDiscountAmount,
+                'discount_source' => $discountCode ? 'code' : ($packageDiscountAmount > 0 ? 'package' : 'none'),
+            ],
         ]);
 
         // Create a new Transaction record associated with the Order

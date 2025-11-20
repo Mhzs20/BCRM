@@ -43,25 +43,50 @@ class UpdateOrderAndBalance implements ShouldQueue
                 $order->update(['status' => 'paid']);
                 Log::info("Order {$order->id} status updated to 'paid'.");
 
-                // 2. Increment the SalonSmsBalance for the associated salon
-                $salonSmsBalance = SalonSmsBalance::firstOrCreate(
-                    ['salon_id' => $order->salon_id],
-                    ['balance' => 0]
-                );
-                $salonSmsBalance->increment('balance', $order->sms_count);
-                Log::info("Salon {$order->salon_id} SMS balance incremented by {$order->sms_count}. New balance: {$salonSmsBalance->balance}");
+                // Handle different order types
+                if ($order->type === 'wallet_package' || $order->type === 'wallet_charge') {
+                    // 2a. Charge user wallet for wallet package purchases or manual charges
+                    $walletAmount = $order->metadata['wallet_amount'] ?? 0;
+                    
+                    if ($walletAmount > 0) {
+                        \App\Models\WalletTransaction::createAndUpdateBalance([
+                            'user_id' => $order->user_id,
+                            'type' => $order->type === 'wallet_package' 
+                                ? \App\Models\WalletTransaction::TYPE_PACKAGE_PURCHASE 
+                                : \App\Models\WalletTransaction::TYPE_WALLET_CHARGE,
+                            'amount' => $walletAmount,
+                            'description' => $order->type === 'wallet_package'
+                                ? "شارژ کیف پول - {$order->item_title}"
+                                : ($order->metadata['description'] ?? 'شارژ دلخواه کیف پول'),
+                            'order_id' => $order->id,
+                            'status' => \App\Models\WalletTransaction::STATUS_COMPLETED,
+                            'reference_id' => $successfulTransaction->reference_id ?? null,
+                        ]);
+                        Log::info("User {$order->user_id} wallet charged with {$walletAmount}. Order: {$order->id}, Type: {$order->type}");
+                    }
+                } else {
+                    // 2b. Increment the SalonSmsBalance for SMS package purchases
+                    if ($order->salon_id && $order->sms_count > 0) {
+                        $salonSmsBalance = SalonSmsBalance::firstOrCreate(
+                            ['salon_id' => $order->salon_id],
+                            ['balance' => 0]
+                        );
+                        $salonSmsBalance->increment('balance', $order->sms_count);
+                        Log::info("Salon {$order->salon_id} SMS balance incremented by {$order->sms_count}. New balance: {$salonSmsBalance->balance}");
 
-                // 2.5. Create SMS transaction record for purchase history
-                \App\Models\SmsTransaction::create([
-                    'salon_id' => $order->salon_id,
-                    'sms_package_id' => $order->sms_package_id,
-                    'type' => 'purchase',
-                    'amount' => $order->sms_count,
-                    'description' => "خرید بسته پیامک - سفارش {$order->id}",
-                    'status' => 'completed',
-                    'reference_id' => $successfulTransaction->reference_id ?? null,
-                ]);
-                Log::info("SMS transaction record created for order {$order->id}");
+                        // Create SMS transaction record for purchase history
+                        \App\Models\SmsTransaction::create([
+                            'salon_id' => $order->salon_id,
+                            'sms_package_id' => $order->sms_package_id,
+                            'type' => 'purchase',
+                            'amount' => $order->sms_count,
+                            'description' => "خرید بسته پیامک - سفارش {$order->id}",
+                            'status' => 'completed',
+                            'reference_id' => $successfulTransaction->reference_id ?? null,
+                        ]);
+                        Log::info("SMS transaction record created for order {$order->id}");
+                    }
+                }
 
                 // 3. SECURITY: Record discount code usage if used
                 if ($order->discount_code) {
@@ -69,10 +94,13 @@ class UpdateOrderAndBalance implements ShouldQueue
                     if ($discountCode) {
                         $discountCode->incrementUsage();
                         
-                        // SECURITY: Record salon-specific usage to prevent reuse
-                        $discountCode->recordSalonUsage($order->salon_id, $order->id);
-                        
-                        Log::info("Discount code {$order->discount_code} usage incremented. Total usage: {$discountCode->usage_count}. Salon {$order->salon_id} usage recorded.");
+                        // SECURITY: Record salon-specific usage to prevent reuse (if salon_id exists)
+                        if ($order->salon_id) {
+                            $discountCode->recordSalonUsage($order->salon_id, $order->id);
+                            Log::info("Discount code {$order->discount_code} usage incremented. Total usage: {$discountCode->usage_count}. Salon {$order->salon_id} usage recorded.");
+                        } else {
+                            Log::info("Discount code {$order->discount_code} usage incremented. Total usage: {$discountCode->usage_count}.");
+                        }
                     }
                 }
             } else {
