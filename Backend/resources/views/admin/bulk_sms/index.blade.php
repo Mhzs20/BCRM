@@ -177,7 +177,7 @@
                 </div>
                 
                 <button type="submit" id="sendSmsButton" class="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition ease-in-out duration-150">
-                    <i class="ri-send-plane-line ml-2"></i> ارسال پیامک به سالن‌های انتخاب شده
+                    <i class="ri-send-plane-line ml-2"></i> <span id="sendSmsButtonText">ارسال پیامک به سالن‌های انتخاب شده</span>
                 </button>
                 
                 <div class="mt-4 text-sm text-gray-600">
@@ -369,8 +369,14 @@
         const selectedCountElement = document.getElementById('selected-count');
 
         function updateSelectedCount() {
-            const checkedCount = document.querySelectorAll('.salon-checkbox:checked').length;
-            selectedCountElement.innerHTML = `<strong>تعداد انتخاب شده:</strong> ${checkedCount}`;
+            const sendToAllChecked = sendToAllCheckbox.checked && !sendToAllHiddenInput.disabled;
+            let count = 0;
+            if (sendToAllChecked) {
+                count = {{ $salons->total() }};
+            } else {
+                count = document.querySelectorAll('.salon-checkbox:checked').length;
+            }
+            selectedCountElement.innerHTML = `<strong>تعداد انتخاب شده:</strong> ${count}`;
         }
 
         selectAllCheckbox.addEventListener('change', function() {
@@ -387,8 +393,11 @@
                     checkbox.checked = true;
                 });
                 if (sendToAllHiddenInput) sendToAllHiddenInput.disabled = false;
+                // تغییر متن دکمه ارسال
+                document.getElementById('sendSmsButtonText').textContent = 'ارسال پیامک به همه سالن‌های فیلتر شده (' + {{ $salons->total() }} + ')';
             } else {
                 if (sendToAllHiddenInput) sendToAllHiddenInput.disabled = true;
+                document.getElementById('sendSmsButtonText').textContent = 'ارسال پیامک به سالن‌های انتخاب شده';
             }
             updateSelectedCount();
         });
@@ -399,12 +408,14 @@
                     selectAllCheckbox.checked = false;
                     sendToAllCheckbox.checked = false;
                     if (sendToAllHiddenInput) sendToAllHiddenInput.disabled = true;
+                    document.getElementById('sendSmsButtonText').textContent = 'ارسال پیامک به سالن‌های انتخاب شده';
                 } else {
                     const allChecked = Array.from(salonCheckboxes).every(cb => cb.checked);
                     selectAllCheckbox.checked = allChecked;
                     if (allChecked) {
                         sendToAllCheckbox.checked = true;
                         if (sendToAllHiddenInput) sendToAllHiddenInput.disabled = false;
+                        document.getElementById('sendSmsButtonText').textContent = 'ارسال پیامک به همه سالن‌های فیلتر شده (' + {{ $salons->total() }} + ')';
                     }
                 }
                 updateSelectedCount();
