@@ -511,15 +511,10 @@ class SmsCampaignController extends Controller
         $campaign->save();
 
         // Automatically trigger send process for approved campaigns
-        if ($campaign->status === 'draft') {
+        if (in_array($campaign->status, ['draft', 'pending'])) {
             try {
-                // Create a fake request with campaign data to reuse sendCampaign logic
-                $filters = json_decode($campaign->filters, true) ?: [];
-                $sendRequest = new Request($filters);
-
-                // Use a separate method to avoid authorization issues in admin approval
+                Log::info("[DEBUG] approveCampaign: About to call processCampaignSending for campaign #{$campaign->id} with status {$campaign->status}");
                 $this->processCampaignSending($campaign);
-
             } catch (\Exception $e) {
                 Log::error("Failed to send approved campaign #{$campaign->id}: " . $e->getMessage() . ' | Stack: ' . $e->getTraceAsString());
                 return response()->json([
@@ -600,11 +595,12 @@ class SmsCampaignController extends Controller
         }
 
         // Always try to dispatch the job after transaction
+        Log::info("[DEBUG] About to dispatch SendSmsCampaign job for campaign #{$campaign->id} to sms queue.");
         try {
             SendSmsCampaign::dispatch($campaign)->onQueue('sms');
-            Log::info("SendSmsCampaign job dispatched for campaign #{$campaign->id} to sms queue.");
+            Log::info("[DEBUG] SendSmsCampaign job dispatched for campaign #{$campaign->id} to sms queue.");
         } catch (\Exception $e) {
-            Log::error("Failed to dispatch SendSmsCampaign for campaign #{$campaign->id}: " . $e->getMessage());
+            Log::error("[DEBUG] Failed to dispatch SendSmsCampaign for campaign #{$campaign->id}: " . $e->getMessage());
             throw $e;
         }
 
