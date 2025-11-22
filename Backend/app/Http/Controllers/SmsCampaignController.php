@@ -178,6 +178,8 @@ class SmsCampaignController extends Controller
                     ];
                 });
 
+                Log::info("Campaign {$campaign->id}: Prepared to send to {$customers->count()} customers (after deselect). Total messages: {$messagesToInsert->count()}");
+
                 // Calculate parts and cost
                 $totalParts = $messagesToInsert->sum(function ($row) {
                     return $this->smsService->calculateSmsCount($row['message']);
@@ -239,8 +241,8 @@ class SmsCampaignController extends Controller
         // Only dispatch the job if the campaign is using a template (auto-approved) or already approved
         if ($campaign->uses_template || $campaign->approval_status === 'approved') {
             try {
-                SendSmsCampaign::dispatchSync($campaign);
-                $message = "کمپین پیامکی برای {$campaign->customer_count} مشتری با موفقیت ارسال شد.";
+                SendSmsCampaign::dispatch($campaign);
+                $message = "کمپین پیامکی برای {$campaign->customer_count} مشتری در صف ارسال قرار گرفت.";
             } catch (\Exception $e) {
                 Log::error("Failed to send campaign #{$campaign->id}: " . $e->getMessage());
                 $message = "خطا در ارسال کمپین: " . $e->getMessage();
@@ -551,6 +553,8 @@ class SmsCampaignController extends Controller
                 ];
             });
 
+            Log::info("Admin approved campaign {$campaign->id}: Prepared to send to {$customers->count()} customers. Total messages: {$messagesToInsert->count()}");
+
             // Recalculate real total parts based on final personalized messages
             $totalParts = $messagesToInsert->sum(function ($row) {
                 return $this->smsService->calculateSmsCount($row['message']);
@@ -584,7 +588,7 @@ class SmsCampaignController extends Controller
 
         // Dispatch the job for sending
         try {
-            SendSmsCampaign::dispatchSync($campaign);
+            SendSmsCampaign::dispatch($campaign);
         } catch (\Exception $e) {
             Log::error("Failed to process campaign sending #{$campaign->id}: " . $e->getMessage());
             throw $e;
