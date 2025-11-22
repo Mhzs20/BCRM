@@ -266,7 +266,7 @@ class SmsService
         $salon->loadMissing('smsBalance');
 
         // Re-introducing the balance check as per user request.
-        $smsCount = $this->calculateSmsCount($message);
+        $smsCount = $this->calculateSmsParts($message);
         $currentBalance = $salon->current_sms_balance; // Use the accessor for current balance
         if ($currentBalance < $smsCount) {
             Log::warning("Salon ID {$salon->id} has insufficient SMS balance to send '{$eventType}' to {$receptor}. Balance: {$currentBalance}, Required: {$smsCount}");
@@ -819,7 +819,7 @@ class SmsService
      * @param string $message The SMS text.
      * @return int The number of SMS parts.
      */
-    public function calculateSmsCount(string $message): int
+    public function calculateSmsParts(string $message): int
     {
         $characterCount = mb_strlen($message);
         
@@ -834,6 +834,18 @@ class SmsService
         }
 
         return (int)ceil($characterCount / $limit);
+    }
+
+    /**
+     * Calculates the number of SMS parts based on message content and language.
+     * Alias for calculateSmsParts for backward compatibility.
+     *
+     * @param string $message The SMS text.
+     * @return int The number of SMS parts.
+     */
+    public function calculateSmsCount(string $message): int
+    {
+        return $this->calculateSmsParts($message);
     }
 
     /**

@@ -74,7 +74,7 @@ class ManualSmsController extends Controller
 
         $smsContent = $request->message_content;
         $isCustomMessage = !$request->has('template_id');
-        $smsPartsPerMessage = $this->smsService->calculateSmsCount($smsContent);
+        $smsPartsPerMessage = $this->smsService->calculateSmsParts($smsContent);
         $totalSmsCountForAllRecipients = $smsPartsPerMessage * count($recipients);
 
         if ($salonSmsBalance->balance < $totalSmsCountForAllRecipients) {
@@ -240,7 +240,7 @@ class ManualSmsController extends Controller
                 $transaction->save();
             }
 
-            $smsPartsPerMessage = $this->smsService->calculateSmsCount($contentToSend);
+            $smsPartsPerMessage = $this->smsService->calculateSmsParts($contentToSend);
 
             // Recalculate total SMS count based on potentially new content
             $totalSmsCountAfterEdit = $smsPartsPerMessage * $transactions->count();
