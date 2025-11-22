@@ -68,9 +68,12 @@
                                             <div class="space-y-2">
                                                 <div>
                                                     <span class="text-xs font-bold text-gray-700">متن اصلی:</span>
-                                                    <p class="text-xs text-gray-800 bg-gray-100 rounded-md p-2 mt-1 whitespace-pre-wrap">{{ $campaign->original_message ?? $campaign->message }}</p>
+                                                    {{-- show stored message first, fallback to linked template text if available --}}
+                                                    <p class="text-xs text-gray-800 bg-gray-100 rounded-md p-2 mt-1 whitespace-pre-wrap">{{ $campaign->message ?: ($campaign->smsTemplate->template ?? 'بدون متن') }}</p>
                                                 </div>
-                                                @if(!empty($campaign->edited_message) && $campaign->edited_message !== $campaign->original_message)
+                                                   {{-- Campaign table does not currently have explicit edited_message/original_message columns.
+                                                       If an edited_message field exists in the future, this will show it; otherwise skip. --}}
+                                                   @if(!empty($campaign->edited_message) && $campaign->edited_message !== ($campaign->original_message ?? ''))
                                                 <div>
                                                     <span class="text-xs font-bold text-blue-700">متن ویرایش‌شده:</span>
                                                     <p class="text-xs text-blue-800 bg-blue-50 rounded-md p-2 mt-1 whitespace-pre-wrap">{{ $campaign->edited_message }}</p>

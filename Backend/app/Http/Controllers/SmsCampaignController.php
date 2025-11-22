@@ -85,12 +85,15 @@ class SmsCampaignController extends Controller
 
         $usesTemplate = false;
         $smsTemplateId = null;
+        $messageToSave = '';
 
+        // اگر template انتخاب شده باشد، از template استفاده کن
         if ($request->has('sms_template_id')) {
             $template = SalonSmsTemplate::find($request->input('sms_template_id'));
             if ($template) {
                 $usesTemplate = true;
                 $smsTemplateId = $template->id;
+                $messageToSave = $template->template ?? '';
             }
         }
 
@@ -103,7 +106,7 @@ class SmsCampaignController extends Controller
                 'min_appointments', 'max_appointments', 'min_payment', 'max_payment', 
                 'customer_created_from', 'last_visit_from', 'sms_template_id'
             ]), JSON_UNESCAPED_UNICODE),
-            'message' => '',
+            'message' => $messageToSave,
             'customer_count' => $customerCount,
             'total_cost' => 0,
             'status' => 'draft',
@@ -134,27 +137,23 @@ class SmsCampaignController extends Controller
             return response()->json(['message' => 'این کمپین قبلاً ارسال شده یا در حال پردازش است.'], 422);
         }
 
-        // Check approval status for custom messages
-        if (!$campaign->uses_template && $campaign->approval_status !== 'approved') {
-            return response()->json([
-                'message' => 'کمپین شما با موفقیت ثبت شد و اکنون در حال بررسی است. به‌محض تأیید، پیام‌ها ارسال خواهند شد..',
-                'approval_status' => $campaign->approval_status
-            ], 422);
-        }
-
-        // Validate and require message in submit stage
+        // Require message in submit stage and persist it immediately so admin sees it
         $request->validate([
             'message' => 'required|string|max:1000',
             'send_to_owner' => 'sometimes|boolean',
         ]);
 
-        // Update campaign message before sending
+        // Update campaign message right away (prevents empty message in admin panel)
         $campaign->message = $request->input('message');
         $campaign->save();
 
         $sendToOwner = $request->boolean('send_to_owner', false);
+        // prepare placeholders so we can return counts after transaction
+        $calculatedParts = 0;
+        $calculatedMonetaryCost = 0;
+
         try {
-            DB::transaction(function () use ($salon, $campaign, $request, $sendToOwner) {
+            DB::transaction(function () use ($salon, $campaign, $request, $sendToOwner, &$calculatedParts, &$calculatedMonetaryCost) {
                 // Re-run & lock relevant data
                 $filters = is_string($campaign->filters) ? json_decode($campaign->filters, true) : $campaign->filters;
                 $filters = $filters ?: [];
@@ -179,26 +178,44 @@ class SmsCampaignController extends Controller
                     ];
                 });
 
-                // Recalculate real total cost based on final personalized messages
-                $newTotalCost = $messagesToInsert->sum(function ($row) {
+                // Calculate parts and cost
+                $totalParts = $messagesToInsert->sum(function ($row) {
                     return $this->smsService->calculateSmsCount($row['message']);
                 });
+                // Include owner message parts if owner should receive a copy
+                $ownerExtraParts = 0;
+                $sendToOwner = $request->boolean('send_to_owner', false);
+                if ($sendToOwner) {
+                    $ownerPhone = $salon->mobile ?? $salon->phone;
+                    if ($ownerPhone) {
+                        $ownerMessage = $campaign->message;
+                        $ownerExtraParts = $this->smsService->calculateSmsCount($ownerMessage);
+                    }
+                }
 
-                // Lock & check balance
+                $requiredParts = $totalParts + $ownerExtraParts;
+                $costPerPart = $this->smsService->getSmsCostPerPart();
+                $totalMonetaryCost = (int)ceil($requiredParts * $costPerPart);
+
+                // store calculated figures so we can return them to client
+                $calculatedParts = $requiredParts;
+                $calculatedMonetaryCost = $totalMonetaryCost;
+
+                // Lock & check balance (balance stores SMS parts)
                 $balance = $salon->smsBalance()->lockForUpdate()->first();
-                if (!$balance || $balance->balance < $newTotalCost) {
-                    throw new \Exception('اعتبار پیامک کافی نیست.');
+                if (!$balance || $balance->balance < $requiredParts) {
+                    throw new \Exception('اعتبار پیامک کافی نیست. اعتبار فعلی: ' . ($balance?->balance ?? 0) . '، مورد نیاز: ' . $requiredParts);
                 }
 
-                // Deduct full recalculated cost (no prior deduction at draft stage)
-                if ($newTotalCost > 0) {
-                    $balance->decrement('balance', $newTotalCost);
+                // Deduct full recalculated parts
+                if ($requiredParts > 0) {
+                    $balance->decrement('balance', $requiredParts);
                 }
 
-                // Update campaign stats atomically
+                // Update campaign stats atomically (store parts count)
                 $campaign->update([
                     'status' => 'pending',
-                    'total_cost' => $newTotalCost,
+                    'total_cost' => $requiredParts, // تعداد پارت‌ها به‌جای هزینه
                     'customer_count' => $customers->count(),
                 ]);
 
@@ -227,12 +244,20 @@ class SmsCampaignController extends Controller
             $message = "کمپین پیامکی برای {$campaign->customer_count} مشتری ایجاد شد و به ادمین برای تایید ارسال شده است.";
         }
 
+        // reload campaign to ensure latest fields
+        $campaign->refresh();
+        $remainingBalance = $salon->fresh()->smsBalance->balance ?? 0;
+
         return response()->json([
             'message' => $message,
             'campaign_id' => $campaign->id,
             'requires_approval' => !$campaign->uses_template,
             'approval_status' => $campaign->approval_status,
             'sent_to_owner' => $sendToOwner,
+            'customer_count' => $campaign->customer_count,
+            'total_parts' => $calculatedParts,
+            'total_cost' => $calculatedParts, // تعداد پارت‌ها به‌جای هزینه
+            'remaining_balance_parts' => $remainingBalance,
         ]);
     }
 
@@ -521,26 +546,29 @@ class SmsCampaignController extends Controller
                 ];
             });
 
-            // Recalculate real total cost based on final personalized messages
-            $newTotalCost = $messagesToInsert->sum(function ($row) {
+            // Recalculate real total parts based on final personalized messages
+            $totalParts = $messagesToInsert->sum(function ($row) {
                 return $this->smsService->calculateSmsCount($row['message']);
             });
 
-            // Lock & check balance
+            // Lock & check balance (balance stored as parts)
             $balance = $campaign->salon->smsBalance()->lockForUpdate()->first();
-            if (!$balance || $balance->balance < $newTotalCost) {
+            if (!$balance || $balance->balance < $totalParts) {
                 throw new \Exception('اعتبار پیامک کافی نیست.');
             }
 
-            // Deduct full recalculated cost (no prior deduction at draft stage)
-            if ($newTotalCost > 0) {
-                $balance->decrement('balance', $newTotalCost);
+            // Deduct full recalculated parts (no prior deduction at draft stage)
+            if ($totalParts > 0) {
+                $balance->decrement('balance', $totalParts);
             }
 
-            // Update campaign stats atomically
+            $costPerPart = $this->smsService->getSmsCostPerPart();
+            $totalMonetaryCost = (int)ceil($totalParts * $costPerPart);
+
+            // Update campaign stats atomically (store parts count)
             $campaign->update([
                 'status' => 'pending',
-                'total_cost' => $newTotalCost,
+                'total_cost' => $totalParts, // تعداد پارت‌ها به‌جای هزینه
                 'customer_count' => $customers->count(),
             ]);
 
@@ -577,7 +605,14 @@ class SmsCampaignController extends Controller
             'rejection_reason' => $request->input('rejection_reason'),
         ]);
 
-        return response()->json(['success' => true, 'message' => 'کمپین رد شد.']);
+        // Refund the deducted balance
+        $salon = $campaign->salon;
+        $salonSmsBalance = $salon->smsBalance()->firstOrCreate(['salon_id' => $salon->id], ['balance' => 0]);
+        if ($salonSmsBalance && $campaign->total_cost > 0) {
+            $salonSmsBalance->increment('balance', $campaign->total_cost);
+        }
+
+        return response()->json(['success' => true, 'message' => 'کمپین رد شد و اعتبار کسر شده بازگردانده شد.']);
     }
 
     /**
