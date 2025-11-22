@@ -53,6 +53,7 @@ class SendSmsCampaign implements ShouldQueue
             $this->campaign->messages()
                 ->where('status', 'pending')
                 ->chunkById(100, function ($messages) use ($smsService) {
+                    Log::info("Processing chunk of {$messages->count()} messages for campaign #{$this->campaign->id}");
                     foreach ($messages as $message) {
                         $response = $smsService->sendSms($message->phone_number, $message->message, null, $message->id);
                         
