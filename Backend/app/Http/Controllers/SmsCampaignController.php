@@ -533,7 +533,7 @@ class SmsCampaignController extends Controller
      */
     private function processCampaignSending(SmsCampaign $campaign): void
     {
-        if ($campaign->status !== 'draft') {
+        if (!in_array($campaign->status, ['draft', 'pending'])) {
             throw new \Exception('این کمپین قبلاً ارسال شده یا در حال پردازش است.');
         }
 
