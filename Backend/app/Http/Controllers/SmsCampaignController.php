@@ -143,11 +143,12 @@ class SmsCampaignController extends Controller
             'send_to_owner' => 'sometimes|boolean',
         ]);
 
-        // Update campaign message right away (prevents empty message in admin panel)
+        // Update campaign message and send_to_owner right away (prevents empty message in admin panel)
         $campaign->message = $request->input('message');
+        $campaign->send_to_owner = $request->boolean('send_to_owner', false); // store flag in campaign
         $campaign->save();
 
-        $sendToOwner = $request->boolean('send_to_owner', false);
+        $sendToOwner = $campaign->send_to_owner;
         // prepare placeholders so we can return counts after transaction
         $calculatedParts = 0;
         $calculatedMonetaryCost = 0;
@@ -270,7 +271,7 @@ class SmsCampaignController extends Controller
             'sent_to_owner' => $sendToOwner,
             'customer_count' => $campaign->customer_count,
             'total_parts' => $calculatedParts,
-            'total_cost' => $calculatedParts, // تعداد پارت‌ها به‌جای هزینه
+            'total_cost' => $calculatedParts, 
             'remaining_balance_parts' => $remainingBalance,
         ]);
     }
@@ -541,64 +542,83 @@ class SmsCampaignController extends Controller
             throw new \Exception('این کمپین قبلاً ارسال شده یا در حال پردازش است.');
         }
 
-        DB::transaction(function () use ($campaign) {
-            // Re-run & lock relevant data
-            $filters = json_decode($campaign->filters, true) ?: [];
-            $customers = $this->buildFilteredQuery(new Request($filters), $campaign->salon)->get();
-
-            // Build personalized messages
-            $messagesToInsert = $customers->map(function ($customer) use ($campaign) {
-                $finalMessage = str_replace('{customer_name}', $customer->name, $campaign->message);
-                return [
-                    'sms_campaign_id' => $campaign->id,
-                    'customer_id' => $customer->id,
-                    'phone_number' => $customer->phone_number,
-                    'message' => $finalMessage,
-                    'status' => 'pending',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-            });
-
-            Log::info("Admin approved campaign {$campaign->id}: Prepared to send to {$customers->count()} customers. Total messages: {$messagesToInsert->count()}");
-
-            // Recalculate real total parts based on final personalized messages
-            $totalParts = $messagesToInsert->sum(function ($row) {
-                return $this->smsService->calculateSmsCount($row['message']);
-            });
-
-            // Lock & check balance (balance stored as parts)
-            $balance = $campaign->salon->smsBalance()->lockForUpdate()->first();
-            if (!$balance || $balance->balance < $totalParts) {
-                throw new \Exception('اعتبار پیامک کافی نیست.');
-            }
-
-            // Deduct full recalculated parts (no prior deduction at draft stage)
-            if ($totalParts > 0) {
-                $balance->decrement('balance', $totalParts);
-            }
-
-            $costPerPart = $this->smsService->getSmsCostPerPart();
-            $totalMonetaryCost = (int)ceil($totalParts * $costPerPart);
-
-            // Update campaign stats atomically (store parts count)
-            $campaign->update([
-                'status' => 'pending',
-                'total_cost' => $totalParts, // تعداد پارت‌ها به‌جای هزینه
-                'customer_count' => $customers->count(),
-            ]);
-
-            if ($messagesToInsert->isNotEmpty()) {
-                $campaign->messages()->insert($messagesToInsert->toArray());
-            }
-        });
-
-        // Dispatch the job for sending
         try {
-                SendSmsCampaign::dispatch($campaign)->onQueue('sms');
+            DB::transaction(function () use ($campaign) {
+                // Re-run & lock relevant data
+                $filters = json_decode($campaign->filters, true) ?: [];
+                $customers = $this->buildFilteredQuery(new Request($filters), $campaign->salon)->get();
+
+                // Build personalized messages
+                $messagesToInsert = $customers->map(function ($customer) use ($campaign) {
+                    $finalMessage = str_replace('{customer_name}', $customer->name, $campaign->message);
+                    return [
+                        'sms_campaign_id' => $campaign->id,
+                        'customer_id' => $customer->id,
+                        'phone_number' => $customer->phone_number,
+                        'message' => $finalMessage,
+                        'status' => 'pending',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                });
+
+                Log::info("Admin approved campaign {$campaign->id}: Prepared to send to {$customers->count()} customers. Total messages: {$messagesToInsert->count()}");
+
+                // Recalculate real total parts based on final personalized messages
+                $totalParts = $messagesToInsert->sum(function ($row) {
+                    return $this->smsService->calculateSmsCount($row['message']);
+                });
+
+                // Lock & check balance (balance stored as parts)
+                $balance = $campaign->salon->smsBalance()->lockForUpdate()->first();
+                if (!$balance || $balance->balance < $totalParts) {
+                    throw new \Exception('اعتبار پیامک کافی نیست.');
+                }
+
+                // Deduct full recalculated parts (no prior deduction at draft stage)
+                if ($totalParts > 0) {
+                    $balance->decrement('balance', $totalParts);
+                }
+
+                $costPerPart = $this->smsService->getSmsCostPerPart();
+                $totalMonetaryCost = (int)ceil($totalParts * $costPerPart);
+
+                // Update campaign stats atomically (store parts count)
+                $campaign->update([
+                    'status' => 'pending',
+                    'total_cost' => $totalParts, // تعداد پارت‌ها به‌جای هزینه
+                    'customer_count' => $customers->count(),
+                ]);
+
+                if ($messagesToInsert->isNotEmpty()) {
+                    $campaign->messages()->insert($messagesToInsert->toArray());
+                }
+            });
         } catch (\Exception $e) {
-            Log::error("Failed to process campaign sending #{$campaign->id}: " . $e->getMessage());
+            Log::error("processCampaignSending failed for campaign #{$campaign->id}: " . $e->getMessage());
             throw $e;
+        }
+
+        // Always try to dispatch the job after transaction
+        try {
+            SendSmsCampaign::dispatch($campaign)->onQueue('sms');
+            Log::info("SendSmsCampaign job dispatched for campaign #{$campaign->id} to sms queue.");
+        } catch (\Exception $e) {
+            Log::error("Failed to dispatch SendSmsCampaign for campaign #{$campaign->id}: " . $e->getMessage());
+            throw $e;
+        }
+
+        // Send owner copy if requested (after dispatch)
+        if ($campaign->send_to_owner) {
+            $ownerPhone = $campaign->salon->mobile ?? $campaign->salon->phone;
+            if ($ownerPhone) {
+                try {
+                    app(\App\Services\SmsService::class)->sendSms($ownerPhone, $campaign->message);
+                    Log::info("Owner copy sent for campaign #{$campaign->id} to {$ownerPhone}.");
+                } catch (\Exception $e) {
+                    Log::error("Failed to send owner copy for campaign #{$campaign->id}: " . $e->getMessage());
+                }
+            }
         }
     }
 
