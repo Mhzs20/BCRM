@@ -241,7 +241,7 @@ class SmsCampaignController extends Controller
         // Only dispatch the job if the campaign is using a template (auto-approved) or already approved
         if ($campaign->uses_template || $campaign->approval_status === 'approved') {
             try {
-                SendSmsCampaign::dispatch($campaign);
+                    SendSmsCampaign::dispatch($campaign)->onQueue('sms');
                 $message = "کمپین پیامکی برای {$campaign->customer_count} مشتری در صف ارسال قرار گرفت.";
             } catch (\Exception $e) {
                 Log::error("Failed to send campaign #{$campaign->id}: " . $e->getMessage());
@@ -588,7 +588,7 @@ class SmsCampaignController extends Controller
 
         // Dispatch the job for sending
         try {
-            SendSmsCampaign::dispatch($campaign);
+                SendSmsCampaign::dispatch($campaign)->onQueue('sms');
         } catch (\Exception $e) {
             Log::error("Failed to process campaign sending #{$campaign->id}: " . $e->getMessage());
             throw $e;
