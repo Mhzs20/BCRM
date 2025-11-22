@@ -225,14 +225,8 @@ class SmsCampaignController extends Controller
                     $campaign->messages()->insert($messagesToInsert->toArray());
                 }
 
-                // Send SMS to salon owner if requested
-                if ($sendToOwner) {
-                    $ownerPhone = $salon->mobile ?? $salon->phone;
-                    if ($ownerPhone) {
-                        $ownerMessage = $campaign->message;
-                        app(\App\Services\SmsService::class)->sendSms($ownerPhone, $ownerMessage);
-                    }
-                }
+                // Do NOT send SMS to salon owner here; owner copy should be sent
+                // only when the campaign is actually queued/sent (after approval).
             });
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 422);
@@ -249,6 +243,19 @@ class SmsCampaignController extends Controller
             }
         } else {
             $message = "کمپین پیامکی برای {$campaign->customer_count} مشتری ایجاد شد و به ادمین برای تایید ارسال شده است.";
+        }
+
+        // If owner requested a copy, only send it now when campaign is actually
+        // approved/queued (so owner does not get the message while campaign is pending).
+        if ($sendToOwner && ($campaign->uses_template || $campaign->approval_status === 'approved')) {
+            $ownerPhone = $salon->mobile ?? $salon->phone;
+            if ($ownerPhone) {
+                try {
+                    app(\App\Services\SmsService::class)->sendSms($ownerPhone, $campaign->message);
+                } catch (\Exception $e) {
+                    Log::error("Failed to send owner copy for campaign #{$campaign->id}: " . $e->getMessage());
+                }
+            }
         }
 
         // reload campaign to ensure latest fields
