@@ -25,11 +25,13 @@ class SmsCampaign extends Model
         'rejection_reason',
         'uses_template',
         'sms_template_id',
+        'send_to_owner',
     ];
 
     protected $casts = [
         'filters' => 'array',
         'approved_at' => 'datetime',
+        'send_to_owner' => 'boolean',
     ];
 
     public function salon(): BelongsTo
