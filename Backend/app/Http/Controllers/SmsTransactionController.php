@@ -9,6 +9,7 @@ use App\Models\SmsTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Morilog\Jalali\Jalalian;
+use Hekmatinasser\Verta\Verta; // for parsing Persian (Jalali) input dates
 
 class SmsTransactionController extends Controller
 {
@@ -24,15 +25,14 @@ class SmsTransactionController extends Controller
             return response()->json(['error' => 'Unauthorized access to salon'], 403);
         }
 
+        // Build a base query with relationships
         $query = SmsTransaction::query()
-            ->with(['smsPackage', 'customer:id,name,phone_number', 'appointment:id,appointment_date,start_time,end_time'])
+            ->with(['smsPackage', 'customer:id,name,phone_number', 'appointment:id,appointment_date,start_time,end_time', 'salon:id,name'])
             ->latest();
 
         // Filter by salon if provided in route
         if ($salon) {
             $query->where('salon_id', $salon->id);
-            // For salon-specific requests, show only purchase transactions
-            $query->where('type', 'purchase');
         } else {
             // If no specific salon, filter by user's salons
             $query->where('user_id', $user->id);
@@ -53,13 +53,38 @@ class SmsTransactionController extends Controller
             $query->where('status', $request->status);
         }
 
-        // Filter by date range if provided
-        if ($request->filled('from_date')) {
-            $query->whereDate('created_at', '>=', $request->from_date);
+        // Parse Jalali input dates (accepts Y/m/d) and convert to Carbon via Verta
+        $fromDate = null;
+        $toDate = null;
+        try {
+            if ($request->filled('from_date')) {
+                $fromDate = Verta::parse($request->from_date)->toCarbon()->startOfDay();
+            }
+            if ($request->filled('to_date')) {
+                $toDate = Verta::parse($request->to_date)->toCarbon()->endOfDay();
+            }
+        } catch (\Exception $e) {
+            // gracefully ignore invalid dates, fallback to defaults
+            $fromDate = null;
+            $toDate = null;
         }
-        if ($request->filled('to_date')) {
-            $query->whereDate('created_at', '<=', $request->to_date);
+
+        // Default to current Jalali month if no dates provided
+        if (!$fromDate || !$toDate) {
+            $vNow = Verta::now();
+            if (!$fromDate) {
+                $fromDate = $vNow->startMonth()->toCarbon()->startOfDay();
+            }
+            if (!$toDate) {
+                $toDate = $vNow->endMonth()->toCarbon()->endOfDay();
+            }
         }
+
+        // Apply a date filter that selects transactions which were either created in the period (purchases) or sent in the period (consumption)
+        $query->where(function ($q) use ($fromDate, $toDate) {
+            $q->whereBetween('created_at', [$fromDate, $toDate])
+              ->orWhereBetween('sent_at', [$fromDate, $toDate]);
+        });
 
         // Filter by amount range if provided
         if ($request->filled('min_amount')) {
@@ -69,6 +94,7 @@ class SmsTransactionController extends Controller
             $query->where('amount', '<=', $request->max_amount);
         }
 
+        // Build the paginated dataset (purchase + consumption combined) according to filters
         $transactions = $query->paginate($request->get('per_page', 20));
 
         $formattedTransactions = $transactions->getCollection()->map(function ($transaction) {
@@ -84,8 +110,9 @@ class SmsTransactionController extends Controller
                 'description' => $transaction->description,
                 'reference_id' => $transaction->reference_id,
                 'transaction_id' => $transaction->transaction_id,
-                'date' => Jalalian::fromDateTime($transaction->created_at)->format('Y/m/d'),
-                'time' => Jalalian::fromDateTime($transaction->created_at)->format('H:i:s'),
+                // Prefer sent_at for sent messages, otherwise created_at for purchases
+                'date' => Jalalian::fromDateTime($transaction->sent_at ?? $transaction->created_at)->format('Y/m/d'),
+                'time' => Jalalian::fromDateTime($transaction->sent_at ?? $transaction->created_at)->format('H:i:s'),
                 'sent_at' => $transaction->sent_at ? Jalalian::fromDateTime($transaction->sent_at)->format('Y/m/d H:i:s') : null,
                 'balance_deducted_at_submission' => $transaction->balance_deducted_at_submission,
                 'approval_status' => $transaction->approval_status,
@@ -134,28 +161,67 @@ class SmsTransactionController extends Controller
             return $data;
         });
 
-                // Calculate summary statistics
-        $summaryQuery = SmsTransaction::query();
-        
-        if ($salon) {
-            $summaryQuery->where('salon_id', $salon->id)->where('type', 'purchase');
-        } else {
-            $summaryQuery->where('user_id', $user->id);
-        }
-        
-        $summary = [
-            'total_transactions' => (clone $summaryQuery)->count(),
-            'total_amount' => (clone $summaryQuery)->sum('amount'),
-            'total_sms_sent' => (clone $summaryQuery)->sum('sms_count'),
-            'transactions_by_type' => (clone $summaryQuery)->selectRaw('type, COUNT(*) as count, COALESCE(SUM(amount), 0) as total_amount, COALESCE(SUM(sms_count), 0) as total_sms')
-                ->groupBy('type')
-                ->get()
-                ->keyBy('type'),
-            'transactions_by_status' => (clone $summaryQuery)->selectRaw('status, COUNT(*) as count')
-                ->groupBy('status')
-                ->get()
-                ->keyBy('status'),
-        ];
+                // Calculate summary statistics for the selected period
+                $periodBaseQuery = SmsTransaction::query();
+                if ($salon) {
+                    $periodBaseQuery->where('salon_id', $salon->id);
+                } else {
+                    $periodBaseQuery->where('user_id', $user->id);
+                }
+                $periodBaseQuery->where(function ($q) use ($fromDate, $toDate) {
+                    $q->whereBetween('created_at', [$fromDate, $toDate])
+                      ->orWhereBetween('sent_at', [$fromDate, $toDate]);
+                });
+
+                // Piloting definitions for what counts as 'consumption' (delivered messages that decreased balance)
+                $consumptionQuery = (clone $periodBaseQuery)->where('amount', '>', 0)->where(function($q) {
+                    $q->whereIn('type', ['send', 'deduction', 'manual_send'])
+                        ->orWhereIn('sms_type', ['send', 'deduction', 'manual_send', 'manual_sms', 'manual_reminder', 'appointment_cancellation', 'appointment_confirmation', 'satisfaction_survey', 'appointment_modification', 'bulk']);
+                });
+
+                // Purchase transactions (in this project they are stored as SmsTransaction with type = 'purchase' or via Order)
+                $purchaseQuery = (clone $periodBaseQuery)->where('type', 'purchase');
+
+                $totalPurchased = (clone $purchaseQuery)->sum('sms_count');
+                $totalConsumed = (clone $consumptionQuery)->sum('sms_count');
+
+                // Current remaining balance from SalonSmsBalance if salon present
+                $remainingBalance = null;
+                if ($salon) {
+                    $salon->loadMissing('smsBalance');
+                    $remainingBalance = $salon->smsBalance->balance ?? 0;
+                } else {
+                    $remainingBalance = null; // Not meaningful across multiple salons
+                }
+
+                // Percent consumed relative to consumed + remaining (avoid division by zero)
+                $percentConsumed = 0;
+                if (($totalConsumed + ($remainingBalance ?? 0)) > 0) {
+                    $percentConsumed = round(($totalConsumed / ($totalConsumed + ($remainingBalance ?? 0))) * 100);
+                }
+
+                $summary = [
+                    'total_transactions' => (clone $periodBaseQuery)->count(),
+                    'purchased_sms' => (int) $totalPurchased,
+                    'consumed_sms' => (int) $totalConsumed,
+                    'remaining_sms' => $remainingBalance,
+                    'percent_consumed' => $percentConsumed,
+                    'transactions_by_type' => (clone $periodBaseQuery)->selectRaw('type, COUNT(*) as count, COALESCE(SUM(amount), 0) as total_amount, COALESCE(SUM(sms_count), 0) as total_sms')
+                        ->groupBy('type')
+                        ->get()
+                        ->keyBy('type'),
+                    'transactions_by_status' => (clone $periodBaseQuery)->selectRaw('status, COUNT(*) as count')
+                        ->groupBy('status')
+                        ->get()
+                        ->keyBy('status'),
+                ];
+
+        // Prepare sent messages status list grouped by status (for UI table)
+        $sentMessagesStatus = (clone $periodBaseQuery)
+            ->selectRaw('status, COUNT(*) as count, COALESCE(SUM(sms_count), 0) as total_sms')
+            ->where('amount', '>', 0)
+            ->groupBy('status')
+            ->get();
 
         return response()->json([
             'data' => $formattedTransactions,
@@ -168,6 +234,7 @@ class SmsTransactionController extends Controller
                 'to' => $transactions->lastItem(),
             ],
             'summary' => $summary,
+            'sent_messages_status' => $sentMessagesStatus,
         ]);
     }
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\AppointmentDetailsController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\SatisfactionController;
 use App\Http\Controllers\ZarinpalController;
+use App\Http\Controllers\OnlineBookingController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -25,6 +26,16 @@ Route::get('/view/appointment/{hash}', [AppointmentDetailsController::class, 'sh
 
 Route::get('/s/{hash}', [SatisfactionController::class, 'showByHash'])->name('satisfaction.show.hash');
 Route::post('/s/{hash}', [SatisfactionController::class, 'storeByHash'])->name('satisfaction.store.hash');
+
+// Online Booking Routes
+// Success page for booking (controller-driven to fetch appointment details)
+Route::get('/booking/success', [OnlineBookingController::class, 'successPage'])->name('booking.success');
+Route::get('/booking/error', [OnlineBookingController::class, 'errorPage'])->name('booking.error');
+
+// Online Booking Routes
+Route::get('/booking/{salonId}', [OnlineBookingController::class, 'showBookingPage'])
+    ->middleware('feature:لینک اختصاصی رزرو آنلاین سالن')
+    ->name('booking.show');
 
 // Debug route for testing discount codes (only local)
 if (app()->environment('local')) {
