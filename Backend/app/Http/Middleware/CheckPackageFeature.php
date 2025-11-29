@@ -16,7 +16,7 @@ class CheckPackageFeature
      */
     public function handle(Request $request, Closure $next, string $featureName): Response
     {
-        $salon = $request->route()->parameter('salon');
+        $salon = $request->route()->parameter('salon') ?? $request->route()->parameter('salonId');
         
         $salonId = is_object($salon) ? $salon->id : $salon;
         
@@ -29,12 +29,16 @@ class CheckPackageFeature
         }
 
         if (!$this->hasFeatureAccess($salonId, $featureName)) {
-            return response()->json([
-                'success' => false,
-                'message' => "برای استفاده از این امکان باید پکیج پرو خریداری کنید.",
-                'feature_required' => $featureName,
-                'error_code' => 'FEATURE_ACCESS_DENIED'
-            ], 403);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "برای استفاده از این امکان باید پکیج پرو خریداری کنید.",
+                    'feature_required' => $featureName,
+                    'error_code' => 'FEATURE_ACCESS_DENIED'
+                ], 403);
+            }
+            
+            return response()->view('booking.feature-locked', ['feature' => $featureName], 403);
         }
 
         return $next($request);
