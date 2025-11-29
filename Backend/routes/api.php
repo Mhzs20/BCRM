@@ -19,6 +19,7 @@ use App\Http\Controllers\ProfessionController;
 use App\Http\Controllers\AgeRangeController;
 use App\Http\Controllers\SmsPackageController;
 use App\Http\Controllers\SettingController;
+use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\ZarinpalController;
 use App\Http\Controllers\AppointmentReportController;
 use App\Http\Controllers\ManualSmsController;
@@ -125,12 +126,29 @@ Route::middleware('auth:api')->group(function () {
                     Route::post('global-toggle', [BirthdayReminderController::class, 'globalToggle'])->name('global_toggle');
                     Route::delete('groups/{groupId}/settings', [BirthdayReminderController::class, 'deleteGroupSettings'])->name('groups.delete_settings');
                     Route::get('groups/{groupId}/settings', [BirthdayReminderController::class, 'groupSettings'])->name('groups.settings');
+
+                });
+
+            // Online Booking Management
+            Route::prefix('online-bookings')->name('online_bookings.')
+                ->middleware('feature:لینک اختصاصی رزرو آنلاین سالن')
+                ->group(function () {
+                    Route::get('/', [\App\Http\Controllers\Api\OnlineBookingManagementController::class, 'index'])->name('index');
+                    Route::post('{appointment}/approve', [\App\Http\Controllers\Api\OnlineBookingManagementController::class, 'approve'])->name('approve');
+                    Route::post('{appointment}/reject', [\App\Http\Controllers\Api\OnlineBookingManagementController::class, 'reject'])->name('reject');
                 });
 
             Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete'])->name('customers.bulkDelete');
             Route::get('customers/{customer}/appointments', [CustomerController::class, 'listCustomerAppointments'])->name('customers.appointments');
 //            Route::get('customers/search', [CustomerController::class, 'search'])->name('customers.search');
             Route::post('customers/import/excel', [DashboardController::class, 'importCustomers'])->name('customers.import.excel');
+                        // SMS Account endpoints (Salon specific)
+                        Route::prefix('sms-account')->name('sms_account.')->group(function () {
+                            Route::get('transactions', [SmsTransactionController::class, 'index'])->name('transactions.index');
+                            Route::get('financial-transactions', [SmsTransactionController::class, 'financialTransactions'])->name('financial_transactions.index');
+                            Route::get('sent-messages', [SmsTransactionController::class, 'salonSentMessages'])->name('sent_messages.index');
+                        });
+
             Route::post('customers/import/contacts', [CustomerController::class, 'importContacts'])->name('customers.import.contacts');
             Route::apiResource('customers', CustomerController::class)->except(['create', 'edit']);
 
@@ -352,6 +370,31 @@ Route::get('payment/callback-proxy', [\App\Http\Controllers\PaymentGatewayContro
     ->name('payment.callback_proxy');
 
 Route::middleware('auth:api')->post('/appointments/{appointment}/send-satisfaction-survey', [SatisfactionController::class, 'sendSurvey'])->name('api.appointments.send-satisfaction-survey');
+
+// Online Booking API Routes (Public)
+use App\Http\Controllers\OnlineBookingController;
+Route::prefix('booking')->name('booking.')
+    ->middleware('feature:لینک اختصاصی رزرو آنلاین سالن')
+    ->group(function () {
+    Route::get('{salonId}/services', [OnlineBookingController::class, 'getServices'])->name('services');
+    Route::get('{salonId}/available-times', [OnlineBookingController::class, 'getAvailableTimes'])->name('available-times');
+    Route::post('{salonId}/reserve', [OnlineBookingController::class, 'reserveAppointment'])->name('reserve');
+});
+
+Route::get('calendar-proxy', [OnlineBookingController::class, 'getCalendarDataProxy'])->name('calendar.proxy');
+
+// Holiday API Routes (Public)
+Route::get('holidays/{year}', [HolidayController::class, 'getHolidays'])->name('holidays.get');
+
+// Booking Wizard API Routes (Public)
+use App\Http\Controllers\BookingWizardController;
+Route::prefix('booking-wizard')->name('booking_wizard.')
+    ->middleware('feature:لینک اختصاصی رزرو آنلاین سالن')
+    ->group(function () {
+    Route::post('{salonId}/check-customer', [BookingWizardController::class, 'checkCustomer'])->name('check_customer');
+    Route::post('{salonId}/send-otp', [BookingWizardController::class, 'sendOtp'])->name('send_otp');
+    Route::post('{salonId}/verify-otp', [BookingWizardController::class, 'verifyOtp'])->name('verify_otp');
+});
 
 Route::fallback(function(){
     return response()->json(['message' => 'مسیر API درخواستی یافت نشد یا متد HTTP مجاز نیست.'], 404);

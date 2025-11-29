@@ -26,6 +26,7 @@ class Appointment extends Model
         'total_price',
         'total_duration',
         'status',
+        'source',
         'notes',
         'internal_note',
         'deposit_required',

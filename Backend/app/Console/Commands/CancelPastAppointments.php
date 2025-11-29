@@ -51,7 +51,6 @@ class CancelPastAppointments extends Command
                 // Update appointment status to waiting
                 $appointment->update(['status' => 'waiting']);
                 $canceledCount++;
-                
                 $customerName = $appointment->customer ? $appointment->customer->name : 'نامشخص';
                 $this->line("نوبت ID {$appointment->id} برای مشتری {$customerName} در تاریخ {$appointment->appointment_date} ساعت {$appointment->start_time} به وضعیت در انتظار تغییر یافت.");
             } catch (\Exception $e) {

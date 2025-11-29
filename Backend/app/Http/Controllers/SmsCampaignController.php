@@ -581,7 +581,7 @@ class SmsCampaignController extends Controller
                 // Update campaign stats atomically (store parts count)
                 $campaign->update([
                     'status' => 'pending',
-                    'total_cost' => $totalParts, // تعداد پارت‌ها به‌جای هزینه
+                    'total_cost' => $totalParts, 
                     'customer_count' => $customers->count(),
                 ]);
 
