@@ -240,6 +240,12 @@ Route::middleware('auth:api')->group(function () {
                 Route::get('transactions', [SmsTransactionController::class, 'index'])->name('transactions.index');
                 Route::get('financial-transactions', [SmsTransactionController::class, 'financialTransactions'])->name('financial_transactions.index');
                 Route::get('sent-messages', [SmsTransactionController::class, 'salonSentMessages'])->name('sent_messages.index');
+                // Salon-specific pending approvals (manual batches + campaigns)
+                Route::get('pending-approvals', [\App\Http\Controllers\ManualSmsController::class, 'listSalonPendingApprovals'])->name('pending_approvals.index');
+                // Cancel a pending manual batch (salon side)
+                Route::post('pending-approvals/manual/{batchId}/cancel', [\App\Http\Controllers\ManualSmsController::class, 'cancelSalonManualSmsRequest'])->name('pending_approvals.manual.cancel');
+                // Cancel a pending campaign (salon side)
+                Route::post('pending-approvals/campaign/{campaign}/cancel', [\App\Http\Controllers\SmsCampaignController::class, 'cancelCampaignBySalon'])->name('pending_approvals.campaign.cancel');
             });
 
             Route::prefix('sms-campaign')->name('sms_campaign.')->group(function () {

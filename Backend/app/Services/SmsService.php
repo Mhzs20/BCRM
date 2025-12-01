@@ -267,6 +267,7 @@ class SmsService
 
         // Re-introducing the balance check as per user request.
         $smsCount = $this->calculateSmsParts($message);
+        $amount = $smsCount * $this->getSmsCostPerPart();
         $currentBalance = $salon->current_sms_balance; // Use the accessor for current balance
         if ($currentBalance < $smsCount) {
             Log::warning("Salon ID {$salon->id} has insufficient SMS balance to send '{$eventType}' to {$receptor}. Balance: {$currentBalance}, Required: {$smsCount}");
@@ -312,7 +313,7 @@ class SmsService
                         $appointment->save();
                     }
                 }
-                $this->logTransaction($salon->user_id, $receptor, $message, $internalStatus, $eventType, $salon->id, $customerId, $appointmentId, json_encode($smsEntries), $smsTemplate?->id); // Pass actual appointmentId and template_id
+                $this->logTransaction($salon->user_id, $receptor, $message, $internalStatus, $eventType, $salon->id, $customerId, $appointmentId, json_encode($smsEntries), $smsTemplate?->id, $smsCount, $amount); // Pass actual appointmentId and template_id
                 return ['status' => 'success', 'message' => 'پیامک با موفقیت ارسال شد.'];
             } else {
                 Log::error("Kavenegar sendSms returned no entries or failed for '{$eventType}' to {$receptor}.");
@@ -328,7 +329,7 @@ class SmsService
                         $appointment->save();
                     }
                 }
-                $this->logTransaction($salon->user_id, $receptor, $message, 'not_sent', $eventType, $salon->id, $customerId, $appointmentId, 'Kavenegar API call failed or returned empty.', $smsTemplate?->id); // Pass actual appointmentId and template_id
+                $this->logTransaction($salon->user_id, $receptor, $message, 'not_sent', $eventType, $salon->id, $customerId, $appointmentId, 'Kavenegar API call failed or returned empty.', $smsTemplate?->id, $smsCount, $amount); // Pass actual appointmentId and template_id
                 return ['status' => 'error', 'message' => 'خطا در ارسال پیامک.'];
             }
 
@@ -348,7 +349,7 @@ class SmsService
                 }
             }
             
-            $this->logTransaction($salon->user_id, $receptor, $message, 'not_sent', $eventType, $salon->id, $customerId, $appointmentId, $e->getMessage(), $smsTemplate?->id); // Pass actual appointmentId and template_id
+            $this->logTransaction($salon->user_id, $receptor, $message, 'not_sent', $eventType, $salon->id, $customerId, $appointmentId, $e->getMessage(), $smsTemplate?->id, $smsCount, $amount); // Pass actual appointmentId and template_id
             return ['status' => 'error', 'message' => 'خطای سیستمی در ارسال پیامک.'];
         }
     }
@@ -443,7 +444,9 @@ class SmsService
         ?int $customerId,
         ?int $appointmentId,
         ?string $externalResponse = null,
-        ?int $templateId = null
+        ?int $templateId = null,
+        int $smsCount = 0,
+        float $amount = 0
     ): void
     {
         SmsTransaction::create([
@@ -457,7 +460,10 @@ class SmsService
             'sent_at' => now(),
             'status' => $status,
             'external_response' => $externalResponse,
-            'template_id' => $templateId
+            'template_id' => $templateId,
+            'sms_count' => $smsCount,
+            'sms_parts' => $smsCount, // Since it's single recipient, parts equals count
+            'amount' => $amount
         ]);
     }
 
