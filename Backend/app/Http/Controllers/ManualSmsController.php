@@ -186,6 +186,138 @@ class ManualSmsController extends Controller
     }
 
     /**
+     * List pending manual batches and pending campaigns for a specific salon (salon-level view).
+     * This returns grouped manual SMS batches and pending campaigns for the salon.
+     *
+     * @param Request $request
+     * @param \App\Models\Salon $salon
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function listSalonPendingApprovals(Request $request, \App\Models\Salon $salon)
+    {
+        $user = Auth::user();
+
+        // Ensure user has access to this salon
+        if (!$user->is_superadmin && !$user->salons->contains($salon)) {
+            return response()->json(['message' => 'دسترسی غیرمجاز.'], 403);
+        }
+
+        // Manual SMS batches (group by batch_id)
+        $pendingSmsTransactions = SmsTransaction::where('approval_status', 'pending')
+            ->where('sms_type', 'manual_sms')
+            ->where('salon_id', $salon->id)
+            ->whereNotNull('batch_id')
+            ->with('user')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $groupedBatches = $pendingSmsTransactions->groupBy('batch_id')->map(function ($batch) {
+            $firstTransaction = $batch->first();
+            return [
+                'batch_id' => $firstTransaction->batch_id,
+                'salon_id' => $firstTransaction->salon_id,
+                'user_id' => $firstTransaction->user_id,
+                'content' => $firstTransaction->content,
+                'display_content' => $firstTransaction->edited_content ?? $firstTransaction->original_content ?? $firstTransaction->content,
+                'recipients_type' => $firstTransaction->recipients_type,
+                'recipients_count' => $firstTransaction->recipients_count,
+                'sms_parts' => $firstTransaction->sms_parts,
+                'total_sms_parts_in_batch' => $batch->sum('sms_parts'),
+                'total_recipients_in_batch' => $batch->count(),
+                'total_deducted_balance' => $batch->sum('balance_deducted_at_submission'),
+                'created_at' => $firstTransaction->created_at,
+                'approval_status' => $firstTransaction->approval_status,
+                'user' => $firstTransaction->user ? ['id' => $firstTransaction->user->id, 'name' => $firstTransaction->user->name] : null,
+            ];
+        })->values();
+
+        // Campaigns pending approval for this salon
+        $pendingCampaigns = \App\Models\SmsCampaign::where('salon_id', $salon->id)
+            ->where('approval_status', 'pending')
+            ->where('uses_template', false)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($campaign) {
+                return [
+                    'campaign_id' => $campaign->id,
+                    'message' => $campaign->message,
+                    'customer_count' => $campaign->customer_count,
+                    'total_cost' => $campaign->total_cost,
+                    'approval_status' => $campaign->approval_status,
+                    'created_at' => $campaign->created_at,
+                ];
+            });
+
+        return response()->json([
+            'manual_batches' => $groupedBatches,
+            'campaigns' => $pendingCampaigns,
+        ]);
+    }
+
+    /**
+     * Cancel a pending manual SMS batch for the salon (refund the deducted balance).
+     *
+     * @param Request $request
+     * @param \App\Models\Salon $salon
+     * @param string $batchId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function cancelSalonManualSmsRequest(Request $request, \App\Models\Salon $salon, string $batchId)
+    {
+        $user = Auth::user();
+
+        // Ensure user has access to this salon
+        if (!$user->is_superadmin && !$user->salons->contains($salon)) {
+            return response()->json(['message' => 'دسترسی غیرمجاز.'], 403);
+        }
+
+        $transactions = SmsTransaction::where('batch_id', $batchId)
+                                      ->where('salon_id', $salon->id)
+                                      ->where('approval_status', 'pending')
+                                      ->get();
+
+        if ($transactions->isEmpty()) {
+            return response()->json(['message' => 'تراکنشی برای لغو یافت نشد یا در حالت انتظار نیست.'], 404);
+        }
+
+        // Only the user who created the batch or a salon owner / superadmin can cancel
+        $batchOwnerId = $transactions->first()->user_id;
+        $salonOwnerId = $salon->user_id;
+        if (!$user->is_superadmin && $user->id !== $batchOwnerId && $user->id !== $salonOwnerId) {
+            return response()->json(['message' => 'فقط فرستنده یا مالک سالن می‌تواند درخواست را لغو کند.'], 403);
+        }
+
+        $totalDeductedBalance = $transactions->sum('balance_deducted_at_submission');
+
+        DB::beginTransaction();
+        try {
+            // Mark transactions as cancelled
+            SmsTransaction::where('batch_id', $batchId)
+                ->where('salon_id', $salon->id)
+                ->where('approval_status', 'pending')
+                ->update([
+                    'approval_status' => 'cancelled',
+                    'rejection_reason' => 'cancelled_by_user',
+                    'approved_by' => $user->id,
+                    'approved_at' => now(),
+                    'status' => 'cancelled',
+                ]);
+
+            // Refund deducted balance
+            $salonSmsBalance = $salon->smsBalance()->firstOrCreate(['salon_id' => $salon->id], ['balance' => 0]);
+            if ($totalDeductedBalance > 0) {
+                $salonSmsBalance->increment('balance', $totalDeductedBalance);
+            }
+
+            DB::commit();
+            return response()->json(['message' => 'درخواست پیامک با موفقیت لغو شد و اعتبار بازگردانده شد.']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'خطا در لغو درخواست: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Approve a manual SMS message and send it.
      *
      * @param Request $request

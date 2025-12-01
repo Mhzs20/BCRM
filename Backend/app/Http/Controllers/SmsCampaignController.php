@@ -653,6 +653,57 @@ class SmsCampaignController extends Controller
     }
 
     /**
+     * Cancel a pending campaign from the salon side (refund and mark as cancelled).
+     */
+    public function cancelCampaignBySalon(Request $request, Salon $salon, SmsCampaign $campaign): JsonResponse
+    {
+        Gate::authorize('manageResources', $salon);
+
+        if ($campaign->salon_id !== $salon->id) {
+            return response()->json(['message' => 'این کمپین به این سالن تعلق ندارد.'], 403);
+        }
+
+        if ($campaign->approval_status !== 'pending') {
+            return response()->json(['message' => 'این کمپین قابل لغو نیست یا قبلاً بررسی شده است.'], 422);
+        }
+
+        $user = Auth::user();
+        // Only the creator or the salon owner can cancel the campaign
+        if (!$user->is_superadmin && $user->id !== $campaign->user_id && $user->id !== $salon->user_id) {
+            return response()->json(['message' => 'فقط فرستنده یا مالک سالن می‌تواند کمپین را لغو کند.'], 403);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Mark campaign as cancelled
+            $campaign->update([
+                'approval_status' => 'cancelled',
+                'status' => 'cancelled',
+                'approved_by' => $user->id,
+                'approved_at' => now(),
+                'rejection_reason' => 'cancelled_by_user',
+            ]);
+
+            // Refund deducted balance if any
+            $salonSmsBalance = $salon->smsBalance()->firstOrCreate(['salon_id' => $salon->id], ['balance' => 0]);
+            if ($campaign->total_cost > 0) {
+                $salonSmsBalance->increment('balance', $campaign->total_cost);
+            }
+
+            // Cancel campaign messages if present
+            if ($campaign->messages()->exists()) {
+                $campaign->messages()->where('status', 'pending')->update(['status' => 'cancelled']);
+            }
+
+            DB::commit();
+            return response()->json(['success' => true, 'message' => 'کمپین با موفقیت لغو شد و اعتبار بازگردانده شد.']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'خطا در لغو کمپین: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Update campaign content before approval
      */
     public function updateContent(Request $request, SmsCampaign $campaign): JsonResponse

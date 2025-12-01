@@ -103,7 +103,13 @@ class CheckSmsStatus implements ShouldQueue
         $transactionsByMessageId = [];
         foreach ($pendingTransactions as $transaction) {
             $response = json_decode($transaction->external_response, true);
-            if (isset($response['messageid'])) {
+            
+            // Handle array of entries (standard Kavenegar response)
+            if (is_array($response) && isset($response[0]['messageid'])) {
+                $transactionsByMessageId[$response[0]['messageid']] = $transaction;
+            } 
+            // Handle single object (fallback)
+            elseif (is_array($response) && isset($response['messageid'])) {
                 $transactionsByMessageId[$response['messageid']] = $transaction;
             }
         }

@@ -53,6 +53,11 @@ class SmsTransactionController extends Controller
             $query->where('status', $request->status);
         }
 
+        // Filter by approval_status if provided
+        if ($request->filled('approval_status')) {
+            $query->where('approval_status', $request->approval_status);
+        }
+
         // Parse Jalali input dates (accepts Y/m/d) and convert to Carbon via Verta
         $fromDate = null;
         $toDate = null;
