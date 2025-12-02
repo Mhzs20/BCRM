@@ -348,6 +348,18 @@ class AuthController extends Controller
             $responseData['active_salon']['sms_balance'] = 0; // Default to 0 if no active salon or no smsBalance
         }
 
+        // Add online booking URL to active salon
+        if (isset($responseData['active_salon'])) {
+            $responseData['active_salon']['online_booking_url'] = route('booking.show', ['salonId' => $responseData['active_salon']['id']]);
+        }
+
+        // Add online booking URL to all salons
+        if (isset($responseData['salons'])) {
+            foreach ($responseData['salons'] as &$salon) {
+                $salon['online_booking_url'] = route('booking.show', ['salonId' => $salon['id']]);
+            }
+        }
+
         // Removed the user's overall sms_balance from the response
         // $responseData['sms_balance'] = $user->smsBalance->balance ?? 0;
 

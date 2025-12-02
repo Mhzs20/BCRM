@@ -1,7 +1,7 @@
 @props(['id', 'buttonId', 'title', 'icon' => 'service'])
 
-<div dir="rtl" class="w-full flex justify-between items-stretch gap-3">
-    <div class="flex-1 bg-white rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] flex items-center justify-start py-2 px-3 min-h-[40px]">
+<div dir="rtl" class="booking-summary-card w-full flex justify-between items-stretch gap-3">
+    <div class="booking-summary-card__content flex-1 bg-white rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] flex items-center justify-start py-2 px-3 min-h-[40px]">
         <div class="flex items-center justify-start gap-2 w-full overflow-hidden">
             <div class="w-6 h-6 flex-none relative overflow-hidden">
                 @if($icon === 'service')
@@ -29,7 +29,7 @@
             </div>
         </div>
     </div>
-    <div class="w-16 flex-none relative bg-orange-400/5 rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] outline outline-1 outline-offset-[-1px] outline-orange-400 cursor-pointer hover:bg-orange-400/10 transition-colors flex items-center justify-center min-h-[40px]">
-        <div id="{{ $buttonId }}" class="text-orange-400 text-base font-bold font-iranyekan">تغییر</div>
+    <div class="booking-summary-card__action w-16 flex-none relative bg-orange-400/5 rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] outline outline-1 outline-offset-[-1px] outline-orange-400 cursor-pointer hover:bg-orange-400/10 transition-colors flex items-center justify-center min-h-[40px]">
+        <div id="{{ $buttonId }}" class="booking-summary-card__action-text text-orange-400 text-base font-bold font-iranyekan">تغییر</div>
     </div>
 </div>

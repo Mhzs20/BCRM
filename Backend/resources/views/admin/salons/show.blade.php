@@ -79,6 +79,11 @@
                         @endforelse
                     </p>
                     <p><strong>اعتبار پیامک:</strong> {{ $salon->current_sms_balance }}</p>
+                    <p><strong>لینک رزرو آنلاین:</strong> 
+                        <a href="{{ route('booking.show', ['salonId' => $salon->id]) }}" target="_blank" class="text-blue-600 hover:text-blue-800 underline">
+                            {{ route('booking.show', ['salonId' => $salon->id]) }}
+                        </a>
+                    </p>
                 </div>
             </div>
             <div>
