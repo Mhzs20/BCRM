@@ -57,6 +57,18 @@ class SmsTransactionController extends Controller
                           'birthday_greeting', 'service_specific_notes', 'manual_sms', 'bulk'
                       ]);
                 });
+            } elseif ($request->type === 'purchase') {
+                // برای خرید، هم type و هم sms_type را چک کنیم
+                $query->where(function($q) {
+                    $q->where('type', 'purchase')
+                      ->orWhere('sms_type', 'purchase');
+                });
+            } elseif ($request->type === 'gift') {
+                // برای هدیه، هم type و هم sms_type را چک کنیم
+                $query->where(function($q) {
+                    $q->where('type', 'gift')
+                      ->orWhere('sms_type', 'gift');
+                });
             } else {
                 $query->where('type', $request->type);
             }
