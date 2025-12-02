@@ -13,13 +13,28 @@
 <html lang="fa" dir="ltr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>رزرو نوبت آنلاین - {{ $salon->name }}</title>
     <meta name="salon-id" content="{{ $salon->id }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <script src="{{ asset('js/jquery-3.6.0.min.js') }}"></script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
+        :root {
+            --holiday-bg: #fef2f2;
+            --holiday-border: #ef4444;
+            --holiday-text: #b91c1c;
+            --disabled-bg: #f3f4f6;
+            --disabled-border: #d1d5db;
+            --disabled-text: #9ca3af;
+            --transition-fast: 150ms;
+            --transition-normal: 300ms;
+        }
+        
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        
         .font-iranyekan {
             font-family: 'IRANYekanMobileFN', 'IRANYekan', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
@@ -28,21 +43,16 @@
             font-family: 'Peyda', 'IRANYekan', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
-        .calendar-tooltip {
-            font-family: 'Peyda', sans-serif;
-            animation: fadeInUp 0.3s ease-out;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .calendar-tooltip {
+            font-family: 'Peyda', sans-serif;
+            animation: fadeInUp var(--transition-normal) ease-out;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 9999 !important;
         }
         
         .calendar-tooltip::before {
@@ -54,27 +64,57 @@
             border: 5px solid transparent;
             border-top-color: #1f2937;
         }
-        /* Force holiday visuals so they appear even if Tailwind isn't loaded */
-        .calendar-day.holiday {
-            background-color: #fef2f2 !important;
-            border-color: #ef4444 !important;
+        
+        #calendar-days {
+            width: 100%;
+        }
+
+        #calendar-days > div {
+            width: 100%;
+        }
+
+        #calendar-days .calendar-day {
+            flex: 0 0 auto;
+        }
+
+        .booking-summary-card__content,
+        .booking-summary-card__action {
+            transition: all var(--transition-fast) ease;
+        }
+
+        .calendar-day {
+            transition: all var(--transition-fast) ease;
+            will-change: transform, background-color;
+        }
+        
+        .calendar-day:active {
+            transform: scale(0.95);
+        }
+        
+        .calendar-day.holiday,
+        .calendar-day.holiday-jalali {
+            background-color: var(--holiday-bg) !important;
+            border-color: var(--holiday-border) !important;
             box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
         }
 
-        .calendar-day.holiday .day-number {
-            color: #b91c1c !important;
+        .calendar-day.holiday .day-number,
+        .calendar-day.holiday-jalali .day-number {
+            color: var(--holiday-text) !important;
             font-weight: 800 !important;
         }
 
-        .calendar-day.disabled {
-            background-color: #f3f4f6 !important;
-            border-color: #d1d5db !important;
-            color: #9ca3af !important;
+        .calendar-day.disabled,
+        .calendar-day.disabled-day {
+            background-color: var(--disabled-bg) !important;
+            border-color: var(--disabled-border) !important;
+            color: var(--disabled-text) !important;
             opacity: 0.6 !important;
         }
 
-        .calendar-day.disabled .day-number {
-            color: #9ca3af !important;
+        .calendar-day.disabled .day-number,
+        .calendar-day.disabled-day .day-number {
+            color: var(--disabled-text) !important;
         }
 
         .calendar-day.normal {
@@ -87,9 +127,8 @@
             color: #374151 !important;
         }
 
-        /* New holiday classes */
         .calendar-day.holiday-hijri {
-            background-color: #fef3c7 !important; 
+            background-color: #fef3c7 !important;
             border-color: #f59e0b !important;
             box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12) !important;
         }
@@ -97,28 +136,6 @@
         .calendar-day.holiday-hijri .day-number {
             color: #92400e !important;
             font-weight: 800 !important;
-        }
-
-        .calendar-day.holiday-jalali {
-            background-color: #fef2f2 !important; /* قرمز برای شمسی */
-            border-color: #ef4444 !important;
-            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
-        }
-
-        .calendar-day.holiday-jalali .day-number {
-            color: #b91c1c !important;
-            font-weight: 800 !important;
-        }
-
-        .calendar-day.disabled-day {
-            background-color: #f3f4f6 !important;
-            border-color: #d1d5db !important;
-            color: #9ca3af !important;
-            opacity: 0.6 !important;
-        }
-
-        .calendar-day.disabled-day .day-number {
-            color: #9ca3af !important;
         }
 
         .calendar-day .events {
@@ -131,18 +148,180 @@
             line-height: 1.2;
             margin-bottom: 1px;
         }
+        
+        /* Responsive improvements - Mobile First */
+        
+        /* Extra Small Devices (phones, less than 375px) */
+        @media (max-width: 374px) {
+            .calendar-day {
+                width: 1.85rem !important;
+                height: 2.5rem !important;
+                font-size: 0.75rem;
+                box-shadow: none !important;
+                border-bottom-width: 1px !important;
+                border-top-width: 0 !important;
+                border-left-width: 0 !important;
+                border-right-width: 0 !important;
+            }
+            #calendar-days > div {
+                gap: 0.15rem !important;
+                min-height: 2.5rem !important;
+            }
+            .calendar-day .day-number {
+                font-size: 0.9rem !important;
+                font-weight: 500 !important;
+            }
+            .booking-summary-card {
+                gap: 0.45rem !important;
+            }
+            .booking-summary-card__content {
+                padding: 0.4rem 0.6rem !important;
+                min-height: 36px !important;
+            }
+            .booking-summary-card__action {
+                width: 3.25rem !important;
+                min-height: 36px !important;
+            }
+            .booking-summary-card__action-text {
+                font-size: 0.9rem !important;
+            }
+            .calendar-day:not(.empty) {
+                margin: 0 !important;
+            }
+            .text-xl { font-size: 1rem !important; }
+            .text-lg { font-size: 0.95rem !important; }
+            .text-base { font-size: 0.875rem !important; }
+            .px-4 { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+        }
+        
+        /* Small Devices (phones, 375px to 424px) */
+        @media (min-width: 375px) and (max-width: 424px) {
+            .calendar-day {
+                width: 2.7rem !important;
+                height: 3.4rem !important;
+                border-bottom-width: 2px !important;
+                border-top-width: 0 !important;
+                border-left-width: 0 !important;
+                border-right-width: 0 !important;
+            }
+            #calendar-days > div {
+                gap: 0.25rem !important;
+                min-height: 3.4rem !important;
+            }
+            .calendar-day .day-number {
+                font-size: 1.2rem !important;
+            }
+            .booking-summary-card {
+                gap: 0.5rem !important;
+            }
+            .booking-summary-card__content {
+                padding: 0.5rem 0.75rem !important;
+            }
+            .booking-summary-card__action {
+                width: 3.5rem !important;
+            }
+            .booking-summary-card__action-text {
+                font-size: 1rem !important;
+            }
+        }
 
-        /* Ensure tooltip is above everything */
-        .calendar-tooltip {
-            z-index: 9999 !important;
+        /* Medium Mobile Devices (phones, 425px to 640px) */
+        @media (min-width: 425px) and (max-width: 640px) {
+            .calendar-day {
+                width: 3.1rem !important;
+                height: 3.8rem !important;
+                border-bottom-width: 2px !important;
+                border-top-width: 0 !important;
+                border-left-width: 0 !important;
+                border-right-width: 0 !important;
+            }
+            #calendar-days > div {
+                gap: 0.35rem !important;
+                min-height: 3.8rem !important;
+            }
+            .calendar-day .day-number {
+                font-size: 1.4rem !important;
+            }
+            .booking-summary-card {
+                gap: 0.6rem !important;
+            }
+            .booking-summary-card__content {
+                padding: 0.5rem 0.75rem !important;
+            }
+            .booking-summary-card__action {
+                width: 3.5rem !important;
+            }
+            .booking-summary-card__action-text {
+                font-size: 1rem !important;
+            }
+        }
+        
+        /* Medium Devices (tablets, 641px to 768px) */
+        @media (min-width: 641px) and (max-width: 768px) {
+            main {
+                max-width: 36rem !important;
+            }
+            .calendar-day {
+                width: 3.5rem !important;
+                height: 4.5rem !important;
+            }
+            .day-number {
+                font-size: 2rem !important;
+            }
+        }
+        
+        /* Large Devices (desktops, 769px and up) */
+        @media (min-width: 769px) {
+            main {
+                max-width: 28rem !important;
+            }
+        }
+        
+        /* Landscape orientation adjustments */
+        @media (orientation: landscape) and (max-height: 500px) {
+            .calendar-day {
+                height: 3rem !important;
+            }
+            .h-16 { height: 3rem !important; }
+            .py-8 { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+        }
+        
+        /* Performance optimizations */
+        .service-item,
+        .calendar-day,
+        button {
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+        
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+            * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+        
+        /* Touch device optimizations */
+        @media (hover: none) and (pointer: coarse) {
+            .service-item,
+            .calendar-day:not(.disabled):not(.disabled-day),
+            button:not(:disabled) {
+                min-height: 44px;
+                min-width: 44px;
+            }
         }
     </style>
 </head>
 <body class="bg-gray-100 font-peyda text-right">
-<main class="w-full max-w-md mx-auto bg-gray-100 rounded-3xl p-4 min-h-screen">
+<main class="w-full max-w-md mx-auto bg-gray-100 rounded-3xl p-3 sm:p-4 min-h-screen">
     <!-- Header -->
     <div id="salon-header" class="flex flex-col items-center justify-center">
-        <header class="relative w-full bg-white rounded-bl-3xl rounded-br-3xl border-b-2 border-teal-900 text-center py-8">
+        <header class="relative w-full bg-white rounded-bl-3xl rounded-br-3xl border-b-2 border-teal-900 text-center py-6 sm:py-8">
             <!-- Background Decorative SVG -->
             <div class="absolute inset-0 z-0 overflow-hidden rounded-bl-3xl rounded-br-3xl">
 <svg class="absolute top-0 right-0 w-full h-full opacity-20" width="360" height="120" viewBox="0 0 360 120" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -162,7 +341,7 @@
             
             <div class="relative z-10">
                 <!-- Salon Image with Online Status -->
-                <div class="w-32 h-32 mx-auto bg-zinc-300 rounded-full border-2 border-zinc-900 overflow-hidden relative">
+                <div class="w-28 h-28 sm:w-32 sm:h-32 mx-auto bg-zinc-300 rounded-full border-2 border-zinc-900 overflow-hidden relative">
                     <img class="w-full h-full object-cover"
                          src="{{ $salon->image ?? 'https://placehold.co/134x134' }}"
                          alt="{{ $salon->name }}"/>
@@ -171,7 +350,7 @@
                 </div>
                 
                 <div class="mt-4">
-                    <h1 class="text-neutral-700 text-xl font-black">{{ $salon->name }}</h1>
+                    <h1 class="text-neutral-700 text-lg sm:text-xl font-black">{{ $salon->name }}</h1>
                     <div class="inline-flex justify-center items-center gap-1.5 bg-orange-400/10 rounded-[10px] px-4 py-1 mt-2">
                         <span class="text-orange-400 text-lg font-bold font-iranyekan">رزرو نوبت آنلاین</span>
                     </div>
@@ -181,14 +360,14 @@
     </div>
 
     <!-- Main Content -->
-    <div class="mt-7 space-y-7">
+    <div class="mt-5 sm:mt-7 space-y-5 sm:space-y-7">
         <!-- Service Selection Section -->
         <section id="service-selection-section">
             <div class="space-y-3.5">
                 <!-- Section Header -->
                 <div id="step-1-header" class="flex flex-col justify-center items-center gap-4">
                     <div class="flex justify-end items-center gap-1.5 w-full">
-                        <div class="text-center justify-start text-neutral-700 text-lg font-bold font-peyda">انتخاب خدمت</div>
+                        <div class="text-center justify-start text-neutral-700 text-base sm:text-lg font-bold font-peyda">انتخاب خدمت</div>
                         <div class="w-6 h-6 relative overflow-hidden">
                             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <rect x="3" y="3" width="7" height="7" stroke="#374151" stroke-width="2"/>
@@ -202,7 +381,7 @@
                 
                 <!-- Search Bar -->
                 <div id="search-bar-section" class="flex justify-between items-center gap-2">
-                    <button id="search-btn" class="w-24 h-9 bg-zinc-900/5 rounded-lg shadow-sm border border-zinc-900 text-center text-zinc-900 text-base font-bold font-iranyekan">
+                    <button id="search-btn" class="w-20 sm:w-24 h-9 bg-zinc-900/5 rounded-lg shadow-sm border border-zinc-900 text-center text-zinc-900 text-sm sm:text-base font-bold font-iranyekan">
                         جسـتـجــو
                     </button>
                     <div class="flex-1 h-10 bg-white rounded-lg shadow-sm relative">
@@ -252,10 +431,10 @@
                     </div>
 
                     <!-- Year and Month Navigation -->
-                    <div class="flex flex-col justify-start items-start gap-3.5 mb-6">
-                        <div class="w-full inline-flex justify-start items-start gap-3.5">
-                            <div class="flex-1 h-8 relative bg-white rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] overflow-hidden">
-                                <button id="next-year" class="w-6 h-6 absolute left-2 top-1 flex items-center justify-center pointer-events-none">
+                    <div class="flex flex-col justify-start items-start gap-2.5 sm:gap-3.5 mb-4 sm:mb-6">
+                        <div class="w-full inline-flex justify-start items-start gap-2 sm:gap-3.5">
+                            <div class="flex-1 h-7 sm:h-8 relative bg-white rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] overflow-hidden">
+                                <button id="next-year" class="w-6 h-6 absolute left-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
                                     <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                                         <g clip-path="url(#clip0_next_year)">
                                             <path d="M7 13L1 7L7 1" stroke="#171717" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -267,14 +446,14 @@
                                         </defs>
                                     </svg>
                                 </button>
-                                <div id="current-year" class="absolute inset-0 flex items-center justify-center text-center text-neutral-700 text-base font-bold font-iranyekan cursor-pointer">1404</div>
+                                <div id="current-year" class="absolute inset-0 flex items-center justify-center text-center text-neutral-700 text-sm sm:text-base font-bold font-iranyekan cursor-pointer">1404</div>
                             </div>
-                            <div class="flex-1 h-8 relative bg-zinc-900 rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] overflow-hidden">
-                                <div id="selected-year" class="absolute inset-0 flex items-center justify-center text-center text-white text-base font-bold font-iranyekan">1404</div>
+                            <div class="flex-1 h-7 sm:h-8 relative bg-zinc-900 rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] overflow-hidden">
+                                <div id="selected-year" class="absolute inset-0 flex items-center justify-center text-center text-white text-sm sm:text-base font-bold font-iranyekan">1404</div>
                             </div>
-                            <div class="flex-1 h-8 relative bg-white rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] overflow-hidden">
-                                <div id="prev-year-name" class="absolute inset-0 flex items-center justify-center text-center text-neutral-700 text-base font-bold font-iranyekan cursor-pointer">۱۴۰۳</div>
-                                <button id="prev-year" class="w-6 h-6 absolute right-2 top-1 flex items-center justify-center pointer-events-none">
+                            <div class="flex-1 h-7 sm:h-8 relative bg-white rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] overflow-hidden">
+                                <div id="prev-year-name" class="absolute inset-0 flex items-center justify-center text-center text-neutral-700 text-sm sm:text-base font-bold font-iranyekan cursor-pointer">۱۴۰۳</div>
+                                <button id="prev-year" class="w-6 h-6 absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
                                     <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="transform rotate-180">
                                         <g clip-path="url(#clip0_prev_year)">
                                             <path d="M7 13L1 7L7 1" stroke="#171717" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -288,9 +467,9 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="w-full inline-flex justify-start items-start gap-3.5">
-                            <div class="flex-1 h-8 relative bg-white rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] overflow-hidden">
-                                <button id="next-month" class="w-6 h-6 absolute left-2 top-1 flex items-center justify-center pointer-events-none">
+                        <div class="w-full inline-flex justify-start items-start gap-2 sm:gap-3.5">
+                            <div class="flex-1 h-7 sm:h-8 relative bg-white rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] overflow-hidden">
+                                <button id="next-month" class="w-6 h-6 absolute left-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
                                     <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                                         <g clip-path="url(#clip0_next_month)">
                                             <path d="M7 13L1 7L7 1" stroke="#171717" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -302,14 +481,14 @@
                                         </defs>
                                     </svg>
                                 </button>
-                                <div id="current-month" class="absolute inset-0 flex items-center justify-center text-center text-neutral-700 text-sm font-bold font-peyda cursor-pointer">خرداد</div>
+                                <div id="current-month" class="absolute inset-0 flex items-center justify-center text-center text-neutral-700 text-xs sm:text-sm font-bold font-peyda cursor-pointer">خرداد</div>
                             </div>
-                            <div class="flex-1 h-8 relative bg-zinc-900 rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] overflow-hidden">
-                                <div id="selected-month" class="absolute inset-0 flex items-center justify-center text-center text-white text-sm font-bold font-peyda">اردیبهشــت</div>
+                            <div class="flex-1 h-7 sm:h-8 relative bg-zinc-900 rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] overflow-hidden">
+                                <div id="selected-month" class="absolute inset-0 flex items-center justify-center text-center text-white text-xs sm:text-sm font-bold font-peyda">اردیبهشــت</div>
                             </div>
-                            <div class="flex-1 h-8 relative bg-white rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] overflow-hidden">
-                                <div id="prev-month-name" class="absolute inset-0 flex items-center justify-center text-center text-neutral-700 text-sm font-bold font-peyda cursor-pointer">فروردین</div>
-                                <button id="prev-month" class="w-6 h-6 absolute right-2 top-1 flex items-center justify-center pointer-events-none">
+                            <div class="flex-1 h-7 sm:h-8 relative bg-white rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] overflow-hidden">
+                                <div id="prev-month-name" class="absolute inset-0 flex items-center justify-center text-center text-neutral-700 text-xs sm:text-sm font-bold font-peyda cursor-pointer">فروردین</div>
+                                <button id="prev-month" class="w-6 h-6 absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
                                     <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="transform rotate-180">
                                         <g clip-path="url(#clip0_prev_month)">
                                             <path d="M7 13L1 7L7 1" stroke="#171717" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -326,36 +505,36 @@
                     </div>
 
                     <!-- Calendar -->
-                    <div class="self-stretch flex flex-col justify-start items-start gap-5" dir="rtl">
+                    <div class="self-stretch flex flex-col justify-start items-start gap-3 sm:gap-5" dir="rtl">
                         <!-- Calendar Header - Persian Week Days -->
-                        <div class="inline-flex justify-center items-center gap-2 w-full">
-                            <div class="w-full h-10 relative bg-zinc-900 rounded-tl-2xl rounded-tr-2xl shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)]">
+                        <div class="inline-flex justify-center items-center gap-1 sm:gap-2 w-full">
+                            <div class="w-full h-8 sm:h-10 relative bg-zinc-900 rounded-tl-2xl rounded-tr-2xl shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)]">
                                 <!-- Persian week starts with Saturday, distributed evenly -->
                                 <div class="w-full h-full flex items-center justify-center">
-                                    <div class="flex justify-between items-center w-full px-4">
-                                        <div class="text-center text-white text-base font-bold font-peyda flex-1">ش</div>
-                                        <div class="text-center text-white text-base font-bold font-peyda flex-1">ی</div>
-                                        <div class="text-center text-white text-base font-bold font-peyda flex-1">د</div>
-                                        <div class="text-center text-white text-base font-bold font-peyda flex-1">س</div>
-                                        <div class="text-center text-white text-base font-bold font-peyda flex-1">چ</div>
-                                        <div class="text-center text-white text-base font-bold font-peyda flex-1">پ</div>
-                                        <div class="text-center text-white text-base font-bold font-peyda flex-1">ج</div>
+                                    <div class="flex justify-between items-center w-full px-2 sm:px-4">
+                                        <div class="text-center text-white text-sm sm:text-base font-bold font-peyda flex-1">ش</div>
+                                        <div class="text-center text-white text-sm sm:text-base font-bold font-peyda flex-1">ی</div>
+                                        <div class="text-center text-white text-sm sm:text-base font-bold font-peyda flex-1">د</div>
+                                        <div class="text-center text-white text-sm sm:text-base font-bold font-peyda flex-1">س</div>
+                                        <div class="text-center text-white text-sm sm:text-base font-bold font-peyda flex-1">چ</div>
+                                        <div class="text-center text-white text-sm sm:text-base font-bold font-peyda flex-1">پ</div>
+                                        <div class="text-center text-white text-sm sm:text-base font-bold font-peyda flex-1">ج</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
                         <!-- Calendar Days -->
-                        <div id="calendar-days" class="self-stretch flex flex-col justify-start items-start gap-1.5">
+                        <div id="calendar-days" class="self-stretch flex flex-col justify-start items-start gap-1 sm:gap-1.5">
                             <!-- Calendar will be generated by JavaScript -->
                         </div>
                     </div>
                 </div>
                     
                     <!-- Time Slots Section -->
-                    <div id="time-slots-section" class="hidden mt-6 flex flex-col gap-4">
+                    <div id="time-slots-section" class="hidden mt-4 sm:mt-6 flex flex-col gap-3 sm:gap-4">
                         <!-- Selected Date Display -->
-                        <div class="self-stretch h-10 inline-flex justify-start items-center gap-2">
+                        <div class="self-stretch h-9 sm:h-10 inline-flex justify-start items-center gap-2">
                             <div class="flex-1 self-stretch relative bg-gradient-to-b from-zinc-900/0 to-zinc-900/10 rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] border-b-2 border-zinc-900">
                                 <div id="selected-date-display" class="absolute inset-0 flex items-center justify-center text-center" dir="rtl">
                                     <span class="text-neutral-700 text-base font-bold font-iranyekan">تاریخ انتخابی : </span>
@@ -375,7 +554,7 @@
                     </div>
                     
                     <!-- Customer Info Section (New Design) -->
-                    <div id="customer-info-section" class="hidden mt-6">
+                    <div id="customer-info-section" class="hidden mt-4 sm:mt-6">
                         <div class="w-full flex flex-col gap-6">
                             
                             <!-- Selected Details Cards -->
@@ -406,25 +585,25 @@
                             
                             <!-- Customer Form -->
                             <div class="w-full bg-white rounded-2xl p-5 shadow-sm">
-                                <form id="customer-form-new" class="flex flex-col gap-6">
+                                <form id="customer-form-new" class="flex flex-col gap-4 sm:gap-6">
                                     
                                     <!-- Mobile Field (Always Visible) -->
                                     <div class="relative w-full">
-                                        <input type="tel" id="customer-mobile-new" class="w-full h-14 px-4 rounded-xl border border-gray-200 text-left text-base font-light font-iranyekan focus:outline-none focus:border-gray-800 placeholder-gray-300" placeholder="09121234567" dir="ltr" pattern="09[0-9]{9}" maxlength="11" inputmode="numeric" required />
+                                        <input type="tel" id="customer-mobile-new" class="w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border border-gray-200 text-left text-sm sm:text-base font-light font-iranyekan focus:outline-none focus:border-gray-800 placeholder-gray-300" placeholder="09121234567" dir="ltr" pattern="09[0-9]{9}" maxlength="11" inputmode="numeric" required />
                                         <label for="customer-mobile-new" class="absolute -top-3 right-6 bg-white px-2 text-base font-medium text-gray-800 font-peyda">شماره موبایل</label>
                                     </div>
 
                                     <!-- New User Fields (Initially Hidden) -->
-                                    <div id="new-user-fields" class="hidden flex flex-col gap-6">
+                                    <div id="new-user-fields" class="hidden flex flex-col gap-4 sm:gap-6">
                                         <!-- Name Field -->
                                         <div class="relative w-full">
-                                            <input type="text" id="customer-name-new" class="w-full h-14 px-4 rounded-xl border border-gray-200 text-right text-base font-light font-iranyekan focus:outline-none focus:border-gray-800 placeholder-gray-300" placeholder="مثل : حنانه عاشوری" />
+                                            <input type="text" id="customer-name-new" class="w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border border-gray-200 text-right text-sm sm:text-base font-light font-iranyekan focus:outline-none focus:border-gray-800 placeholder-gray-300" placeholder="مثل : حنانه عاشوری" />
                                             <label for="customer-name-new" class="absolute -top-3 right-6 bg-white px-2 text-base font-medium text-gray-800 font-peyda">نام و نام خانوادگی</label>
                                         </div>
                                         
                                         <!-- Referral Source Field -->
                                         <div class="relative w-full">
-                                            <select id="customer-referral-new" class="w-full h-14 px-4 rounded-xl border border-gray-200 text-right text-base font-normal font-iranyekan focus:outline-none focus:border-gray-800 appearance-none bg-transparent">
+                                            <select id="customer-referral-new" class="w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border border-gray-200 text-right text-sm sm:text-base font-normal font-iranyekan focus:outline-none focus:border-gray-800 appearance-none bg-transparent">
                                                 <option value="" disabled selected class="text-gray-300">انتخاب کنید</option>
                                                 <option value="google">سرچ گوگل</option>
                                                 <option value="instagram">اینستاگرام</option>
@@ -442,7 +621,7 @@
                                     
                                     <!-- Submit and Back Buttons -->
                                     <div class="flex flex-col gap-4 mt-2">
-                                        <button type="submit" id="check-mobile-btn" class="w-full h-12 bg-gradient-to-b from-zinc-800 to-zinc-900 text-white rounded-[10px] font-bold font-peyda text-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                                        <button type="submit" id="check-mobile-btn" class="w-full h-11 sm:h-12 bg-gradient-to-b from-zinc-800 to-zinc-900 text-white rounded-[10px] font-bold font-peyda text-lg sm:text-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                                             <svg id="loading-spinner" class="hidden animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -460,7 +639,7 @@
                     </div>
 
                     <!-- OTP Section (Hidden Initially) -->
-                    <div id="otp-section" class="hidden mt-6">
+                    <div id="otp-section" class="hidden mt-4 sm:mt-6">
                         <div class="w-full flex flex-col gap-6">
                             
                             <!-- Summary Cards for OTP Section -->
@@ -497,7 +676,7 @@
                             </div>
 
                             <div class="w-full bg-white rounded-2xl p-5 shadow-sm">
-                                <div class="flex flex-col gap-8">
+                                <div class="flex flex-col gap-6 sm:gap-8">
                                     <!-- Success Message -->
                                     <div id="otp-error-box" style="display:none" class="w-full bg-rose-50 border border-rose-500 rounded-xl p-3 flex items-center justify-center mb-2">
                                         <span class="text-rose-500 font-medium font-iranyekan text-sm otp-error-text">کد تایید اشتباه یا منقضی شده است</span>
@@ -509,7 +688,7 @@
                                     <!-- OTP Input -->
                                     <div class="flex flex-col gap-3">
                                         <div class="relative w-full">
-                                            <input type="text" id="otp-input" class="w-full h-14 px-4 rounded-xl border border-gray-200 text-center text-2xl font-bold font-iranyekan tracking-[0.5em] focus:outline-none focus:border-gray-800 placeholder-gray-200" placeholder="_ _ _ _ _ _" maxlength="6" dir="ltr" />
+                                            <input type="text" id="otp-input" class="w-full h-12 sm:h-14 px-3 sm:px-4 rounded-xl border border-gray-200 text-center text-xl sm:text-2xl font-bold font-iranyekan tracking-[0.5em] focus:outline-none focus:border-gray-800 placeholder-gray-200" placeholder="_ _ _ _ _ _" maxlength="6" dir="ltr" />
                                             <label class="absolute -top-3 right-6 bg-white px-2 text-base font-medium text-gray-800 font-peyda">کد ارسالی</label>
                                         </div>
                                         
@@ -548,13 +727,13 @@
         </section>
 
         <!-- Separator -->
-        <div id="separator-section" class="h-px bg-zinc-300"></div>
+        <div id="separator-section" class="h-px bg-zinc-300 my-4 sm:my-0"></div>
 
         <!-- Contact Section -->
         <section id="contact-section">
             <div class="space-y-3.5">
                 <div class="flex justify-end items-center gap-1.5">
-                    <div class="text-center justify-start text-neutral-700 text-lg font-bold font-peyda">ارتباط با {{ $salon->name }}</div>
+                    <div class="text-center justify-start text-neutral-700 text-base sm:text-lg font-bold font-peyda">ارتباط با {{ $salon->name }}</div>
                     <div class="w-6 h-6 relative overflow-hidden">
                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M10 13C10.4295 13.5741 10.9774 14.0491 11.6066 14.3929C12.2357 14.7367 12.9315 14.9411 13.6467 14.9923C14.3618 15.0435 15.0796 14.9403 15.7513 14.6897C16.4231 14.4392 17.0331 14.047 17.54 13.54L20.54 10.54C21.4508 9.59695 21.9548 8.33394 21.9434 7.02296C21.932 5.71198 21.4061 4.45791 20.4791 3.53087C19.5521 2.60383 18.298 2.07799 16.987 2.0666C15.676 2.0552 14.413 2.55918 13.47 3.46997L11.75 5.17997" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -565,44 +744,44 @@
                 
                 <!-- Contact Options -->
                 <div class="space-y-2">
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-3 gap-1.5 sm:gap-2">
                         @if($salon->whatsapp)
-                            <a href="https://wa.me/0098{{ $salon->whatsapp }}" class="bg-white rounded-lg shadow-sm p-4 text-center">
-                                <div class="w-10 h-10 mx-auto bg-zinc-900/5 rounded-full flex items-center justify-center">
-                                    <img src="{{ asset('assets/img/whatsapp.png') }}" alt="whatsapp" class="w-6 h-6"/>
+                            <a href="https://wa.me/0098{{ $salon->whatsapp }}" class="bg-white rounded-lg shadow-sm p-3 sm:p-4 text-center">
+                                <div class="w-8 h-8 sm:w-10 sm:h-10 mx-auto bg-zinc-900/5 rounded-full flex items-center justify-center">
+                                    <img src="{{ asset('assets/img/whatsapp.png') }}" alt="whatsapp" class="w-5 h-5 sm:w-6 sm:h-6"/>
                                 </div>
-                                <p class="text-neutral-700 text-sm font-bold mt-2">واتس اپ</p>
+                                <p class="text-neutral-700 text-xs sm:text-sm font-bold mt-1.5 sm:mt-2">واتس اپ</p>
                                 <p class="text-neutral-400 text-[8px] font-light" dir="ltr">{{ str_replace($englishDigits, $persianDigits, $salon->whatsapp) }}</p>
                             </a>
                         @endif
                         
                         @if($salon->telegram)
-                            <a href="https://t.me/{{ $salon->telegram }}" class="bg-white rounded-lg shadow-sm p-4 text-center">
-                                <div class="w-10 h-10 mx-auto bg-zinc-900/5 rounded-full flex items-center justify-center">
-                                    <img src="{{ asset('assets/img/telegram.png') }}" alt="telegram" class="w-6 h-6"/>
+                            <a href="https://t.me/{{ $salon->telegram }}" class="bg-white rounded-lg shadow-sm p-3 sm:p-4 text-center">
+                                <div class="w-8 h-8 sm:w-10 sm:h-10 mx-auto bg-zinc-900/5 rounded-full flex items-center justify-center">
+                                    <img src="{{ asset('assets/img/telegram.png') }}" alt="telegram" class="w-5 h-5 sm:w-6 sm:h-6"/>
                                 </div>
-                                <p class="text-neutral-700 text-sm font-bold mt-2">تلگرام</p>
+                                <p class="text-neutral-700 text-xs sm:text-sm font-bold mt-1.5 sm:mt-2">تلگرام</p>
                                 <p class="text-neutral-400 text-[8px] font-light" dir="ltr">{{ $salon->telegram }}</p>
                             </a>
                         @endif
                         
                         @if($salon->instagram)
-                            <a href="https://instagram.com/{{ $salon->instagram }}" class="bg-white rounded-lg shadow-sm p-4 text-center">
-                                <div class="w-10 h-10 mx-auto bg-zinc-900/5 rounded-full flex items-center justify-center">
-                                    <img src="{{ asset('assets/img/instagram.png') }}" alt="instagram" class="w-6 h-6"/>
+                            <a href="https://instagram.com/{{ $salon->instagram }}" class="bg-white rounded-lg shadow-sm p-3 sm:p-4 text-center">
+                                <div class="w-8 h-8 sm:w-10 sm:h-10 mx-auto bg-zinc-900/5 rounded-full flex items-center justify-center">
+                                    <img src="{{ asset('assets/img/instagram.png') }}" alt="instagram" class="w-5 h-5 sm:w-6 sm:h-6"/>
                                 </div>
-                                <p class="text-neutral-700 text-sm font-bold mt-2">اینستاگرام</p>
+                                <p class="text-neutral-700 text-xs sm:text-sm font-bold mt-1.5 sm:mt-2">اینستاگرام</p>
                                 <p class="text-neutral-400 text-[8px] font-light" dir="ltr">{{ $salon->instagram }}</p>
                             </a>
                         @endif
                     </div>
                     
                     @if($salon->support_phone_number)
-                        <a href="tel:{{ $salon->support_phone_number }}" class="bg-white flex rounded-lg shadow-sm p-4 text-center justify-center items-center">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center">
-                                <img src="{{ asset('assets/img/phone.png') }}" alt="phone" class="w-6 h-6"/>
+                        <a href="tel:{{ $salon->support_phone_number }}" class="bg-white flex rounded-lg shadow-sm p-3 sm:p-4 text-center justify-center items-center">
+                            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center">
+                                <img src="{{ asset('assets/img/phone.png') }}" alt="phone" class="w-5 h-5 sm:w-6 sm:h-6"/>
                             </div>
-                            <p class="text-neutral-700 text-base font-bold mr-3" dir="ltr">{{ str_replace($englishDigits, $persianDigits, $salon->support_phone_number) }}</p>
+                            <p class="text-neutral-700 text-sm sm:text-base font-bold mr-2 sm:mr-3" dir="ltr">{{ str_replace($englishDigits, $persianDigits, $salon->support_phone_number) }}</p>
                         </a>
                     @endif
                 </div>
@@ -672,75 +851,71 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 
+    // Helper function to get element safely
+    const $ = id => document.getElementById(id);
+    const $$ = selector => document.querySelectorAll(selector);
+    
     // Global variables
     let selectedServices = [];
     let selectedDate = null;
     let selectedDateTime = null;
     const salonId = {{ $salon->id ?? 1051 }}; // Default to 1051 if not set
 
-    // Helper function to convert digits to Persian
+    // Helper function to convert digits to Persian - Optimized
     const persianDigits = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+    const persianMonthNames = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+    const englishDigits = /\d/g;
 
     function toPersianDigits(val) {
-        if (val === null || val === undefined) return '';
-        return String(val).replace(/\d/g, x => persianDigits[x]);
+        return (val === null || val === undefined) ? '' : String(val).replace(englishDigits, x => persianDigits[x]);
     }
     
 
 
-    // Convert Persian (Eastern Arabic) digits to ASCII digits
+    // Convert Persian (Eastern Arabic) digits to ASCII digits - Optimized
+    const digitMap = new Map([
+        ['۰','0'],['۱','1'],['۲','2'],['۳','3'],['۴','4'],['۵','5'],['۶','6'],['۷','7'],['۸','8'],['۹','9'],
+        ['٠','0'],['١','1'],['٢','2'],['٣','3'],['٤','4'],['٥','5'],['٦','6'],['٧','7'],['٨','8'],['٩','9']
+    ]);
+    
     function fromPersianDigits(str) {
         if (!str) return str;
-        const persian = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
-        const arabic = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
-        const english = ['0','1','2','3','4','5','6','7','8','9'];
-        
-        return str.toString().split('').map(ch => {
-            let idx = persian.indexOf(ch);
-            if (idx > -1) return english[idx];
-            
-            idx = arabic.indexOf(ch);
-            if (idx > -1) return english[idx];
-            
-            return ch;
-        }).join('');
+        return str.toString().replace(/[۰-۹٠-٩]/g, ch => digitMap.get(ch) || ch);
     }
 
-    // Load services from API
+    // Load services from API - Optimized
     async function loadServices() {
+        const container = document.getElementById('services-container');
+        if (!container) return console.error('services-container not found');
+        
         try {
             const response = await fetch(`/api/booking/${salonId}/services`);
+            if (!response.ok) throw new Error('Network response was not ok');
+            
             const data = await response.json();
-            if (data.success) {
-                renderServices(data.data);
-            } else {
-                console.error('Failed to load services:', data.message);
-                const container = document.getElementById('services-container');
-                if (container) container.innerHTML = `<div class="text-center py-8 text-red-500">خطا در بارگذاری خدمات: ${data.message || 'نامعلوم'}</div>`;
-            }
+            data.success ? renderServices(data.data) : 
+                (container.innerHTML = `<div class="text-center py-8 text-red-500">خطا در بارگذاری خدمات: ${data.message || 'نامعلوم'}</div>`);
         } catch (error) {
             console.error('Error loading services:', error);
-            const container = document.getElementById('services-container');
-            if (container) container.innerHTML = `<div class="text-center py-8 text-red-500">خطا در بارگذاری خدمات: ${error && error.message ? error.message : 'خطای شبکه'}</div>`;
+            container.innerHTML = `<div class="text-center py-8 text-red-500">خطا در بارگذاری خدمات: ${error.message || 'خطای شبکه'}</div>`;
         }
     }
 
-    // Render services in the UI
+    // Render services in the UI - Optimized with DocumentFragment
     function renderServices(services) {
         const container = document.getElementById('services-container');
-        if (!container) { console.error('services-container is not present, aborting services render'); return; }
-        container.innerHTML = '';
-
+        if (!container) return console.error('services-container not found');
+        
+        const fragment = document.createDocumentFragment();
+        
         services.forEach(service => {
             const serviceDiv = document.createElement('div');
             serviceDiv.className = 'service-item self-stretch h-16 relative bg-white rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] cursor-pointer hover:bg-gray-50 transition-colors';
             serviceDiv.dataset.serviceId = service.id;
 
-            // Format first available slot if exists
-            let firstAvailable = 'در حال بررسی نوبت‌های خالی...';
-            if (service.next_available && service.next_available.jalali_date && service.next_available.time) {
-                firstAvailable = `اولین نوبت خالی : ${service.next_available.jalali_date} - ${toPersianDigits(service.next_available.time)}`;
-            }
+            const firstAvailable = (service.next_available?.jalali_date && service.next_available?.time) ?
+                `اولین نوبت خالی : ${service.next_available.jalali_date} - ${toPersianDigits(service.next_available.time)}` :
+                'در حال بررسی نوبت‌های خالی...';
 
             serviceDiv.innerHTML = `
                 <div class="flex items-center h-full px-4">
@@ -752,8 +927,11 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
 
             serviceDiv.addEventListener('click', () => selectService(service, serviceDiv));
-            container.appendChild(serviceDiv);
+            fragment.appendChild(serviceDiv);
         });
+        
+        container.innerHTML = '';
+        container.appendChild(fragment);
     }
 
     // Change service - go back to service selection
@@ -875,22 +1053,25 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 const res = await fetch(`/api/calendar-proxy?year=${persianYear}`, { method: 'GET', headers: { 'Accept': 'application/json' } });
                 if (!res.ok) {
-                    console.error('Calendar API failed with status', res.status);
-                    calendarMonthsCache[persianYear] = [];
-                    calendarMonths = [];
-                    return calendarMonths;
+                    throw new Error(`Calendar API failed with status ${res.status}`);
                 }
                 const data = await res.json();
-                const months = parsePersianCalendarMonths(data, persianYear);
+                let months = parsePersianCalendarMonths(data, persianYear);
+                if (!months.length) {
+                    console.warn('Calendar API returned empty months array, using fallback calendar.');
+                    months = buildFallbackCalendar(persianYear);
+                }
                 calendarMonthsCache[persianYear] = months;
                 calendarMonths = months;
                 console.log(`Loaded calendar months for ${persianYear}:`, months);
                 return months;
             } catch (e) {
                 console.error('Error loading calendar months for year', persianYear, e);
-                calendarMonthsCache[persianYear] = [];
-                calendarMonths = [];
-                return [];
+                const fallbackMonths = buildFallbackCalendar(persianYear);
+                calendarMonthsCache[persianYear] = fallbackMonths;
+                calendarMonths = fallbackMonths;
+                console.warn('Using locally generated fallback calendar for year', persianYear);
+                return fallbackMonths;
             } finally {
                 delete calendarMonthsPromises[persianYear];
             }
@@ -1199,6 +1380,56 @@ document.addEventListener('DOMContentLoaded', function() {
         return `${Y.toString().padStart(4,'0')}-${M.toString().padStart(2,'0')}-${D.toString().padStart(2,'0')}`;
     }
 
+    function isPersianLeapYear(year) {
+        const epbase = year - (year >= 0 ? 474 : 473);
+        const epyear = 474 + (epbase % 2820);
+        return ((epyear * 682) % 2816) < 682;
+    }
+
+    function getPersianMonthLength(year, month) {
+        if (month <= 6) return 31;
+        if (month <= 11) return 30;
+        return isPersianLeapYear(year) ? 30 : 29;
+    }
+
+    function buildFallbackCalendar(year) {
+        const months = [];
+        for (let m = 1; m <= 12; m++) {
+            const daysInMonth = getPersianMonthLength(year, m);
+            const days = [];
+            for (let d = 1; d <= daysInMonth; d++) {
+                let gregorian = '';
+                try {
+                    gregorian = persianToGregorian(year, m, d);
+                } catch (error) {
+                    console.warn('Fallback calendar conversion failed', year, m, d, error);
+                }
+                let weekdayPersian = null;
+                if (gregorian) {
+                    const gDate = new Date(gregorian + 'T00:00:00');
+                    if (!isNaN(gDate.getTime())) {
+                        weekdayPersian = (gDate.getDay() + 1) % 7;
+                    }
+                }
+                days.push({
+                    jalali: d,
+                    hijri: null,
+                    isHoliday: false,
+                    name: null,
+                    gregorian: gregorian || null,
+                    weekdayPersian,
+                    holidayType: '',
+                    raw: {}
+                });
+            }
+            months.push({
+                header: { jalali: `${year} ${persianMonthNames[m - 1] || ''}` },
+                days
+            });
+        }
+        return months;
+    }
+
     // Note: day counts and conversions are derived from the calendar API; legacy conversion helpers removed.
     
     async function updateCalendarNavigation() {
@@ -1269,7 +1500,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function generateCalendar() {
         const calendarDays = document.getElementById('calendar-days');
-        calendarDays.innerHTML = '';
+        if (!calendarDays) return;
+        
+        const fragment = document.createDocumentFragment();
 
         console.log(`Generating API-driven calendar for ${currentPersianYear}/${currentPersianMonth + 1}`);
 
@@ -1280,10 +1513,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const emptyWeeks = 5;
             for (let w = 0; w < emptyWeeks; w++) {
                 const weekDiv = document.createElement('div');
-                weekDiv.className = 'self-stretch h-16 inline-flex justify-center items-center gap-2';
+                weekDiv.className = 'w-full self-stretch h-14 sm:h-16 inline-flex justify-center items-center gap-1 sm:gap-1.5 md:gap-2';
                 for (let c = 0; c < 7; c++) {
                     const cell = document.createElement('div');
-                    cell.className = 'calendar-day w-12 h-16 relative rounded-lg bg-transparent border-transparent empty';
+                    cell.className = 'calendar-day w-10 sm:w-12 md:w-14 h-12 sm:h-14 md:h-16 flex-shrink-0 relative rounded-lg bg-transparent border-transparent empty';
                     weekDiv.appendChild(cell);
                 }
                 calendarDays.appendChild(weekDiv);
@@ -1348,11 +1581,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         for (let w = 0; w < weeks; w++) {
             const weekDiv = document.createElement('div');
-            weekDiv.className = 'self-stretch h-16 inline-flex justify-center items-center gap-2';
+            weekDiv.className = 'w-full self-stretch h-14 sm:h-16 inline-flex justify-center items-center gap-1 sm:gap-1.5 md:gap-2';
 
-            for (let c = 0; c < 7; c++) {
-                const cell = document.createElement('div');
-                cell.className = 'calendar-day w-12 h-16 relative rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] border-b-2';
+                        for (let c = 0; c < 7; c++) {
+                            const cell = document.createElement('div');
+                            cell.className = 'calendar-day w-10 sm:w-12 md:w-14 h-12 sm:h-14 md:h-16 flex-shrink-0 relative rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] border-b-2';
 
                 // compute whether this slot should be empty or a day
                 const globalPos = w * 7 + c;
@@ -1436,7 +1669,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 const dayNumber = document.createElement('div');
-                dayNumber.className = `day-number absolute inset-0 flex items-center justify-center text-center text-3xl font-bold font-iranyekan ${isPastDate ? 'text-gray-400' : isHolidayFlag ? 'text-red-700' : isToday ? 'text-blue-600' : isFriday ? 'text-rose-500' : 'text-neutral-700'}`;
+                dayNumber.className = `day-number absolute inset-0 flex items-center justify-center text-center text-2xl sm:text-3xl font-bold font-iranyekan ${isPastDate ? 'text-gray-400' : isHolidayFlag ? 'text-red-700' : isToday ? 'text-blue-600' : isFriday ? 'text-rose-500' : 'text-neutral-700'}`;
                 if (isHolidayFlag) dayNumber.style.color = '#b91c1c';
 
                 // Show Jalali day as the main large number (Standard view)
@@ -1469,46 +1702,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 weekDiv.appendChild(cell);
             }
 
-            calendarDays.appendChild(weekDiv);
-        }
-    }
-    
-    function showTooltip(element, message) {
-        // Remove existing tooltip
-        const existingTooltip = document.querySelector('.calendar-tooltip');
-        if (existingTooltip) {
-            existingTooltip.remove();
+            fragment.appendChild(weekDiv);
         }
         
-        // Create new tooltip
+        calendarDays.innerHTML = '';
+        calendarDays.appendChild(fragment);
+    }
+    
+    // Optimized tooltip - debounced and using RAF
+    let tooltipTimeout = null;
+    
+    function showTooltip(element, message) {
+        const existingTooltip = document.querySelector('.calendar-tooltip');
+        existingTooltip?.remove();
+        
         const tooltip = document.createElement('div');
         tooltip.className = 'calendar-tooltip absolute z-50 bg-gray-800 text-white text-sm px-3 py-2 rounded-lg shadow-lg whitespace-nowrap';
         tooltip.textContent = message;
-        tooltip.style.cssText = `
-            position: fixed;
-            background: #1f2937;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 14px;
-            z-index: 1000;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            pointer-events: none;
-        `;
+        tooltip.style.cssText = 'position:fixed;background:#1f2937;color:white;padding:8px 12px;border-radius:8px;font-size:14px;z-index:1000;box-shadow:0 4px 6px rgba(0,0,0,0.1);pointer-events:none';
         
-        document.body.appendChild(tooltip); 
+        document.body.appendChild(tooltip);
         
-        // Position tooltip near the element
-        const rect = element.getBoundingClientRect();
-        tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
-        tooltip.style.top = (rect.top - tooltip.offsetHeight - 10) + 'px';
+        requestAnimationFrame(() => {
+            const rect = element.getBoundingClientRect();
+            tooltip.style.left = `${rect.left + rect.width / 2 - tooltip.offsetWidth / 2}px`;
+            tooltip.style.top = `${rect.top - tooltip.offsetHeight - 10}px`;
+        });
         
-        // Remove tooltip after 3 seconds
-        setTimeout(() => {
-            if (tooltip.parentNode) {
-                tooltip.parentNode.removeChild(tooltip);
-            }
-        }, 3000);
+        if (tooltipTimeout) clearTimeout(tooltipTimeout);
+        tooltipTimeout = setTimeout(() => tooltip.remove(), 3000);
     }
     
     function selectCalendarDate(dayElement) {
@@ -1523,16 +1745,16 @@ document.addEventListener('DOMContentLoaded', function() {
             el.classList.remove('selected', 'bg-teal-100', 'border-teal-500');
             // Restore original classes based on date type
             if (el.dataset.isPast === 'true') {
-                el.className = 'calendar-day w-12 h-16 relative rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] border-b-2 bg-gradient-to-b from-gray-300/30 to-gray-400/50 border-gray-400 cursor-not-allowed opacity-50';
+                el.className = 'calendar-day w-10 sm:w-12 md:w-14 h-12 sm:h-14 md:h-16 flex-shrink-0 relative rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] border-b-2 bg-gradient-to-b from-gray-300/30 to-gray-400/50 border-gray-400 cursor-not-allowed opacity-50';
             } else {
                 const day = parseInt(el.dataset.day);
                 const dayOfWeek = (startDayOfWeek + (day - 1)) % 7;
                 const isFriday = dayOfWeek === 6;
                 
                 if (isFriday) {
-                    el.className = 'calendar-day w-12 h-16 relative rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] border-b-2 bg-gradient-to-b from-rose-500/0 to-rose-500/30 border-rose-500 cursor-pointer';
+                    el.className = 'calendar-day w-10 sm:w-12 md:w-14 h-12 sm:h-14 md:h-16 flex-shrink-0 relative rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] border-b-2 bg-gradient-to-b from-rose-500/0 to-rose-500/30 border-rose-500 cursor-pointer';
                 } else {
-                    el.className = 'calendar-day w-12 h-16 relative rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] border-b-2 bg-gradient-to-b from-black/0 to-black/10 border-zinc-900 hover:bg-gradient-to-b hover:from-teal-500/0 hover:to-teal-500/20 hover:border-teal-500 cursor-pointer';
+                    el.className = 'calendar-day w-10 sm:w-12 md:w-14 h-12 sm:h-14 md:h-16 flex-shrink-0 relative rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] border-b-2 bg-gradient-to-b from-black/0 to-black/10 border-zinc-900 hover:bg-gradient-to-b hover:from-teal-500/0 hover:to-teal-500/20 hover:border-teal-500 cursor-pointer';
                 }
             }
         });
@@ -1618,103 +1840,75 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function showTimeSlots(gregorianDateStr) {
         const serviceIds = selectedServices.map(s => s.id);
-        const dateStr = gregorianDateStr; // Use the string directly
-        
-        // Show time slots section
         const timeSlotsSection = document.getElementById('time-slots-section');
-        timeSlotsSection.classList.remove('hidden');
-        
-        // Update selected date display with the Persian date from selectedDate global variable
-        updateSelectedDateDisplay();
-        
         const container = document.getElementById('time-slots-container');
+        
+        if (!timeSlotsSection || !container) return;
+        
+        timeSlotsSection.classList.remove('hidden');
+        updateSelectedDateDisplay();
         container.innerHTML = '<div class="self-stretch text-center py-4">در حال بارگذاری...</div>';
         
-        fetch(`/api/booking/${salonId}/available-times?date=${dateStr}&service_ids[]=${serviceIds.join('&service_ids[]=')}`)
-            .then(response => response.json())
-            .then(data => {
-                console.log('🕐 Available Times API Response:', data);
-                console.log('Date requested:', dateStr);
-                console.log('Service IDs:', serviceIds);
+        fetch(`/api/booking/${salonId}/available-times?date=${gregorianDateStr}&service_ids[]=${serviceIds.join('&service_ids[]=')}`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(response => response.ok ? response.json() : Promise.reject('Network error'))
+        .then(data => {
+            console.log('🕐 Available Times:', data);
+            
+            if (data.success && data.data?.available_times?.length) {
+                const fragment = document.createDocumentFragment();
                 
-                if (data.success && data.data.available_times && data.data.available_times.length > 0) {
-                    container.innerHTML = '';
-                    
-                    // Display all time slots from API
-                    data.data.available_times.forEach(timeSlot => {
-                        const isBooked = timeSlot.is_booked || false;
-                        const operatorName = timeSlot.operator_name || 'نامشخص';
-                        
-                        const timeSlotDiv = document.createElement('div');
-                        
-                        if (isBooked) {
-                            // Reserved Slot Design (Gray, Non-clickable)
-                            timeSlotDiv.className = 'self-stretch h-16 relative bg-zinc-300 rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] cursor-not-allowed opacity-80';
-                            timeSlotDiv.innerHTML = `
-                                <div class="flex items-center justify-between h-full px-4">
-                                    <div class="flex items-center gap-2">
-                                        <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <g clip-path="url(#clip0_5582_3950_booked)">
-                                                <path d="M7 13L1 7L7 1" stroke="#9D9D9D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </g>
-                                            <defs>
-                                                <clipPath id="clip0_5582_3950_booked">
-                                                    <rect width="8" height="14" fill="white"/>
-                                                </clipPath>
-                                            </defs>
-                                        </svg>
-                                        <div class="text-neutral-500 text-base font-normal font-iranyekan">رزرو شده</div>
-                                    </div>
-                                    <div class="flex flex-col justify-center items-end gap-1">
-                                        <div class="text-right" dir="ltr">
-                                            <span class="text-neutral-700 text-base font-bold font-iranyekan" dir="ltr">${toPersianDigits(timeSlot.time ? timeSlot.time.split(':').slice(0, 2).join(':') : timeSlot.display_time)}</span>
-                                            <span class="text-neutral-700 text-base font-bold font-peyda">&nbsp;ساعت</span>
-                                        </div>
-                                        <div class="text-right text-neutral-500 text-sm font-normal font-iranyekan">اپراتور : ${operatorName}</div>
-                                    </div>
-                                </div>
-                            `;
-                        } else {
-                            // Available Slot Design (White, Clickable)
-                            timeSlotDiv.className = 'self-stretch h-16 relative bg-white rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] cursor-pointer hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-200';
-                            timeSlotDiv.innerHTML = `
-                                <div class="flex items-center justify-between h-full px-4">
-                                    <div class="flex items-center gap-2">
-                                        <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <g clip-path="url(#clip0_5582_3950)">
-                                                <path d="M7 13L1 7L7 1" stroke="#171717" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </g>
-                                            <defs>
-                                                <clipPath id="clip0_5582_3950">
-                                                    <rect width="8" height="14" fill="white"/>
-                                                </clipPath>
-                                            </defs>
-                                        </svg>
-                                        <div class="text-neutral-700 text-base font-normal font-iranyekan">رزرو نوبت</div>
-                                    </div>
-                                    <div class="flex flex-col justify-center items-end gap-1">
-                                        <div class="text-right" dir="ltr">
-                                            <span class="text-neutral-700 text-base font-bold font-iranyekan" dir="ltr">${toPersianDigits(timeSlot.time ? timeSlot.time.split(':').slice(0, 2).join(':') : timeSlot.display_time)}</span>
-                                            <span class="text-neutral-700 text-base font-bold font-peyda">&nbsp;ساعت</span>
-                                        </div>
-                                        <div class="text-right text-neutral-400 text-sm font-normal font-iranyekan">اپراتور : ${operatorName}</div>
-                                    </div>
-                                </div>
-                            `;
-                            
-                            timeSlotDiv.addEventListener('click', () => selectTimeSlot(timeSlot, timeSlotDiv));
-                        }
-                        
-                        container.appendChild(timeSlotDiv);
-                    });
-                } else {
-                    container.innerHTML = '<p class="self-stretch text-center text-gray-500 text-sm py-4">در این تاریخ نوبت خالی وجود ندارد</p>';
-                }
-            })
-            .catch(error => {
-                console.error('Error loading time slots:', error);
-                container.innerHTML = '<p class="self-stretch text-center text-red-500 text-sm py-4">خطا در بارگذاری ساعات</p>';
-            });
+                data.data.available_times.forEach(timeSlot => {
+                    const div = createTimeSlotElement(timeSlot, gregorianDateStr);
+                    fragment.appendChild(div);
+                });
+                
+                container.innerHTML = '';
+                container.appendChild(fragment);
+            } else {
+                container.innerHTML = '<p class="self-stretch text-center text-gray-500 text-sm py-4">در این تاریخ نوبت خالی وجود ندارد</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading time slots:', error);
+            container.innerHTML = '<p class="self-stretch text-center text-red-500 text-sm py-4">خطا در بارگذاری ساعات</p>';
+        });
+    }
+    
+    function createTimeSlotElement(timeSlot, dateStr) {
+        const div = document.createElement('div');
+        const isBooked = timeSlot.is_booked || false;
+        const operatorName = timeSlot.operator_name || 'نامشخص';
+        const displayTime = toPersianDigits(timeSlot.time ? timeSlot.time.split(':').slice(0, 2).join(':') : timeSlot.display_time);
+        
+        div.className = `self-stretch h-16 relative rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] ${isBooked ? 'bg-zinc-300 cursor-not-allowed opacity-80' : 'bg-white cursor-pointer hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-200'}`;
+        
+        div.innerHTML = `
+            <div class="flex items-center justify-between h-full px-4">
+                <div class="flex items-center gap-2">
+                    <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 13L1 7L7 1" stroke="${isBooked ? '#9D9D9D' : '#171717'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <div class="${isBooked ? 'text-neutral-500' : 'text-neutral-700'} text-base font-normal font-iranyekan">${isBooked ? 'رزرو شده' : 'رزرو نوبت'}</div>
+                </div>
+                <div class="flex flex-col justify-center items-end gap-1">
+                    <div class="text-right" dir="ltr">
+                        <span class="text-neutral-700 text-base font-bold font-iranyekan" dir="ltr">${displayTime}</span>
+                        <span class="text-neutral-700 text-base font-bold font-peyda">&nbsp;ساعت</span>
+                    </div>
+                    <div class="text-right ${isBooked ? 'text-neutral-500' : 'text-neutral-400'} text-sm font-normal font-iranyekan">اپراتور : ${operatorName}</div>
+                </div>
+            </div>
+        `;
+        
+        if (!isBooked) {
+            div.dataset.date = dateStr;
+            div.addEventListener('click', () => selectTimeSlot(timeSlot, div));
+        }
+        
+        return div;
     }
     
     function updateSelectedDateDisplay() {
@@ -1896,21 +2090,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // Change service button
     document.getElementById('change-service-btn')?.addEventListener('click', changeService);
     
-    // Search functionality
-    document.getElementById('service-search')?.addEventListener('input', function(e) {
-        const searchTerm = e.target.value.toLowerCase();
-        const serviceItems = document.querySelectorAll('.service-item');
-        
-        serviceItems.forEach(item => {
-            const nameEl = item.querySelector('.font-bold');
-            const serviceName = nameEl ? nameEl.textContent.toLowerCase() : '';
-            if (serviceName.includes(searchTerm)) {
-                item.style.display = 'block';
-            } else {
-                item.style.display = 'none';
-            }
-        });
-    });
+    // Search functionality - Optimized with debounce
+    let searchTimeout;
+    const searchInput = document.getElementById('service-search');
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const searchTerm = e.target.value.toLowerCase();
+                const serviceItems = document.querySelectorAll('.service-item');
+                
+                serviceItems.forEach(item => {
+                    const name = item.querySelector('.font-bold')?.textContent.toLowerCase() || '';
+                    item.style.display = name.includes(searchTerm) ? 'block' : 'none';
+                });
+            }, 300);
+        }, { passive: true });
+    }
     
     // Search button
     document.getElementById('search-btn')?.addEventListener('click', () => {
@@ -1922,50 +2119,41 @@ document.addEventListener('DOMContentLoaded', function() {
     const _initialMonthName = (calendarMonths && calendarMonths[currentPersianMonth]) ? extractMonthNameFromHeader(calendarMonths[currentPersianMonth].header) : '';
     console.log('Initial Persian date:', currentPersianYear, currentPersianMonth, _initialMonthName);
     
-    // Initialize calendar
-    try {
-        loadServices();
-    } catch (e) {
-        console.error('loadServices threw an exception:', e);
-        const container = document.getElementById('services-container');
-        if (container) container.innerHTML = `<div class="text-center py-8 text-red-500">خطا در شروع بارگذاری خدمات: ${e && e.message ? e.message : 'خطای داخلی'}</div>`;
-    }
-    
-    // Removed one-off test fetch to prevent duplicate requests. Use updateCalendarWithHolidays() to load once per year.
-    
-    // Initialize calendar with holidays (async)
-    (async function() {
-        await updateCalendarWithHolidays();
+    // Initialize - Optimized startup
+    (async function init() {
+        try {
+            // Load services and calendar in parallel for faster initial load
+            await Promise.all([
+                loadServices(),
+                updateCalendarWithHolidays()
+            ]);
+        } catch (e) {
+            console.error('Initialization error:', e);
+            const container = document.getElementById('services-container');
+            if (container) container.innerHTML = `<div class="text-center py-8 text-red-500">خطا در بارگذاری: ${e?.message || 'خطای داخلی'}</div>`;
+        }
     })();
     
     // Attach event listeners after DOM elements are ready
     console.log('Attaching event listeners...');
 
-    // Global error handlers to help debugging in QA/dev
-    window.addEventListener('error', function (ev) {
-        console.error('Global error captured:', ev.error || ev.message || ev);
+    // Global error handlers - Optimized
+    const handleError = (msg, error) => {
+        console.error(msg, error);
         const container = document.getElementById('services-container');
-        if (container) container.innerHTML = `<div class="text-center py-8 text-red-500">خطا در صفحه: ${ev && (ev.error && ev.error.message ? ev.error.message : ev.message) ? (ev.error && ev.error.message ? ev.error.message : ev.message) : 'خطای نامعلوم'}</div>`;
-    });
+        if (container) container.innerHTML = `<div class="text-center py-8 text-red-500">${msg}: ${error?.message || 'نامعلوم'}</div>`;
+    };
 
-    window.addEventListener('unhandledrejection', function (ev) {
-        console.error('Unhandled rejection:', ev.reason || ev);
-        const container = document.getElementById('services-container');
-        if (container) container.innerHTML = `<div class="text-center py-8 text-red-500">خطای برنامه (promise): ${ev && ev.reason && ev.reason.message ? ev.reason.message : 'نامعلوم'}</div>`;
-    });
+    window.addEventListener('error', e => handleError('خطا در صفحه', e.error || e));
+    window.addEventListener('unhandledrejection', e => handleError('خطای برنامه', e.reason));
     
-    // Helper: attach click handler to all elements matching the selector
+    // Optimized event attachment using event delegation where possible
     function addClickToAll(selector, handler) {
         const els = document.querySelectorAll(selector);
-        console.log(`Found ${els.length} elements for selector: ${selector}`);
-        if (!els || els.length === 0) {
-            console.log(`No elements found for selector: ${selector}`);
-            return;
-        }
-        els.forEach((el, index) => {
-            console.log(`Attaching click handler to element ${index}:`, el);
-            el.addEventListener('click', handler);
-        });
+        if (!els.length) return console.log(`No elements found for: ${selector}`);
+        
+        console.log(`Attaching ${els.length} handlers for: ${selector}`);
+        els.forEach(el => el.addEventListener('click', handler, { passive: true }));
     }
     
     addClickToAll('#next-year', async () => {
@@ -2056,103 +2244,123 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 100);
     });
     
-    // Change service button from form
-    document.getElementById('change-service-from-form')?.addEventListener('click', function() {
-        // Hide all main sections
-        document.getElementById('customer-info-section')?.classList.add('hidden');
-        document.getElementById('otp-section')?.classList.add('hidden');
-        document.getElementById('calendar-section')?.classList.add('hidden');
-        document.getElementById('time-slots-section')?.classList.add('hidden');
-        // Show only service selection
-        document.getElementById('services-container')?.classList.remove('hidden');
-        document.getElementById('search-bar-section')?.classList.remove('hidden');
-        document.getElementById('step-1-header')?.classList.remove('hidden');
-        // Clear selections
-        selectedServices = [];
-        selectedDate = null;
-        selectedDateTime = null;
-        // Scroll to services
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-    
-    // Change time button from form
-    document.getElementById('change-time-from-form')?.addEventListener('click', function() {
-        // Hide all main sections
-        document.getElementById('customer-info-section')?.classList.add('hidden');
-        document.getElementById('otp-section')?.classList.add('hidden');
-        document.getElementById('services-container')?.classList.add('hidden');
-        // Show only calendar and time slots
-        document.getElementById('calendar-section')?.classList.remove('hidden');
-        document.getElementById('time-slots-section')?.classList.remove('hidden');
-        // Scroll to time slots
-        setTimeout(() => {
-            const timeSlotsSection = document.getElementById('time-slots-section');
-            if (timeSlotsSection) {
-                timeSlotsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Delegated click listener for all change-* buttons
+    document.addEventListener('click', function(e) {
+        const target = e.target;
+        
+        // Handle all change buttons with single delegated listener
+        if (target.id === 'change-service-from-form' || target.closest('#change-service-from-form')) {
+            changeService();
+            document.getElementById('customer-info-section')?.classList.add('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        else if (target.id === 'change-time-from-form' || target.closest('#change-time-from-form')) {
+            document.getElementById('customer-info-section')?.classList.add('hidden');
+            showTimeSelection();
+        }
+        else if (target.id === 'change-service-from-otp' || target.closest('#change-service-from-otp')) {
+            document.getElementById('otp-section')?.classList.add('hidden');
+            clearInterval(otpTimerInterval);
+            document.getElementById('services-container')?.classList.remove('hidden');
+            document.getElementById('search-bar-section')?.classList.remove('hidden');
+            document.getElementById('step-1-header')?.classList.remove('hidden');
+            selectedServices = [];
+            selectedDate = null;
+            selectedDateTime = null;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        else if (target.id === 'change-time-from-otp' || target.closest('#change-time-from-otp')) {
+            document.getElementById('otp-section')?.classList.add('hidden');
+            clearInterval(otpTimerInterval);
+            document.getElementById('calendar-section')?.classList.remove('hidden');
+            document.getElementById('time-slots-section')?.classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('time-slots-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+        }
+        else if (target.id === 'change-info-from-otp' || target.closest('#change-info-from-otp')) {
+            document.getElementById('otp-section')?.classList.add('hidden');
+            clearInterval(otpTimerInterval);
+            const customerSection = document.getElementById('customer-info-section');
+            if (customerSection) {
+                customerSection.classList.remove('hidden');
+                setTimeout(() => customerSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
             }
-        }, 100);
-    });
-    
-    // OTP Flow Logic
+        }
+        else if (target.id === 'change-service-from-calendar' || target.closest('#change-service-from-calendar')) {
+            document.getElementById('calendar-section')?.classList.add('hidden');
+            document.getElementById('time-slots-section')?.classList.add('hidden');
+            document.getElementById('services-container')?.classList.remove('hidden');
+            document.getElementById('search-bar-section')?.classList.remove('hidden');
+            document.getElementById('step-1-header')?.classList.remove('hidden');
+            selectedServices = [];
+            selectedDate = null;
+            selectedDateTime = null;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, { passive: false });
     let otpTimerInterval;
     let otpTimeLeft = 87;
     let isSendingOtp = false; // Flag to prevent double sending
 
-    // API Helpers
+    // API Helpers - Optimized with better error handling
     async function callApi(endpoint, method, data) {
         try {
             const response = await fetch(`/api/booking-wizard/${salonId}/${endpoint}`, {
-                method: method,
+                method,
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    // 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') // Add if needed for API
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify(data)
             });
+            
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             return await response.json();
         } catch (error) {
             console.error('API Error:', error);
             alert('خطا در برقراری ارتباط با سرور');
-            return null;
+            return { success: false, message: error.message };
         }
     }
 
-    // Check if mobile exists
+    // Check if mobile exists - Optimized
     async function checkMobile(mobile) {
-        const btn = document.getElementById('check-mobile-btn');
-        const spinner = document.getElementById('loading-spinner');
-        const btnText = document.getElementById('submit-btn-text');
-        const originalText = btnText ? btnText.textContent : '';
+        const elements = {
+            btn: document.getElementById('check-mobile-btn'),
+            spinner: document.getElementById('loading-spinner'),
+            btnText: document.getElementById('submit-btn-text')
+        };
         
-        if (btn && spinner && btnText) { 
-            spinner.classList.remove('hidden');
-            btnText.textContent = 'در حال بررسی...';
-            btn.disabled = true;
+        const originalText = elements.btnText?.textContent || '';
+        
+        if (elements.btn && elements.spinner && elements.btnText) { 
+            elements.spinner.classList.remove('hidden');
+            elements.btnText.textContent = 'در حال بررسی...';
+            elements.btn.disabled = true;
         }
 
         const result = await callApi('check-customer', 'POST', { mobile });
         
-        if (btn && spinner && btnText) { 
-            spinner.classList.add('hidden');
-            btnText.textContent = originalText;
-            btn.disabled = false;
+        if (elements.btn && elements.spinner && elements.btnText) { 
+            elements.spinner.classList.add('hidden');
+            elements.btnText.textContent = originalText;
+            elements.btn.disabled = false;
         }
 
-        if (result && result.success) {
+        if (result?.success) {
             if (result.exists) {
                 console.log('User exists, sending OTP');
-                // Auto-fill name if available (optional)
-                if (result.customer && result.customer.name) {
+                if (result.customer?.name) {
                     const nameInput = document.getElementById('customer-name-new');
                     if (nameInput) nameInput.value = result.customer.name;
                 }
                 sendOtp(mobile);
             } else {
                 console.log('User is new, showing details fields');
-                const newUserFieldsEl = document.getElementById('new-user-fields'); if (newUserFieldsEl) newUserFieldsEl.classList.remove('hidden');
-                if (btnText) btnText.textContent = 'ثبت و ادامه';
-                btn.dataset.mode = 'submit-details';
+                document.getElementById('new-user-fields')?.classList.remove('hidden');
+                if (elements.btnText) elements.btnText.textContent = 'ثبت و ادامه';
+                if (elements.btn) elements.btn.dataset.mode = 'submit-details';
             }
         } else {
             alert(result?.message || 'خطا در بررسی شماره موبایل');
@@ -2203,85 +2411,63 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function startOtpTimer() {
-        clearInterval(otpTimerInterval);
-        otpTimeLeft = 120; // 2 minutes
-        updateTimerDisplay();
+        if (otpTimerInterval) clearInterval(otpTimerInterval);
+        
+        otpTimeLeft = 120;
         const resendBtn = document.getElementById('resend-otp-btn');
+        const timerEl = document.getElementById('otp-timer');
+        
         if (resendBtn) {
             resendBtn.disabled = true;
             resendBtn.classList.add('text-gray-400', 'cursor-not-allowed');
             resendBtn.classList.remove('text-zinc-900', 'hover:text-zinc-700');
         }
+        
+        if (timerEl) timerEl.textContent = `${otpTimeLeft} ثانیه`;
 
         otpTimerInterval = setInterval(() => {
-            otpTimeLeft--;
-            updateTimerDisplay();
-            
-            if (otpTimeLeft <= 0) {
+            if (--otpTimeLeft <= 0) {
                 clearInterval(otpTimerInterval);
-                const resendBtn2 = document.getElementById('resend-otp-btn');
-                if (resendBtn2) {
-                    resendBtn2.disabled = false;
-                    resendBtn2.classList.remove('text-gray-400', 'cursor-not-allowed');
-                    resendBtn2.classList.add('text-zinc-900', 'hover:text-zinc-700');
+                if (resendBtn) {
+                    resendBtn.disabled = false;
+                    resendBtn.classList.remove('text-gray-400', 'cursor-not-allowed');
+                    resendBtn.classList.add('text-zinc-900', 'hover:text-zinc-700');
                 }
             }
+            if (timerEl) timerEl.textContent = `${otpTimeLeft} ثانیه`;
         }, 1000);
     }
 
-    function updateTimerDisplay() {
-        const otpTimerEl = document.getElementById('otp-timer'); if (otpTimerEl) otpTimerEl.textContent = `${otpTimeLeft} ثانیه`;
-    }
-
-    // New customer form submission handler
-    // Mobile input validation - only numbers and max 11 digits
+    // Mobile input validation - Optimized with better pattern
     const mobileInput = document.getElementById('customer-mobile-new');
     if (mobileInput) {
         mobileInput.addEventListener('input', function(e) {
-            // Remove non-numeric characters
-            let value = e.target.value.replace(/[^0-9]/g, '');
-            // Limit to 11 digits
-            if (value.length > 11) {
-                value = value.slice(0, 11);
-            }
-            e.target.value = value;
-        });
+            e.target.value = e.target.value.replace(/\D/g, '').slice(0, 11);
+        }, { passive: true });
     }
 
-    document.getElementById('customer-form-new')?.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const btn = document.getElementById('check-mobile-btn');
-        const mobileInput = document.getElementById('customer-mobile-new');
-        const mobile = mobileInput ? mobileInput.value : '';
-        
-        if (!mobile) {
-            alert('لطفا شماره موبایل را وارد کنید');
-            return;
-        }
+    // Customer form submission - Optimized
+    const customerForm = document.getElementById('customer-form-new');
+    if (customerForm) {
+        customerForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('check-mobile-btn');
+            const mobileInput = document.getElementById('customer-mobile-new');
+            const mobile = mobileInput?.value || '';
+            
+            if (!mobile) return alert('لطفا شماره موبایل را وارد کنید');
+            if (!/^09[0-9]{9}$/.test(mobile)) return alert('لطفا شماره موبایل معتبر ایرانی وارد کنید (مثال: 09121234567)');
 
-        // Validate Iranian mobile format
-        const iranMobileRegex = /^09[0-9]{9}$/;
-        if (!iranMobileRegex.test(mobile)) {
-            alert('لطفا شماره موبایل معتبر ایرانی وارد کنید (مثال: 09121234567)');
-            return;
-        }
-
-        if (btn.dataset.mode === 'submit-details') {
-            // Submit details mode
-            const nameInput = document.getElementById('customer-name-new');
-            const name = nameInput ? nameInput.value : '';
-            if (!name) {
-                alert('لطفا نام و نام خانوادگی را وارد کنید');
-                return;
+            if (btn?.dataset.mode === 'submit-details') {
+                const name = document.getElementById('customer-name-new')?.value || '';
+                if (!name) return alert('لطفا نام و نام خانوادگی را وارد کنید');
+                await sendOtp(mobile);
+            } else {
+                await checkMobile(mobile);
             }
-            // Proceed to OTP (Send OTP first)
-            sendOtp(mobile);
-        } else {
-            // Check mobile mode
-            checkMobile(mobile);
-        }
-    });
+        });
+    }
 
     // OTP Section Listeners
     document.getElementById('verify-otp-btn')?.addEventListener('click', async function() {
