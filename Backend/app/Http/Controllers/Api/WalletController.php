@@ -740,7 +740,7 @@ class WalletController extends Controller
                 'sms_package_id' => $smsPackage->id,
                 'sms_type' => 'purchase',
                 'type' => 'purchase',
-                'amount' => $smsPackage->sms_count,
+                'amount' => $price,
                 'sms_count' => $smsPackage->sms_count,
                 'description' => "خرید بسته پیامک - سفارش {$order->id}",
                 'status' => 'completed',

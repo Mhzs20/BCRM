@@ -456,6 +456,7 @@ class SmsService
             'appointment_id' => $appointmentId,
             'receptor' => $receptor,
             'sms_type' => $smsType,
+            'type' => 'send',
             'content' => $message,
             'sent_at' => now(),
             'status' => $status,

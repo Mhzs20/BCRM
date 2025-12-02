@@ -37,10 +37,29 @@ class SmsTransactionController extends Controller
             // If no specific salon, filter by user's salons
             $query->where('user_id', $user->id);
         }
+        
+        // حذف پیامک‌های دسته‌جمعی که توسط ادمین برای کل کاربران فرستاده شده
+        // این پیامک‌ها با description شروع می‌شوند: "پیامک گروهی توسط ادمین"
+        $query->where(function($q) {
+            $q->where('description', 'NOT LIKE', 'پیامک گروهی توسط ادمین%')
+              ->orWhereNull('description');
+        });
 
         // Additional filters (these can override the default purchase filter if needed)
         if ($request->filled('type')) {
-            $query->where('type', $request->type);
+            if ($request->type === 'send') {
+                // برای تراکنش‌های ارسال، چک کنیم type='send' یا sms_type مربوط به ارسال باشد
+                $query->where(function($q) {
+                    $q->where('type', 'send')
+                      ->orWhereIn('sms_type', [
+                          'appointment_confirmation', 'appointment_reminder', 'manual_reminder',
+                          'appointment_cancellation', 'appointment_modification', 'satisfaction_survey',
+                          'birthday_greeting', 'service_specific_notes', 'manual_sms', 'bulk'
+                      ]);
+                });
+            } else {
+                $query->where('type', $request->type);
+            }
         }
 
         // Filter by SMS type if provided
@@ -103,13 +122,24 @@ class SmsTransactionController extends Controller
         $transactions = $query->paginate($request->get('per_page', 20));
 
         $formattedTransactions = $transactions->getCollection()->map(function ($transaction) {
+            // محاسبه sms_count برای تراکنش‌های قدیمی که این فیلد null است
+            $smsCount = $transaction->sms_count;
+            if ($smsCount === null && $transaction->content) {
+                // محاسبه تعداد پارت‌های پیامک بر اساس محتوا
+                $smsService = app(\App\Services\SmsService::class);
+                $smsCount = $smsService->calculateSmsParts($transaction->content);
+            } elseif ($smsCount === null && $transaction->type === 'gift') {
+                // برای هدایا، sms_count برابر amount است
+                $smsCount = (int) $transaction->amount;
+            }
+            
             $data = [
                 'id' => $transaction->id,
                 'type' => $transaction->type,
                 'sms_type' => $transaction->sms_type,
                 'status' => $transaction->status,
                 'amount' => $transaction->amount,
-                'sms_count' => $transaction->sms_count,
+                'sms_count' => $smsCount,
                 'receptor' => $transaction->receptor,
                 'content' => $transaction->content,
                 'description' => $transaction->description,
@@ -177,18 +207,64 @@ class SmsTransactionController extends Controller
                     $q->whereBetween('created_at', [$fromDate, $toDate])
                       ->orWhereBetween('sent_at', [$fromDate, $toDate]);
                 });
+                
+                // حذف پیامک‌های دسته‌جمعی ادمین از آمار
+                $periodBaseQuery->where(function($q) {
+                    $q->where('description', 'NOT LIKE', 'پیامک گروهی توسط ادمین%')
+                      ->orWhereNull('description');
+                });
 
                 // Piloting definitions for what counts as 'consumption' (delivered messages that decreased balance)
-                $consumptionQuery = (clone $periodBaseQuery)->where('amount', '>', 0)->where(function($q) {
-                    $q->whereIn('type', ['send', 'deduction', 'manual_send'])
-                        ->orWhereIn('sms_type', ['send', 'deduction', 'manual_send', 'manual_sms', 'manual_reminder', 'appointment_cancellation', 'appointment_confirmation', 'satisfaction_survey', 'appointment_modification', 'bulk']);
+                // فقط پیامک‌هایی که واقعاً ارسال شده‌اند (delivered, sent) یا کسر اعتبار شده (manual_sms با approval_status=approved)
+                $consumptionQuery = (clone $periodBaseQuery)->where(function($q) {
+                    $q->where(function($subQ) {
+                        // پیامک‌های ارسال شده
+                        $subQ->whereIn('status', ['delivered', 'sent'])
+                             ->where(function($typeQ) {
+                                 $typeQ->whereIn('type', ['send', 'deduction', 'manual_send'])
+                                       ->orWhereIn('sms_type', [
+                                           'appointment_confirmation', 'appointment_reminder', 'manual_reminder',
+                                           'appointment_cancellation', 'appointment_modification', 'satisfaction_survey',
+                                           'birthday_greeting', 'service_specific_notes'
+                                       ]);
+                             });
+                    })
+                    ->orWhere(function($manualQ) {
+                        // پیامک‌های manual که تایید شده و کسر اعتبار شده
+                        $manualQ->where('sms_type', 'manual_sms')
+                                ->where('approval_status', 'approved')
+                                ->where('balance_deducted_at_submission', '>', 0);
+                    });
                 });
 
                 // Purchase transactions (in this project they are stored as SmsTransaction with type = 'purchase' or via Order)
-                $purchaseQuery = (clone $periodBaseQuery)->where('type', 'purchase');
+                $purchaseQuery = (clone $periodBaseQuery)->where(function($q) {
+                    $q->where('type', 'purchase')
+                      ->orWhere('type', 'gift')
+                      ->orWhere('sms_type', 'purchase');
+                });
 
-                $totalPurchased = (clone $purchaseQuery)->sum('sms_count');
-                $totalConsumed = (clone $consumptionQuery)->sum('sms_count');
+                // محاسبه با در نظر گرفتن تراکنش‌های قدیمی که sms_count ندارند
+                $totalPurchased = (clone $purchaseQuery)->get()->sum(function($t) {
+                    if ($t->sms_count !== null) {
+                        return $t->sms_count;
+                    }
+                    if ($t->type === 'gift' || $t->type === 'purchase') {
+                        return (int) $t->amount;
+                    }
+                    return 0;
+                });
+                
+                $totalConsumed = (clone $consumptionQuery)->get()->sum(function($t) {
+                    if ($t->sms_count !== null) {
+                        return $t->sms_count;
+                    }
+                    if ($t->content) {
+                        $smsService = app(\App\Services\SmsService::class);
+                        return $smsService->calculateSmsParts($t->content);
+                    }
+                    return 0;
+                });
 
                 // Current remaining balance from SalonSmsBalance if salon present
                 $remainingBalance = null;
@@ -205,16 +281,37 @@ class SmsTransactionController extends Controller
                     $percentConsumed = round(($totalConsumed / ($totalConsumed + ($remainingBalance ?? 0))) * 100);
                 }
 
+                // محاسبه آمار transactions_by_type با در نظر گرفتن sms_count واقعی
+                $transactionsByType = (clone $periodBaseQuery)->get()->groupBy('type')->map(function($transactions, $type) {
+                    $smsService = app(\App\Services\SmsService::class);
+                    $totalSms = $transactions->sum(function($t) use ($smsService) {
+                        if ($t->sms_count !== null) {
+                            return $t->sms_count;
+                        }
+                        if ($t->type === 'gift' || $t->type === 'purchase') {
+                            return (int) $t->amount;
+                        }
+                        if ($t->content) {
+                            return $smsService->calculateSmsParts($t->content);
+                        }
+                        return 0;
+                    });
+                    
+                    return (object) [
+                        'type' => $type,
+                        'count' => $transactions->count(),
+                        'total_amount' => $transactions->sum('amount'),
+                        'total_sms' => $totalSms,
+                    ];
+                })->keyBy('type');
+
                 $summary = [
                     'total_transactions' => (clone $periodBaseQuery)->count(),
                     'purchased_sms' => (int) $totalPurchased,
                     'consumed_sms' => (int) $totalConsumed,
                     'remaining_sms' => $remainingBalance,
                     'percent_consumed' => $percentConsumed,
-                    'transactions_by_type' => (clone $periodBaseQuery)->selectRaw('type, COUNT(*) as count, COALESCE(SUM(amount), 0) as total_amount, COALESCE(SUM(sms_count), 0) as total_sms')
-                        ->groupBy('type')
-                        ->get()
-                        ->keyBy('type'),
+                    'transactions_by_type' => $transactionsByType,
                     'transactions_by_status' => (clone $periodBaseQuery)->selectRaw('status, COUNT(*) as count')
                         ->groupBy('status')
                         ->get()

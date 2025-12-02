@@ -79,10 +79,12 @@ class UpdateOrderAndBalance implements ShouldQueue
                             'salon_id' => $order->salon_id,
                             'sms_package_id' => $order->sms_package_id,
                             'type' => 'purchase',
-                            'amount' => $order->sms_count,
+                            'amount' => $order->amount,
+                            'sms_count' => $order->sms_count,
                             'description' => "خرید بسته پیامک - سفارش {$order->id}",
                             'status' => 'completed',
                             'reference_id' => $successfulTransaction->reference_id ?? null,
+                            'transaction_id' => $successfulTransaction->transaction_id ?? null,
                         ]);
                         Log::info("SMS transaction record created for order {$order->id}");
                     }

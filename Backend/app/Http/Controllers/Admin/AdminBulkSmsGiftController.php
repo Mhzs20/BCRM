@@ -300,8 +300,10 @@ class AdminBulkSmsGiftController extends Controller
             // Record transaction
             SmsTransaction::create([
                 'salon_id' => $salon->id,
+                'type' => 'gift',
                 'sms_type' => 'gift',
                 'amount' => $amount,
+                'sms_count' => $amount,
                 'description' => 'شارژ هدیه گروهی توسط ادمین' . ($message ? ': ' . $message : ''),
                 'receptor' => $salon->mobile,
                 'content' => $message,

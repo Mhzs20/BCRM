@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
-use Illuminate\Pagination\LengthAwarePaginator; // Import this
-use Illuminate\Pagination\Paginator; // Import this
-use App\Rules\IranianPhoneNumber; // Import the custom rule
+use Illuminate\Pagination\LengthAwarePaginator;  
+use Illuminate\Pagination\Paginator; 
+use App\Rules\IranianPhoneNumber;  
 
 class ManualSmsController extends Controller
 {
@@ -98,12 +98,13 @@ class ManualSmsController extends Controller
                     'receptor' => $recipient,
                     'recipients_type' => $request->recipients_type,
                     'recipients_count' => count($recipients),
+                    'type' => 'manual_send',
                     'sms_type' => 'manual_sms',
-                    'content' => $smsContent, // Original content from the user
-                    'original_content' => $smsContent, // Store as original
-                    'edited_content' => null, // Initially null
+                    'content' => $smsContent,  
+                    'original_content' => $smsContent,  
+                    'edited_content' => null,  
                     'sms_parts' => $smsPartsPerMessage,
-                    'balance_deducted_at_submission' => $smsPartsPerMessage, // Store deducted amount
+                    'balance_deducted_at_submission' => $smsPartsPerMessage,  
                     'status' => 'pending',
                     'approval_status' => $isCustomMessage ? 'pending' : 'approved',
                 ]);
