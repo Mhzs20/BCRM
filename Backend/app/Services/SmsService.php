@@ -62,7 +62,7 @@ class SmsService
         
         $data = [
             'receptor' => $receptor,
-            'sender'   => $sender ?: '9982001323', // Use provided sender or default
+            'sender'   => $sender ?: '90002350', // Use provided sender or default
             'message'  => $message,
         ];
 
@@ -195,7 +195,7 @@ class SmsService
 
         Log::info("Sending Android-formatted OTP to {$receptor}. This is a free transaction and will not be deducted from any user balance.");
 
-        $sender = '9982001323';
+        $sender = '90002350';
         $smsEntries = $this->sendSms($receptor, $message, $sender);
 
         return !is_null($smsEntries);
