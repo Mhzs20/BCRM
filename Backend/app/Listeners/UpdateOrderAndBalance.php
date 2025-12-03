@@ -19,7 +19,14 @@ class UpdateOrderAndBalance implements ShouldQueue
      *
      * @var int
      */
-    public $tries = 3;
+    public $tries = 5;
+
+    /**
+     * The number of seconds to wait before retrying.
+     *
+     * @var int
+     */
+    public $backoff = 10;
 
     /**
      * Create the event listener.
@@ -79,10 +86,13 @@ class UpdateOrderAndBalance implements ShouldQueue
                             'salon_id' => $order->salon_id,
                             'sms_package_id' => $order->sms_package_id,
                             'type' => 'purchase',
-                            'amount' => $order->sms_count,
+                            'sms_type' => 'purchase',
+                            'amount' => $order->amount,
+                            'sms_count' => $order->sms_count,
                             'description' => "خرید بسته پیامک - سفارش {$order->id}",
                             'status' => 'completed',
                             'reference_id' => $successfulTransaction->reference_id ?? null,
+                            'transaction_id' => $successfulTransaction->transaction_id ?? null,
                         ]);
                         Log::info("SMS transaction record created for order {$order->id}");
                     }
@@ -92,14 +102,12 @@ class UpdateOrderAndBalance implements ShouldQueue
                 if ($order->discount_code) {
                     $discountCode = DiscountCode::where('code', $order->discount_code)->first();
                     if ($discountCode) {
-                        $discountCode->incrementUsage();
-                        
                         // SECURITY: Record salon-specific usage to prevent reuse (if salon_id exists)
                         if ($order->salon_id) {
                             $discountCode->recordSalonUsage($order->salon_id, $order->id);
-                            Log::info("Discount code {$order->discount_code} usage incremented. Total usage: {$discountCode->usage_count}. Salon {$order->salon_id} usage recorded.");
+                            Log::info("Discount code {$order->discount_code} usage recorded for salon {$order->salon_id}. Order: {$order->id}");
                         } else {
-                            Log::info("Discount code {$order->discount_code} usage incremented. Total usage: {$discountCode->usage_count}.");
+                            Log::info("Discount code {$order->discount_code} used for order {$order->id} (no salon_id).");
                         }
                     }
                 }
