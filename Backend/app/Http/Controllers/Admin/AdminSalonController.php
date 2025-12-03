@@ -426,7 +426,9 @@ class AdminSalonController extends Controller
             SmsTransaction::create([
                 'salon_id' => $salon->id,
                 'type' => 'gift',
+                'sms_type' => 'gift',
                 'amount' => $amount,
+                'sms_count' => $amount,
                 'description' => 'شارژ هدیه توسط ادمین' . ($message ? ': ' . $message : ''),
                 'receptor' => $salon->user->mobile,
                 'content' => $message,
@@ -485,7 +487,9 @@ class AdminSalonController extends Controller
         SmsTransaction::create([
             'salon_id' => $salon->id,
             'type' => 'gift',
+            'sms_type' => 'gift',
             'amount' => $request->amount,
+            'sms_count' => $request->amount,
             'description' => $request->description ?? 'شارژ هدیه توسط ادمین',
             'status' => 'completed',
             'approved_by' => auth()->id(),

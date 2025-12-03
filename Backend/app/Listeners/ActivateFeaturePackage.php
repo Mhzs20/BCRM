@@ -20,7 +20,14 @@ class ActivateFeaturePackage implements ShouldQueue
      *
      * @var int
      */
-    public $tries = 3;
+    public $tries = 5;
+
+    /**
+     * The number of seconds to wait before retrying.
+     *
+     * @var int
+     */
+    public $backoff = 10;
 
     /**
      * Create the event listener.
