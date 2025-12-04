@@ -38,6 +38,17 @@
                         @csrf
                         
                         <div>
+                            <label for="sms_sender_number" class="block text-md font-medium text-gray-700">شماره ارسال پیامک (Sender Number)</label>
+                            <div class="mt-2">
+                                <input type="text" name="sms_sender_number" id="sms_sender_number"
+                                       class="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                       value="{{ old('sms_sender_number', $smsSenderNumber->value ?? '09982001323') }}" required
+                                       placeholder="مثال: 09982001323">
+                            </div>
+                            <p class="mt-1 text-sm text-gray-500">شماره ارسال کننده پیامک‌ها که از طرف کاوه‌نگار دریافت کرده‌اید</p>
+                        </div>
+
+                        <div>
                             <label for="sms_cost_per_part" class="block text-md font-medium text-gray-700">هزینه هر پارت پیامک (تومان)</label>
                             <div class="mt-2">
                                 <input type="number" step="0.01" name="sms_cost_per_part" id="sms_cost_per_part"
