@@ -34,6 +34,7 @@ class SmsService
         $this->smsCharacterLimitFa = (int) (Setting::where('key', 'sms_part_char_limit_fa')->first()->value ?? 70);
         $this->smsCharacterLimitEn = (int) (Setting::where('key', 'sms_part_char_limit_en')->first()->value ?? 160);
         $this->smsCostPerPart = (float) (Setting::where('key', 'sms_cost_per_part')->first()->value ?? 100); // Example: 100 units per SMS part
+        $this->senderNumber = Setting::where('key', 'sms_sender_number')->first()->value ?? '09982001323'; // Default sender number
 
         if (env('APP_ENV') !== 'testing' && (!$this->apiKey || $this->apiKey === 'YOUR_DEFAULT_KEY_IF_NOT_SET')) {
             Log::warning('Kavenegar API Key is not configured properly in .env file. SMS sending will be simulated.');
@@ -62,7 +63,7 @@ class SmsService
         
         $data = [
             'receptor' => $receptor,
-            'sender'   => $sender ?: '09982001323', // Use provided sender or default
+            'sender'   => $sender ?: $this->senderNumber, // Use provided sender or default from settings
             'message'  => $message,
         ];
 
@@ -195,7 +196,7 @@ class SmsService
 
         Log::info("Sending Android-formatted OTP to {$receptor}. This is a free transaction and will not be deducted from any user balance.");
 
-        $sender = '09982001323';
+        $sender = $this->senderNumber;
         $smsEntries = $this->sendSms($receptor, $message, $sender);
 
         return !is_null($smsEntries);
