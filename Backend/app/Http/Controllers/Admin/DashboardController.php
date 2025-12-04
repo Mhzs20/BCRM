@@ -20,6 +20,43 @@ use Kavenegar\KavenegarApi;
 
 class DashboardController extends Controller
 {
+    public function getSmsStatsForHeader()
+    {
+        $today = Carbon::today();
+        
+        $smsSentToday = SmsTransaction::whereHas('salon', function($query) {
+                $query->whereHas('user', function($subQuery) {
+                    $subQuery->whereNotNull('active_salon_id');
+                });
+            })->whereDate('created_at', $today)->count();
+            
+        $smsSentThisMonth = SmsTransaction::whereHas('salon', function($query) {
+                $query->whereHas('user', function($subQuery) {
+                    $subQuery->whereNotNull('active_salon_id');
+                });
+            })->whereMonth('created_at', $today->month)->count();
+        
+        try {
+            $kavenegarApi = new KavenegarApi(config('services.kavenegar.apikey'));
+            $totalSmsBalanceToman = $kavenegarApi->AccountInfo()->remaincredit;
+        } catch (\Exception $e) {
+            $totalSmsBalanceToman = 0;
+        }
+        
+        // محاسبه تعداد پیامک بر اساس قیمت خرید
+        $smsPurchasePricePerPart = Setting::where('key', 'sms_purchase_price_per_part')->first();
+        $smsPurchasePricePerPartValue = $smsPurchasePricePerPart ? (float)$smsPurchasePricePerPart->value : 140; // میانگین قیمت: 140 تومان
+        
+        $totalSmsCount = $smsPurchasePricePerPartValue > 0 ? floor($totalSmsBalanceToman / $smsPurchasePricePerPartValue) : 0;
+        
+        return [
+            'today' => $smsSentToday,
+            'month' => $smsSentThisMonth,
+            'balance_toman' => $totalSmsBalanceToman,
+            'balance_count' => $totalSmsCount,
+        ];
+    }
+    
     public function index()
     {
         // User stats
@@ -60,19 +97,22 @@ class DashboardController extends Controller
                 });
             })->whereMonth('created_at', $today->month)->count();
         
+        // SMS Profitability Stats
+        $smsPurchasePricePerPart = Setting::where('key', 'sms_purchase_price_per_part')->first();
+        $smsPurchasePricePerPartValue = $smsPurchasePricePerPart ? (float)$smsPurchasePricePerPart->value : 140; // میانگین قیمت: 140 تومان
+        
         // Get Kavenegar balance with error handling
         try {
             $kavenegarApi = new KavenegarApi(config('services.kavenegar.apikey'));
-            $totalSmsBalance = $kavenegarApi->AccountInfo()->remaincredit;
+            $totalSmsBalanceToman = $kavenegarApi->AccountInfo()->remaincredit;
         } catch (\Exception $e) {
             // Log the error and set balance to 0 if API is unreachable
             \Log::warning('Kavenegar API error: ' . $e->getMessage());
-            $totalSmsBalance = 0;
+            $totalSmsBalanceToman = 0;
         }
-
-        // SMS Profitability Stats
-        $smsPurchasePricePerPart = Setting::where('key', 'sms_purchase_price_per_part')->first();
-        $smsPurchasePricePerPartValue = $smsPurchasePricePerPart ? (float)$smsPurchasePricePerPart->value : 0;
+        
+        // محاسبه تعداد پیامک بر اساس قیمت خرید
+        $totalSmsBalance = $smsPurchasePricePerPartValue > 0 ? floor($totalSmsBalanceToman / $smsPurchasePricePerPartValue) : 0;
 
         $totalSmsPartsSold = SmsTransaction::whereHas('salon', function($query) {
                 $query->whereHas('user', function($subQuery) {
@@ -81,27 +121,45 @@ class DashboardController extends Controller
             })->where('status', 'completed')->sum('sms_count');
         $totalSmsCost = $totalSmsPartsSold * $smsPurchasePricePerPartValue;
 
-        // Income stats
-        $dailySmsIncome = SmsTransaction::whereHas('salon', function($query) {
+        // Income stats - درآمد پیامک از جدول orders
+        $dailySmsIncome = Order::whereHas('salon', function($query) {
                 $query->whereHas('user', function($subQuery) {
                     $subQuery->whereNotNull('active_salon_id');
                 });
-            })->where('status', 'completed')->whereDate('created_at', $today)->sum('amount');
-        $monthlySmsIncome = SmsTransaction::whereHas('salon', function($query) {
+            })
+            ->whereNotNull('sms_package_id')
+            ->whereIn('status', ['completed', 'paid'])
+            ->whereDate('created_at', $today)
+            ->sum('amount');
+            
+        $monthlySmsIncome = Order::whereHas('salon', function($query) {
                 $query->whereHas('user', function($subQuery) {
                     $subQuery->whereNotNull('active_salon_id');
                 });
-            })->where('status', 'completed')->whereMonth('created_at', $today->month)->sum('amount');
-        $yearlySmsIncome = SmsTransaction::whereHas('salon', function($query) {
+            })
+            ->whereNotNull('sms_package_id')
+            ->whereIn('status', ['completed', 'paid'])
+            ->whereMonth('created_at', $today->month)
+            ->sum('amount');
+            
+        $yearlySmsIncome = Order::whereHas('salon', function($query) {
                 $query->whereHas('user', function($subQuery) {
                     $subQuery->whereNotNull('active_salon_id');
                 });
-            })->where('status', 'completed')->whereYear('created_at', $today->year)->sum('amount');
-        $totalSmsIncome = SmsTransaction::whereHas('salon', function($query) {
+            })
+            ->whereNotNull('sms_package_id')
+            ->whereIn('status', ['completed', 'paid'])
+            ->whereYear('created_at', $today->year)
+            ->sum('amount');
+            
+        $totalSmsIncome = Order::whereHas('salon', function($query) {
                 $query->whereHas('user', function($subQuery) {
                     $subQuery->whereNotNull('active_salon_id');
                 });
-            })->where('status', 'completed')->sum('amount');
+            })
+            ->whereNotNull('sms_package_id')
+            ->whereIn('status', ['completed', 'paid'])
+            ->sum('amount');
 
         $dailyPaymentIncome = Payment::whereDate('date', $today)->sum('amount');
         $monthlyPaymentIncome = Payment::whereMonth('date', $today->month)->sum('amount');
@@ -155,17 +213,18 @@ class DashboardController extends Controller
             })
             ->toArray();
 
-        $smsProfitData = SmsTransaction::whereHas('salon', function($query) {
+        $smsProfitData = Order::whereHas('salon', function($query) {
                 $query->whereHas('user', function($subQuery) {
                     $subQuery->whereNotNull('active_salon_id');
                 });
             })
+            ->whereNotNull('sms_package_id')
+            ->whereIn('status', ['completed', 'paid'])
             ->select(
                 DB::raw('DATE_FORMAT(created_at, "%Y-%m") as month'),
                 DB::raw('SUM(amount) as total_revenue'),
                 DB::raw('SUM(sms_count) as total_sms_parts')
             )
-            ->where('status', 'completed')
             ->groupBy('month')
             ->orderBy('month')
             ->get()
@@ -179,12 +238,13 @@ class DashboardController extends Controller
             })
             ->toArray();
 
-        $smsSalesData = SmsTransaction::whereHas('salon', function($query) {
+        $smsSalesData = Order::whereHas('salon', function($query) {
                 $query->whereHas('user', function($subQuery) {
                     $subQuery->whereNotNull('active_salon_id');
                 });
             })
-            ->where('status', 'completed')
+            ->whereNotNull('sms_package_id')
+            ->whereIn('status', ['completed', 'paid'])
             ->select(DB::raw('DATE_FORMAT(created_at, "%Y-%m") as month'), DB::raw('sum(amount) as sum'))
             ->groupBy('month');
 
@@ -228,8 +288,7 @@ class DashboardController extends Controller
             ];
         }
 
-        // Debug: نمایش داده‌ها
-        \Log::info('Appointments Data:', $appointmentsData);
+         \Log::info('Appointments Data:', $appointmentsData);
 
         return view('admin.dashboard', compact(
             'totalUsers',
@@ -248,6 +307,7 @@ class DashboardController extends Controller
             'smsSentToday',
             'smsSentThisMonth',
             'totalSmsBalance',
+            'totalSmsBalanceToman',
             'dailyIncome',
             'monthlyIncome',
             'yearlyIncome',

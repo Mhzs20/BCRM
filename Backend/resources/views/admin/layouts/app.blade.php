@@ -144,50 +144,71 @@
                  'lg:mr-20': !sidebarOpen && window.innerWidth >= 1024
              }">
             <!-- Mobile Header with Menu Button - Sticky -->
-            <div class="lg:hidden bg-white shadow-sm border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-[60]">
-                <button @click="sidebarOpen = !sidebarOpen" class="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                </button>
-                <h1 class="text-lg font-semibold text-gray-900">پنل مدیریت</h1>
-                
-                <!-- Mobile Logout Button -->
-                <div x-data="{ showDropdown: false }" 
-                     class="relative"
-                     @click.outside="showDropdown = false"
-                     @keydown.escape.window="showDropdown = false"
-                     @close-all-dropdowns.document="showDropdown = false">
-                    <button @click="showDropdown = !showDropdown" 
-                            class="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
+            <div class="lg:hidden bg-white shadow-sm border-b border-gray-200 px-4 py-3 sticky top-0 z-[60]">
+                <div class="flex items-center justify-between">
+                    <button @click="sidebarOpen = !sidebarOpen" class="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
                         <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
                     </button>
+                    <h1 class="text-lg font-semibold text-gray-900">پنل مدیریت</h1>
                     
-                    <!-- Dropdown -->
-                    <div x-show="showDropdown" 
-                         @click.away="showDropdown = false" 
-                         x-transition:enter="transition ease-out duration-200"
-                         x-transition:enter-start="opacity-0 scale-95"
-                         x-transition:enter-end="opacity-100 scale-100"
-                         x-transition:leave="transition ease-in duration-75"
-                         x-transition:leave-start="opacity-100 scale-100"
-                         x-transition:leave-end="opacity-0 scale-95"
-                         class="absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-[70]" 
-                         x-cloak>
-                        <div class="py-1">
-                            <div class="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
-                                {{ Auth::user() ? Auth::user()->name : 'کاربر مهمان' }}
+                    <!-- Mobile Logout Button -->
+                    <div x-data="{ showDropdown: false }" 
+                         class="relative"
+                         @click.outside="showDropdown = false"
+                         @keydown.escape.window="showDropdown = false"
+                         @close-all-dropdowns.document="showDropdown = false">
+                        <button @click="showDropdown = !showDropdown" 
+                                class="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                        </button>
+                        
+                        <!-- Dropdown -->
+                        <div x-show="showDropdown" 
+                             @click.away="showDropdown = false" 
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 scale-95"
+                             x-transition:enter-end="opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-75"
+                             x-transition:leave-start="opacity-100 scale-100"
+                             x-transition:leave-end="opacity-0 scale-95"
+                             class="absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-[70]" 
+                             x-cloak>
+                            <div class="py-1">
+                                <div class="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
+                                    {{ Auth::user() ? Auth::user()->name : 'کاربر مهمان' }}
+                                </div>
+                                <form method="POST" action="{{ route('logout') }}">
+                                    @csrf
+                                    <button type="submit" 
+                                            class="block w-full text-right px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                            @click="showDropdown = false">
+                                        خروج
+                                    </button>
+                                </form>
                             </div>
-                            <form method="POST" action="{{ route('logout') }}">
-                                @csrf
-                                <button type="submit" 
-                                        class="block w-full text-right px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                        @click="showDropdown = false">
-                                    خروج
-                                </button>
-                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- SMS Stats Bar for Mobile -->
+                <div class="mt-2 pt-2 border-t border-gray-100">
+                    <div class="flex items-center justify-between text-xs">
+                        <div class="flex items-center space-x-1 space-x-reverse">
+                            <i class="ri-message-3-line text-yellow-500"></i>
+                            <span class="text-gray-600">امروز:</span>
+                            <span class="font-semibold text-gray-800">{{ app('App\Http\Controllers\Admin\DashboardController')->getSmsStatsForHeader()['today'] ?? 0 }}</span>
+                        </div>
+                        <div class="flex items-center space-x-1 space-x-reverse">
+                            <span class="text-gray-600">این ماه:</span>
+                            <span class="font-semibold text-gray-800">{{ app('App\Http\Controllers\Admin\DashboardController')->getSmsStatsForHeader()['month'] ?? 0 }}</span>
+                        </div>
+                        <div class="flex items-center space-x-1 space-x-reverse">
+                            <span class="text-gray-600">موجودی:</span>
+                            <span class="font-semibold text-green-600">{{ number_format(app('App\Http\Controllers\Admin\DashboardController')->getSmsStatsForHeader()['balance_count'] ?? 0) }}</span>
                         </div>
                     </div>
                 </div>
@@ -196,7 +217,36 @@
             <!-- Page Heading -->
             <header class="bg-white shadow">
                 <div class="max-w-7xl mx-auto py-4 px-4 sm:py-6 sm:px-6 lg:px-8">
-                    @yield('header')
+                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                        <div class="flex-1">
+                            @yield('header')
+                        </div>
+                        
+                        <!-- SMS Stats for Desktop -->
+                        <div class="hidden lg:flex items-center space-x-6 space-x-reverse mt-3 lg:mt-0 text-sm">
+                            <div class="flex items-center space-x-2 space-x-reverse bg-yellow-50 px-3 py-2 rounded-lg">
+                                <i class="ri-message-3-line text-yellow-500 text-lg"></i>
+                                <div class="flex flex-col">
+                                    <span class="text-xs text-gray-500">ارسال امروز</span>
+                                    <span class="font-semibold text-gray-800">{{ app('App\Http\Controllers\Admin\DashboardController')->getSmsStatsForHeader()['today'] ?? 0 }} پیام</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 space-x-reverse bg-blue-50 px-3 py-2 rounded-lg">
+                                <i class="ri-calendar-line text-blue-500 text-lg"></i>
+                                <div class="flex flex-col">
+                                    <span class="text-xs text-gray-500">ارسال این ماه</span>
+                                    <span class="font-semibold text-gray-800">{{ app('App\Http\Controllers\Admin\DashboardController')->getSmsStatsForHeader()['month'] ?? 0 }} پیام</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 space-x-reverse bg-green-50 px-3 py-2 rounded-lg">
+                                <i class="ri-wallet-3-line text-green-500 text-lg"></i>
+                                <div class="flex flex-col">
+                                    <span class="text-xs text-gray-500">موجودی کل</span>
+                                    <span class="font-semibold text-green-600">{{ number_format(app('App\Http\Controllers\Admin\DashboardController')->getSmsStatsForHeader()['balance_count'] ?? 0) }} پیامک</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </header>
 

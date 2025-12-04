@@ -12,6 +12,7 @@ class SmsPackage extends Model
         'sms_count',
         'price',
         'discount_price',
+        'discount_percentage',
         'is_active',
     ];
 
@@ -26,6 +27,7 @@ class SmsPackage extends Model
     protected $casts = [
         'price' => 'integer',
         'discount_price' => 'integer',
+        'discount_percentage' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 }

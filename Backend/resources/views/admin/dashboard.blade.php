@@ -107,9 +107,10 @@
                         </div>
                     </div>
                     <div class="mt-4 space-y-2">
-                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">ارسال امروز:</span><span class="font-semibold">{{ $smsSentToday }}</span></div>
-                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">ارسال این ماه:</span><span class="font-semibold">{{ $smsSentThisMonth }}</span></div>
-                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">موجودی کل:</span><span class="font-bold text-base sm:text-lg">{{ $totalSmsBalance }}</span></div>
+                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">ارسال امروز:</span><span class="font-semibold">{{ number_format($smsSentToday) }} پیام</span></div>
+                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">ارسال این ماه:</span><span class="font-semibold">{{ number_format($smsSentThisMonth) }} پیام</span></div>
+                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">موجودی کل:</span><span class="font-bold text-base sm:text-lg">{{ number_format($totalSmsBalance) }} پیامک</span></div>
+                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">مبلغ شارژ:</span><span class="font-semibold text-green-600">{{ number_format($totalSmsBalanceToman) }} تومان</span></div>
                     </div>
                 </div>
 
@@ -124,10 +125,10 @@
                         </div>
                     </div>
                     <div class="mt-4 space-y-2">
-                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">روزانه:</span><span class="font-semibold">{{ number_format($dailyIncome, 0) }}</span></div>
-                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">ماهانه:</span><span class="font-semibold">{{ number_format($monthlyIncome, 0) }}</span></div>
-                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">سالانه:</span><span class="font-semibold">{{ number_format($yearlyIncome, 0) }}</span></div>
-                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">مجموع:</span><span class="font-bold text-base sm:text-lg">{{ number_format($totalIncome, 0) }}</span></div>
+                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">روزانه:</span><span class="font-semibold">{{ number_format($dailyIncome, 0) }} تومان</span></div>
+                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">ماهانه:</span><span class="font-semibold">{{ number_format($monthlyIncome, 0) }} تومان</span></div>
+                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">سالانه:</span><span class="font-semibold">{{ number_format($yearlyIncome, 0) }} تومان</span></div>
+                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">مجموع:</span><span class="font-bold text-base sm:text-lg">{{ number_format($totalIncome, 0) }} تومان</span></div>
                     </div>
                 </div>
 
@@ -142,11 +143,11 @@
                         </div>
                     </div>
                     <div class="mt-4 space-y-2">
-                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">تعداد کل پارت فروخته شده:</span><span class="font-semibold">{{ number_format($totalSmsPartsSold, 0) }}</span></div>
-                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">هزینه کل خرید پیامک:</span><span class="font-semibold">{{ number_format($totalSmsCost, 0) }}</span></div>
-                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">درآمد کل از فروش پیامک:</span><span class="font-semibold">{{ number_format($totalSmsIncome, 0) }}</span></div>
-                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">میانگین قیمت فروش هر پارت:</span><span class="font-semibold">{{ number_format($averageSmsSellingPrice, 2) }}</span></div>
-                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">سود خالص:</span><span class="font-bold text-base sm:text-lg">{{ number_format($netSmsProfit, 0) }}</span></div>
+                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">تعداد کل پارت فروخته شده:</span><span class="font-semibold">{{ number_format($totalSmsPartsSold, 0) }} پارت</span></div>
+                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">هزینه کل خرید پیامک:</span><span class="font-semibold">{{ number_format($totalSmsCost, 0) }} تومان</span></div>
+                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">درآمد کل از فروش پیامک:</span><span class="font-semibold">{{ number_format($totalSmsIncome, 0) }} تومان</span></div>
+                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">میانگین قیمت فروش هر پارت:</span><span class="font-semibold">{{ number_format($averageSmsSellingPrice, 2) }} تومان</span></div>
+                        <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">سود خالص:</span><span class="font-bold text-base sm:text-lg">{{ number_format($netSmsProfit, 0) }} تومان</span></div>
                         <div class="flex justify-between items-center text-sm sm:text-base"><span class="text-gray-600">درصد سود:</span><span class="font-bold text-base sm:text-lg">{{ number_format($smsProfitPercentage, 2) }}%</span></div>
                     </div>
                 </div>
@@ -414,7 +415,7 @@
             data: {
                 labels: @json(array_column($salesData, 'month')),
                 datasets: [{
-                    label: 'فروش',
+                    label: 'فروش (تومان)',
                     data: @json(array_column($salesData, 'sum')),
                     backgroundColor: 'rgba(139, 92, 246, 0.5)',
                     borderColor: 'rgba(139, 92, 246, 1)',
@@ -433,6 +434,20 @@
                                 size: window.innerWidth < 640 ? 10 : 12
                             }
                         }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('fa-IR').format(context.parsed.y) + ' تومان';
+                                }
+                                return label;
+                            }
+                        }
                     }
                 },
                 scales: {
@@ -444,9 +459,17 @@
                         }
                     },
                     y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'مبلغ (تومان)'
+                        },
                         ticks: {
                             font: {
                                 size: window.innerWidth < 640 ? 10 : 12
+                            },
+                            callback: function(value) {
+                                return new Intl.NumberFormat('fa-IR').format(value);
                             }
                         }
                     }

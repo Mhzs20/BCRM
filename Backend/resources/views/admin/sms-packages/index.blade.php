@@ -47,6 +47,9 @@
                                             @if($package->discount_price)
                                                 <span class="line-through text-red-500">{{ number_format($package->price) }}</span>
                                                 <span class="font-bold text-green-600">{{ number_format($package->discount_price) }}</span>
+                                                @if($package->discount_percentage)
+                                                    <span class="text-xs text-gray-500">({{ $package->discount_percentage }}% تخفیف)</span>
+                                                @endif
                                             @else
                                                 {{ number_format($package->price) }}
                                             @endif

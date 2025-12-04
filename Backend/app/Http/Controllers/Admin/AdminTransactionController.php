@@ -43,6 +43,11 @@ class AdminTransactionController extends Controller
                 $q->where('name','like','%'.$request->salon.'%');
             });
         }
+        if ($request->filled('mobile')) {
+            $query->whereHas('salon.user', function($q) use ($request){
+                $q->where('mobile','like','%'.$request->mobile.'%');
+            });
+        }
         if ($request->filled('ref')) {
             $query->whereHas('transactions', function($q) use ($request){
                 $q->where('reference_id','like','%'.$request->ref.'%')
@@ -104,7 +109,7 @@ class AdminTransactionController extends Controller
 
         return view('admin.transactions.index', [
             'orders' => $orders,
-            'filters' => $request->only(['status','type','gateway','salon','ref','period']),
+            'filters' => $request->only(['status','type','gateway','salon','mobile','ref','period']),
             'period' => $period,
             'stats' => [
                 'daily' => $daily,
