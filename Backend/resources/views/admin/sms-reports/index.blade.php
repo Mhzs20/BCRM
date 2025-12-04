@@ -9,24 +9,71 @@
         <div class="my-2 flex sm:flex-row flex-col">
             {{-- Add any filters if needed in the future --}}
         </div>
-        <div class="-mx-4 sm:-mx-8 px-4 sm:px-8 py-4 overflow-x-auto">
+        <!-- Mobile Card View -->
+        <div class="block lg:hidden space-y-4 mt-4">
+            @forelse ($smsBatches as $batch)
+                <div class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                    <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900">{{ $batch->salon_name }}</p>
+                        </div>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800" title="مجموع پارت‌های کسر شده">
+                            {{ ($batch->recipients_count ?? 0) }}
+                        </span>
+                    </div>
+                    <div class="px-4 py-3 space-y-3">
+                        <div class="flex items-start">
+                            <span class="text-xs font-medium text-gray-500 w-24 flex-shrink-0">وضعیت تایید:</span>
+                            <span class="text-xs text-gray-900">{{ $batch->approval_status }}</span>
+                        </div>
+                        <div>
+                            <span class="text-xs font-medium text-gray-500">متن پیام:</span>
+                            <div class="mt-2 space-y-2">
+                                <div>
+                                    <span class="text-xs font-bold text-gray-700">متن اصلی:</span>
+                                    <p class="text-xs text-gray-800 bg-gray-100 rounded-md p-2 mt-1 whitespace-pre-wrap break-words">{{ $batch->original_content ?? $batch->content }}</p>
+                                </div>
+                                @if(!empty($batch->edited_content) && $batch->edited_content !== $batch->original_content)
+                                <div>
+                                    <span class="text-xs font-bold text-blue-700">متن ارسال شده:</span>
+                                    <p class="text-xs text-blue-800 bg-blue-50 rounded-md p-2 mt-1 whitespace-pre-wrap break-words">{{ $batch->edited_content }}</p>
+                                </div>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <span class="text-xs font-medium text-gray-500 w-24 flex-shrink-0">تاریخ:</span>
+                            <span class="text-xs text-gray-900">{{ \Morilog\Jalali\Jalalian::fromCarbon($batch->created_at)->format('Y/m/d H:i') }}</span>
+                        </div>
+                    </div>
+                </div>
+            @empty
+                <div class="text-center py-8 text-gray-500 text-sm">هیچ گزارشی برای نمایش وجود ندارد.</div>
+            @endforelse
+        </div>
+
+        <!-- Desktop Table View -->
+        <div class="hidden lg:block -mx-4 sm:-mx-8 px-4 sm:px-8 py-4 overflow-x-auto">
             <div class="inline-block min-w-full shadow rounded-lg overflow-hidden">
                 <table class="min-w-full leading-normal">
                     <thead>
                         <tr>
-                            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 سالن
                             </th>
-                            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 محتوای پیام (اصلی / ارسال شده)
                             </th>
-                            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 تعداد گیرندگان
                             </th>
-                            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                شارژ کسر شده
+                            </th>
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 وضعیت تایید / ارسال
                             </th>
-                            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
                                 تاریخ درخواست
                             </th>
                         </tr>
@@ -34,27 +81,30 @@
                     <tbody>
                         @forelse ($smsBatches as $batch)
                             <tr>
-                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm">
                                     <p class="text-gray-900 whitespace-no-wrap">{{ $batch->salon_name }}</p>
                                 </td>
-                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm">
                                     <div class="space-y-2">
                                         <div>
                                             <span class="text-xs font-bold text-gray-700">متن اصلی:</span>
-                                            <p class="text-xs text-gray-800 bg-gray-100 rounded-md p-2 mt-1 whitespace-pre-wrap">{{ $batch->original_content ?? $batch->content }}</p>
+                                            <p class="text-xs text-gray-800 bg-gray-100 rounded-md p-2 mt-1 whitespace-pre-wrap max-w-xs">{{ $batch->original_content ?? $batch->content }}</p>
                                         </div>
                                         @if(!empty($batch->edited_content) && $batch->edited_content !== $batch->original_content)
                                         <div>
                                             <span class="text-xs font-bold text-blue-700">متن ارسال شده:</span>
-                                            <p class="text-xs text-blue-800 bg-blue-50 rounded-md p-2 mt-1 whitespace-pre-wrap">{{ $batch->edited_content }}</p>
+                                            <p class="text-xs text-blue-800 bg-blue-50 rounded-md p-2 mt-1 whitespace-pre-wrap max-w-xs">{{ $batch->edited_content }}</p>
                                         </div>
                                         @endif
                                     </div>
                                 </td>
-                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                    <p class="text-gray-900 whitespace-no-wrap">{{ $batch->recipients_count }}</p>
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm text-center">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">{{ $batch->recipients_count }}</span>
                                 </td>
-                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm text-center">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">{{ ($batch->recipients_count ?? 0) }}</span>
+                                </td>
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm">
                                     <div class="space-y-3">
                                         <!-- وضعیت تایید -->
                                         <div>
@@ -132,7 +182,7 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm">
                                     <p class="text-gray-900 whitespace-no-wrap">
                                         {{ \Morilog\Jalali\Jalalian::fromCarbon($batch->created_at)->format('Y/m/d H:i') }}
                                     </p>

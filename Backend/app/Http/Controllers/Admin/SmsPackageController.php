@@ -35,12 +35,20 @@ class SmsPackageController extends Controller
             'name' => 'required|string|max:255',
             'sms_count' => 'required|integer|min:1',
             'price' => 'required|integer|min:0',
+            'discount_percentage' => 'nullable|numeric|min:0|max:100',
             'discount_price' => 'nullable|integer|min:0|lt:price',
             'is_active' => 'sometimes|boolean',
         ]);
 
-        $data = $request->only(['name', 'sms_count', 'price', 'discount_price']);
+        $data = $request->only(['name', 'sms_count', 'price', 'discount_percentage']);
         $data['is_active'] = $request->boolean('is_active');
+        
+        // محاسبه قیمت با تخفیف بر اساس درصد تخفیف
+        if ($request->filled('discount_percentage') && $request->discount_percentage > 0) {
+            $data['discount_price'] = $request->price - ($request->price * $request->discount_percentage / 100);
+        } elseif ($request->filled('discount_price')) {
+            $data['discount_price'] = $request->discount_price;
+        }
 
         SmsPackage::create($data);
 
@@ -66,14 +74,24 @@ class SmsPackageController extends Controller
             'name' => 'required|string|max:255',
             'sms_count' => 'required|integer|min:1',
             'price' => 'required|numeric|min:0',
+            'discount_percentage' => 'nullable|numeric|min:0|max:100',
             'discount_price' => 'nullable|numeric|min:0|lt:price',
             'is_active' => 'sometimes|boolean',
         ]);
 
         Log::info('SmsPackage validation passed.');
 
-        $data = $request->only(['name', 'sms_count', 'price', 'discount_price']);
+        $data = $request->only(['name', 'sms_count', 'price', 'discount_percentage']);
         $data['is_active'] = $request->boolean('is_active');
+        
+        // محاسبه قیمت با تخفیف بر اساس درصد تخفیف
+        if ($request->filled('discount_percentage') && $request->discount_percentage > 0) {
+            $data['discount_price'] = $request->price - ($request->price * $request->discount_percentage / 100);
+        } elseif ($request->filled('discount_price')) {
+            $data['discount_price'] = $request->discount_price;
+        } else {
+            $data['discount_price'] = null;
+        }
 
         Log::info('SmsPackage data prepared for update.', ['prepared_data' => $data]);
         Log::info('SmsPackage before update.', ['smsPackage_before' => $smsPackage->toArray()]);

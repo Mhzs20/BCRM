@@ -449,7 +449,7 @@ class ManualSmsController extends Controller
 
             // No need to decrement balance here, it's handled by the difference calculation above.
             DB::commit();
-            return redirect()->route('admin.manual_sms.reports')->with('success', 'عملیات ارسال پیامک‌ها انجام شد. وضعیت نهایی در این صفحه قابل مشاهده است.');
+            return redirect()->route('admin.manual_sms.approval')->with('success', 'پیامک با موفقیت تایید و ارسال شد.');
         } catch (\Exception $e) {
             DB::rollBack();
             // If an error occurs during sending, refund the balance that was adjusted/deducted during approval

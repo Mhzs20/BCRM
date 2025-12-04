@@ -9,33 +9,93 @@
         <div class="my-2 flex sm:flex-row flex-col">
             {{-- Add any filters if needed in the future --}}
         </div>
-        <div class="-mx-4 sm:-mx-8 px-4 sm:px-8 py-4 overflow-x-auto">
+        <!-- Mobile Card View -->
+        <div class="block lg:hidden space-y-4 mt-4">
+            @forelse ($campaigns as $campaign)
+                <div class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                    <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900">{{ $campaign->salon->name ?? 'نامشخص' }}</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ $campaign->user->name ?? 'نامشخص' }}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800" title="تعداد مشتریان">
+                                {{ $campaign->customer_count }}
+                            </span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800" title="پارت‌های کسر شده">
+                                {{ $campaign->total_cost }} پارت
+                            </span>
+                        </div>
+                    </div>
+                    <div class="px-4 py-3 space-y-3">
+                        <div>
+                            <span class="text-xs font-medium text-gray-500">متن پیام:</span>
+                            <div class="mt-2 space-y-2">
+                                <div>
+                                    <span class="text-xs font-bold text-gray-700">متن اصلی:</span>
+                                    <p class="text-xs text-gray-800 bg-gray-100 rounded-md p-2 mt-1 whitespace-pre-wrap break-words">{{ $campaign->original_message ?? $campaign->message }}</p>
+                                </div>
+                                @if(!empty($campaign->edited_message) && $campaign->edited_message !== $campaign->original_message)
+                                <div>
+                                    <span class="text-xs font-bold text-blue-700">متن ویرایش‌شده:</span>
+                                    <p class="text-xs text-blue-800 bg-blue-50 rounded-md p-2 mt-1 whitespace-pre-wrap break-words">{{ $campaign->edited_message }}</p>
+                                </div>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <span class="text-xs font-medium text-gray-500 w-24 flex-shrink-0">وضعیت تایید:</span>
+                            <span class="text-xs text-gray-900">{{ $campaign->approval_status }}</span>
+                        </div>
+                        <div class="flex items-start">
+                            <span class="text-xs font-medium text-gray-500 w-24 flex-shrink-0">وضعیت ارسال:</span>
+                            <span class="text-xs text-gray-900">{{ $campaign->status }}</span>
+                        </div>
+                        <div class="flex items-start">
+                            <span class="text-xs font-medium text-gray-500 w-24 flex-shrink-0">تاریخ:</span>
+                            <span class="text-xs text-gray-900">{{ \Morilog\Jalali\Jalalian::fromCarbon($campaign->created_at)->format('Y/m/d H:i') }}</span>
+                        </div>
+                    </div>
+                </div>
+            @empty
+                <div class="text-center py-8 text-gray-500 text-sm">هیچ کمپینی یافت نشد.</div>
+            @endforelse
+        </div>
+
+        <!-- Desktop Table View -->
+        <div class="hidden lg:block -mx-4 sm:-mx-8 px-4 sm:px-8 py-4 overflow-x-auto">
             <div class="inline-block min-w-full shadow rounded-lg overflow-hidden">
                 <table class="min-w-full leading-normal">
                     <thead>
                         <tr>
-                            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 سالن
                             </th>
-                            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 فرستنده
                             </th>
-                            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                شماره موبایل
+                            </th>
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 محتوای پیام
                             </th>
-                            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 تعداد مشتریان
                             </th>
-                            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                هزینه کل
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                تعداد پیامک
                             </th>
-                            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                شارژ کسر شده
+                            </th>
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 وضعیت تایید
                             </th>
-                            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 وضعیت ارسال
                             </th>
-                            <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
+                            <th class="px-4 py-3 border-b-2 border-gray-200 bg-gray-100 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
                                 تاریخ درخواست
                             </th>
                         </tr>
@@ -43,17 +103,26 @@
                     <tbody>
                         @forelse ($campaigns as $campaign)
                             <tr>
-                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm">
                                     <p class="text-gray-900 whitespace-no-wrap">{{ $campaign->salon->name ?? 'نامشخص' }}</p>
                                 </td>
-                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm">
                                     <p class="text-gray-900 whitespace-no-wrap">{{ $campaign->user->name ?? 'نامشخص' }}</p>
                                 </td>
-                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm">
+                                    @if($campaign->user && $campaign->user->mobile)
+                                        <a href="{{ route('admin.referral.users.wallet', $campaign->user->id) }}" class="text-blue-600 hover:text-blue-800 font-medium underline" title="مشاهده پروفایل کاربر">
+                                            {{ $campaign->user->mobile }}
+                                        </a>
+                                    @else
+                                        <span class="text-gray-400">N/A</span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm">
                                     <div class="space-y-2">
                                         <div>
                                             <span class="text-xs font-bold text-gray-700">متن اصلی:</span>
-                                            <p class="text-xs text-gray-800 bg-gray-100 rounded-md p-2 mt-1 whitespace-pre-wrap">{{ $campaign->original_message ?? $campaign->message }}</p>
+                                            <p class="text-xs text-gray-800 bg-gray-100 rounded-md p-2 mt-1 whitespace-pre-wrap max-w-xs">{{ $campaign->original_message ?? $campaign->message }}</p>
                                         </div>
                                         @if(!empty($campaign->edited_message) && $campaign->edited_message !== $campaign->original_message)
                                         <div>
@@ -63,13 +132,26 @@
                                         @endif
                                     </div>
                                 </td>
-                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                    <p class="text-gray-900 whitespace-no-wrap">{{ $campaign->customer_count }}</p>
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm text-center">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">{{ $campaign->customer_count }}</span>
                                 </td>
-                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                                    <p class="text-gray-900 whitespace-no-wrap">{{ $campaign->total_cost }}</p>
+                                @php
+                                    $msg = $campaign->original_message ?? $campaign->message ?? '';
+                                    $length = mb_strlen($msg);
+                                    $isPersian = preg_match('/[\x{0600}-\x{06FF}]/u', $msg) === 1;
+                                    if ($isPersian) {
+                                        $parts = $length <= 70 ? 1 : (int)ceil($length / 67);
+                                    } else {
+                                        $parts = $length <= 160 ? 1 : (int)ceil($length / 153);
+                                    }
+                                @endphp
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm text-center">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">{{ $parts }}</span>
                                 </td>
-                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm text-center">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">{{ $campaign->total_cost }}</span>
+                                </td>
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm">
                                     @php
                                         $approvalStatusClasses = [
                                             'approved' => 'bg-green-100 text-green-800',
@@ -96,7 +178,7 @@
                                         </p>
                                     @endif
                                 </td>
-                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm">
                                     @php
                                         $statusClasses = [
                                             'draft' => 'bg-gray-100 text-gray-800',
@@ -131,7 +213,7 @@
                                         </div>
                                     @endif
                                 </td>
-                                <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                                <td class="px-4 py-3 border-b border-gray-200 bg-white text-sm">
                                     <p class="text-gray-900 whitespace-no-wrap">
                                         {{ \Morilog\Jalali\Jalalian::fromCarbon($campaign->created_at)->format('Y/m/d H:i') }}
                                     </p>
@@ -139,7 +221,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="px-5 py-5 border-b border-gray-200 bg-white text-sm text-center text-gray-500">
+                                <td colspan="10" class="px-5 py-5 border-b border-gray-200 bg-white text-sm text-center text-gray-500">
                                     هیچ کمپینی یافت نشد.
                                 </td>
                             </tr>
