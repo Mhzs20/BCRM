@@ -23,11 +23,18 @@
             <p class="mt-2 text-sm text-gray-500">قیمت اصلی بسته بدون تخفیف.</p>
         </div>
 
-        <!-- Discount Price -->
+        <!-- Discount Percentage -->
+        <div>
+            <label for="discount_percentage" class="block text-sm font-medium text-gray-700">درصد تخفیف (%)</label>
+            <input type="number" name="discount_percentage" id="discount_percentage" value="{{ old('discount_percentage', $smsPackage->discount_percentage ?? '') }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" step="0.01" min="0" max="100">
+            <p class="mt-2 text-sm text-gray-500">اختیاری. درصد تخفیف (0 تا 100). قیمت با تخفیف به صورت خودکار محاسبه می‌شود.</p>
+        </div>
+
+        <!-- Discount Price (Read-only, calculated) -->
         <div>
             <label for="discount_price" class="block text-sm font-medium text-gray-700">قیمت با تخفیف (تومان)</label>
-            <input type="number" name="discount_price" id="discount_price" value="{{ old('discount_price', $smsPackage->discount_price ?? '') }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" step="1">
-            <p class="mt-2 text-sm text-gray-500">اختیاری. در صورت پر کردن، این قیمت به کاربر نمایش داده می‌شود.</p>
+            <input type="number" name="discount_price" id="discount_price" value="{{ old('discount_price', $smsPackage->discount_price ?? '') }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-100" step="1" readonly>
+            <p class="mt-2 text-sm text-gray-500">این مقدار به صورت خودکار بر اساس درصد تخفیف محاسبه می‌شود.</p>
         </div>
     </div>
 
@@ -51,3 +58,32 @@
     <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">ذخیره</button>
     <a href="{{ route('admin.sms-packages.index') }}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md mr-2 hover:bg-gray-300">انصراف</a>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const priceInput = document.getElementById('price');
+    const discountPercentageInput = document.getElementById('discount_percentage');
+    const discountPriceInput = document.getElementById('discount_price');
+
+    function calculateDiscountPrice() {
+        const price = parseFloat(priceInput.value) || 0;
+        const discountPercentage = parseFloat(discountPercentageInput.value) || 0;
+
+        if (price > 0 && discountPercentage > 0 && discountPercentage <= 100) {
+            const discountPrice = Math.round(price - (price * discountPercentage / 100));
+            discountPriceInput.value = discountPrice;
+        } else {
+            discountPriceInput.value = '';
+        }
+    }
+
+    // محاسبه خودکار هنگام تغییر قیمت یا درصد تخفیف
+    priceInput.addEventListener('input', calculateDiscountPrice);
+    discountPercentageInput.addEventListener('input', calculateDiscountPrice);
+
+    // محاسبه اولیه در صورت وجود مقادیر
+    if (priceInput.value && discountPercentageInput.value) {
+        calculateDiscountPrice();
+    }
+});
+</script>

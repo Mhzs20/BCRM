@@ -25,8 +25,9 @@
         </div>
     </div>
 
-    <form method="GET" class="grid grid-cols-1 md:grid-cols-7 gap-4 mb-6 bg-white p-4 rounded-lg shadow">
+    <form method="GET" class="grid grid-cols-1 md:grid-cols-8 gap-4 mb-6 bg-white p-4 rounded-lg shadow">
         <input name="salon" value="{{ $filters['salon'] ?? '' }}" placeholder="نام سالن" class="border rounded px-3 py-2 text-sm" />
+        <input name="mobile" value="{{ $filters['mobile'] ?? '' }}" placeholder="شماره موبایل" class="border rounded px-3 py-2 text-sm" />
         <input name="ref" value="{{ $filters['ref'] ?? '' }}" placeholder="کد مرجع/Authority" class="border rounded px-3 py-2 text-sm" />
         <select name="type" class="border rounded px-3 py-2 text-sm">
             <option value="">نوع سفارش</option>
