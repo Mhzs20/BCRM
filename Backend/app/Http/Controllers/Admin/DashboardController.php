@@ -45,7 +45,7 @@ class DashboardController extends Controller
         
         // محاسبه تعداد پیامک بر اساس قیمت خرید
         $smsPurchasePricePerPart = Setting::where('key', 'sms_purchase_price_per_part')->first();
-        $smsPurchasePricePerPartValue = $smsPurchasePricePerPart ? (float)$smsPurchasePricePerPart->value : 140; // میانگین قیمت: 140 تومان
+        $smsPurchasePricePerPartValue = $smsPurchasePricePerPart ? (float)$smsPurchasePricePerPart->value : 135; // میانگین قیمت: 135 تومان
         
         $totalSmsCount = $smsPurchasePricePerPartValue > 0 ? floor($totalSmsBalanceToman / $smsPurchasePricePerPartValue) : 0;
         
