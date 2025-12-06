@@ -658,8 +658,8 @@ class ManualSmsController extends Controller
                 ->selectRaw('
                     COUNT(*) as total_count,
                     SUM(CASE WHEN status = "sent" THEN 1 ELSE 0 END) as successful_count,
-                    SUM(CASE WHEN status = "failed" THEN 1 ELSE 0 END) as failed_count,
-                    SUM(CASE WHEN status = "pending" THEN 1 ELSE 0 END) as pending_count
+                    SUM(CASE WHEN status = "failed" OR status = "not_sent" THEN 1 ELSE 0 END) as failed_count,
+                    SUM(CASE WHEN status = "pending" OR status = "processing" THEN 1 ELSE 0 END) as pending_count
                 ')
                 ->first();
 
