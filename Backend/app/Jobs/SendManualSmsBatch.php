@@ -97,16 +97,23 @@ class SendManualSmsBatch implements ShouldQueue
 
             foreach ($transactions as $transaction) {
                 $entry = $responsesByReceptor[$transaction->receptor] ?? null;
+                
+                $updateData = [];
                 if ($entry) {
                     $status = $smsService->mapKavenegarStatusToInternal($entry['status'] ?? null);
-                    $transaction->status = $status;
-                    $transaction->external_response = json_encode($entry);
-                    $transaction->sent_at = $status === 'sent' ? now() : $transaction->sent_at;
+                    $updateData['status'] = $status;
+                    $updateData['external_response'] = json_encode($entry);
+                    // Only update sent_at if it's actually sent, otherwise keep existing or null
+                    if ($status === 'sent') {
+                        $updateData['sent_at'] = now();
+                    }
                 } else {
-                    $transaction->status = 'failed';
-                    $transaction->external_response = 'پاسخی برای این گیرنده بازنگشت.';
+                    $updateData['status'] = 'failed';
+                    $updateData['external_response'] = 'پاسخی برای این گیرنده بازنگشت.';
                 }
-                $transaction->save();
+                
+                // Use direct update to ensure persistence and avoid model state issues
+                SmsTransaction::where('id', $transaction->id)->update($updateData);
             }
         });
 
