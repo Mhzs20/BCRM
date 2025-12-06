@@ -56,6 +56,15 @@ class SatisfactionController extends Controller
 
     SendSatisfactionSurveySms::dispatch($appointment, $appointment->salon);
 
+        // If satisfaction SMS was disabled, enable it for this manual send request
+        if (!$appointment->send_satisfaction_sms) {
+            $appointment->send_satisfaction_sms = true;
+        }
+        
+        // Update status to processing immediately
+        $appointment->satisfaction_sms_status = 'processing';
+        $appointment->save();
+
         return response()->json(['message' => 'پیامک نظرسنجی با موفقیت ارسال شد.']);
     }
 }
