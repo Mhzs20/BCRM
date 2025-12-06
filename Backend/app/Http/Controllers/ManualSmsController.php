@@ -657,9 +657,9 @@ class ManualSmsController extends Controller
             $batchStats = SmsTransaction::where('batch_id', $firstTransaction->batch_id)
                 ->selectRaw('
                     COUNT(*) as total_count,
-                    SUM(CASE WHEN status = "sent" THEN 1 ELSE 0 END) as successful_count,
+                    SUM(CASE WHEN status = "sent" OR (status = "pending" AND sent_at IS NOT NULL) THEN 1 ELSE 0 END) as successful_count,
                     SUM(CASE WHEN status = "failed" OR status = "not_sent" THEN 1 ELSE 0 END) as failed_count,
-                    SUM(CASE WHEN status = "pending" OR status = "processing" THEN 1 ELSE 0 END) as pending_count
+                    SUM(CASE WHEN (status = "pending" AND sent_at IS NULL) OR status = "processing" THEN 1 ELSE 0 END) as pending_count
                 ')
                 ->first();
 
