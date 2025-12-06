@@ -257,6 +257,85 @@ class ManualSmsController extends Controller
     }
 
     /**
+     * Show details of a pending manual SMS batch for the salon.
+     *
+     * @param Request $request
+     * @param \App\Models\Salon $salon
+     * @param string $batchId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function showSalonPendingManualBatch(Request $request, \App\Models\Salon $salon, string $batchId)
+    {
+        $user = Auth::user();
+
+        // Ensure user has access to this salon
+        if (!$user->is_superadmin && !$user->salons->contains($salon)) {
+            return response()->json(['message' => 'دسترسی غیرمجاز.'], 403);
+        }
+
+        $transactions = SmsTransaction::where('batch_id', $batchId)
+            ->where('salon_id', $salon->id)
+            ->where('approval_status', 'pending')
+            ->with(['customer:id,name,phone_number'])
+            ->paginate($request->get('per_page', 20));
+
+        if ($transactions->isEmpty()) {
+             return response()->json(['message' => 'هیچ پیامک در انتظار تاییدی برای این شناسه دسته یافت نشد.'], 404);
+        }
+
+        $formattedTransactions = $transactions->getCollection()->map(function ($transaction) {
+            $smsCount = $transaction->sms_count;
+            if ($smsCount === null && $transaction->content) {
+                $smsService = app(\App\Services\SmsService::class);
+                $smsCount = $smsService->calculateSmsParts($transaction->content);
+            }
+
+            $data = [
+                'id' => $transaction->id,
+                'type' => $transaction->type,
+                'sms_type' => $transaction->sms_type,
+                'status' => $transaction->status,
+                'amount' => $transaction->amount,
+                'sms_count' => $smsCount,
+                'receptor' => $transaction->receptor,
+                'content' => $transaction->content,
+                'description' => $transaction->description,
+                'date' => \Morilog\Jalali\Jalalian::fromDateTime($transaction->created_at)->format('Y/m/d'),
+                'time' => \Morilog\Jalali\Jalalian::fromDateTime($transaction->created_at)->format('H:i:s'),
+                'balance_deducted_at_submission' => $transaction->balance_deducted_at_submission,
+                'approval_status' => $transaction->approval_status,
+                'batch_id' => $transaction->batch_id,
+                'recipients_type' => $transaction->recipients_type,
+                'recipients_count' => $transaction->recipients_count,
+                'sms_parts' => $transaction->sms_parts,
+                'group_count' => ($transaction->recipients_count ?? 1) * ($transaction->sms_parts ?? $smsCount ?? 1),
+            ];
+
+            if ($transaction->customer) {
+                $data['customer'] = [
+                    'id' => $transaction->customer->id,
+                    'name' => $transaction->customer->name,
+                    'phone' => $transaction->customer->phone_number,
+                ];
+            }
+
+            return $data;
+        });
+
+        return response()->json([
+            'data' => $formattedTransactions,
+            'meta' => [
+                'current_page' => $transactions->currentPage(),
+                'last_page' => $transactions->lastPage(),
+                'per_page' => $transactions->perPage(),
+                'total' => $transactions->total(),
+                'from' => $transactions->firstItem(),
+                'to' => $transactions->lastItem(),
+            ],
+        ]);
+    }
+
+    /**
      * Cancel a pending manual SMS batch for the salon (refund the deducted balance).
      *
      * @param Request $request
