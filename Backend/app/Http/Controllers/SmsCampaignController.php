@@ -12,6 +12,7 @@ use App\Models\Profession;
 use App\Models\CustomerGroup;
 use App\Models\HowIntroduced;
 use App\Services\SmsService;
+use App\Jobs\SendSingleSmsJob;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -251,11 +252,7 @@ class SmsCampaignController extends Controller
         if ($sendToOwner && ($campaign->uses_template || $campaign->approval_status === 'approved')) {
             $ownerPhone = $salon->mobile ?? $salon->phone;
             if ($ownerPhone) {
-                try {
-                    app(\App\Services\SmsService::class)->sendSms($ownerPhone, $campaign->message);
-                } catch (\Exception $e) {
-                    Log::error("Failed to send owner copy for campaign #{$campaign->id}: " . $e->getMessage());
-                }
+                SendSingleSmsJob::dispatch($ownerPhone, $campaign->message)->onQueue('sms');
             }
         }
 
@@ -608,12 +605,8 @@ class SmsCampaignController extends Controller
         if ($campaign->send_to_owner) {
             $ownerPhone = $campaign->salon->mobile ?? $campaign->salon->phone;
             if ($ownerPhone) {
-                try {
-                    app(\App\Services\SmsService::class)->sendSms($ownerPhone, $campaign->message);
-                    Log::info("Owner copy sent for campaign #{$campaign->id} to {$ownerPhone}.");
-                } catch (\Exception $e) {
-                    Log::error("Failed to send owner copy for campaign #{$campaign->id}: " . $e->getMessage());
-                }
+                SendSingleSmsJob::dispatch($ownerPhone, $campaign->message)->onQueue('sms');
+                Log::info("Owner copy queued for campaign #{$campaign->id} to {$ownerPhone}.");
             }
         }
     }
