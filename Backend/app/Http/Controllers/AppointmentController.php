@@ -1209,9 +1209,10 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
                 return response()->json(['message' => 'نوبت متعلق به این سالن نیست.'], 403);
             }
 
-            // Check if reminder SMS is enabled for this appointment
+            // If reminder SMS was disabled, enable it for this manual send request
             if (!$appointment->send_reminder_sms) {
-                return response()->json(['message' => 'ارسال پیامک یادآوری برای این نوبت فعال نیست.'], 400);
+                $appointment->send_reminder_sms = true;
+                $appointment->save();
             }
 
             // Check if customer exists

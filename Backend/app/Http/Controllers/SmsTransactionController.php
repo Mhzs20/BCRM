@@ -133,7 +133,82 @@ class SmsTransactionController extends Controller
         // Build the paginated dataset (purchase + consumption combined) according to filters
         $transactions = $query->paginate($request->get('per_page', 20));
 
-        $formattedTransactions = $transactions->getCollection()->map(function ($transaction) {
+        // Group by batch_id for manual_send and bulk SMS types
+        $processedTransactions = collect();
+        $processedBatchIds = [];
+        $processedCampaignIds = [];
+
+        // Get campaigns for this salon that should appear in the list
+        $campaignsQuery = \App\Models\SmsCampaign::query()
+            ->where('salon_id', $salon ? $salon->id : null)
+            ->where('approval_status', 'approved')
+            ->latest();
+
+        // Apply date filter to campaigns if provided
+        if ($fromDate && $toDate) {
+            $campaignsQuery->whereBetween('created_at', [$fromDate, $toDate]);
+        }
+
+        $campaigns = $campaignsQuery->get();
+
+        foreach ($transactions->getCollection() as $transaction) {
+            // Check if this is a group/campaign message (has batch_id and is manual_send or bulk)
+            $isGroupMessage = $transaction->batch_id && 
+                             in_array($transaction->sms_type, ['manual_sms', 'bulk']) &&
+                             ($transaction->recipients_count ?? 0) > 1;
+
+            if ($isGroupMessage) {
+                // Skip if we already processed this batch
+                if (in_array($transaction->batch_id, $processedBatchIds)) {
+                    continue;
+                }
+                $processedBatchIds[] = $transaction->batch_id;
+            }
+
+            $processedTransactions->push($transaction);
+        }
+
+        // Add campaigns as pseudo-transactions
+        foreach ($campaigns as $campaign) {
+            if (in_array($campaign->id, $processedCampaignIds)) {
+                continue;
+            }
+            $processedCampaignIds[] = $campaign->id;
+
+            // Create a pseudo-transaction object for the campaign
+            $campaignTransaction = (object) [
+                'id' => 'campaign_' . $campaign->id,
+                'campaign_id' => $campaign->id,
+                'type' => 'campaign',
+                'sms_type' => 'bulk',
+                'status' => $campaign->status,
+                'amount' => $campaign->total_cost,
+                'sms_count' => $campaign->customer_count,
+                'receptor' => null,
+                'content' => $campaign->message,
+                'description' => 'کمپین پیامکی',
+                'reference_id' => null,
+                'transaction_id' => null,
+                'sent_at' => $campaign->created_at,
+                'created_at' => $campaign->created_at,
+                'balance_deducted_at_submission' => $campaign->total_cost,
+                'approval_status' => $campaign->approval_status,
+                'rejection_reason' => $campaign->rejection_reason,
+                'approved_at' => $campaign->approved_at,
+                'batch_id' => null,
+                'recipients_type' => 'campaign',
+                'recipients_count' => $campaign->customer_count,
+                'sms_parts' => 1,
+                'smsPackage' => null,
+                'customer' => null,
+                'appointment' => null,
+                'salon' => $campaign->salon,
+            ];
+
+            $processedTransactions->push($campaignTransaction);
+        }
+
+        $formattedTransactions = $processedTransactions->map(function ($transaction) {
             // محاسبه sms_count برای تراکنش‌های قدیمی که این فیلد null است
             $smsCount = $transaction->sms_count;
             if ($smsCount === null && $transaction->content) {
@@ -169,7 +244,13 @@ class SmsTransactionController extends Controller
                 'recipients_type' => $transaction->recipients_type,
                 'recipients_count' => $transaction->recipients_count,
                 'sms_parts' => $transaction->sms_parts,
+                'group_count' => ($transaction->recipients_count ?? 1) * ($transaction->sms_parts ?? $smsCount ?? 1),
             ];
+
+            // Add campaign_id if it's a campaign pseudo-transaction
+            if (isset($transaction->campaign_id)) {
+                $data['campaign_id'] = $transaction->campaign_id;
+            }
 
             // Add SMS package info if exists
             if ($transaction->smsPackage) {
@@ -682,6 +763,171 @@ class SmsTransactionController extends Controller
                 'to' => $transactions->lastItem(),
             ],
             'summary' => $summary,
+        ]);
+    }
+
+    /**
+     * Show details of a manual SMS batch by batch_id
+     */
+    public function showBatchDetails(Request $request, Salon $salon, string $batchId)
+    {
+        $user = Auth::user();
+        
+        // Verify user has access to this salon
+        if (!$user->salons()->where('id', $salon->id)->exists()) {
+            return response()->json(['error' => 'Unauthorized access to salon'], 403);
+        }
+
+        $query = SmsTransaction::where('batch_id', $batchId)
+            ->where('salon_id', $salon->id)
+            ->with(['customer:id,name,phone_number'])
+            ->latest();
+
+        $transactions = $query->paginate($request->get('per_page', 20));
+
+        if ($transactions->isEmpty()) {
+            return response()->json(['message' => 'هیچ پیامکی برای این شناسه دسته یافت نشد.'], 404);
+        }
+
+        $firstTransaction = $transactions->first();
+        
+        // Batch summary
+        $batchSummary = [
+            'batch_id' => $batchId,
+            'content' => $firstTransaction->content,
+            'recipients_type' => $firstTransaction->recipients_type,
+            'recipients_count' => $firstTransaction->recipients_count,
+            'sms_parts' => $firstTransaction->sms_parts,
+            'approval_status' => $firstTransaction->approval_status,
+            'approved_at' => $firstTransaction->approved_at ? Jalalian::fromDateTime($firstTransaction->approved_at)->format('Y/m/d H:i:s') : null,
+            'created_at' => Jalalian::fromDateTime($firstTransaction->created_at)->format('Y/m/d H:i:s'),
+            'total_sms_count' => SmsTransaction::where('batch_id', $batchId)->sum('sms_count'),
+            'total_deducted' => SmsTransaction::where('batch_id', $batchId)->sum('balance_deducted_at_submission'),
+        ];
+
+        $formattedTransactions = $transactions->getCollection()->map(function ($transaction) {
+            $smsCount = $transaction->sms_count;
+            if ($smsCount === null && $transaction->content) {
+                $smsService = app(\App\Services\SmsService::class);
+                $smsCount = $smsService->calculateSmsParts($transaction->content);
+            }
+
+            $data = [
+                'id' => $transaction->id,
+                'type' => $transaction->type,
+                'sms_type' => $transaction->sms_type,
+                'status' => $transaction->status,
+                'amount' => $transaction->amount,
+                'sms_count' => $smsCount,
+                'receptor' => $transaction->receptor,
+                'content' => $transaction->content,
+                'date' => Jalalian::fromDateTime($transaction->sent_at ?? $transaction->created_at)->format('Y/m/d'),
+                'time' => Jalalian::fromDateTime($transaction->sent_at ?? $transaction->created_at)->format('H:i:s'),
+                'sent_at' => $transaction->sent_at ? Jalalian::fromDateTime($transaction->sent_at)->format('Y/m/d H:i:s') : null,
+                'balance_deducted_at_submission' => $transaction->balance_deducted_at_submission,
+                'approval_status' => $transaction->approval_status,
+                'sms_parts' => $transaction->sms_parts,
+            ];
+
+            if ($transaction->customer) {
+                $data['customer'] = [
+                    'id' => $transaction->customer->id,
+                    'name' => $transaction->customer->name,
+                    'phone' => $transaction->customer->phone_number,
+                ];
+            }
+
+            return $data;
+        });
+
+        return response()->json([
+            'batch_summary' => $batchSummary,
+            'data' => $formattedTransactions,
+            'meta' => [
+                'current_page' => $transactions->currentPage(),
+                'last_page' => $transactions->lastPage(),
+                'per_page' => $transactions->perPage(),
+                'total' => $transactions->total(),
+                'from' => $transactions->firstItem(),
+                'to' => $transactions->lastItem(),
+            ],
+        ]);
+    }
+
+    /**
+     * Show details of a campaign by campaign_id
+     */
+    public function showCampaignDetails(Request $request, Salon $salon, int $campaignId)
+    {
+        $user = Auth::user();
+        
+        // Verify user has access to this salon
+        if (!$user->salons()->where('id', $salon->id)->exists()) {
+            return response()->json(['error' => 'Unauthorized access to salon'], 403);
+        }
+
+        $campaign = \App\Models\SmsCampaign::where('id', $campaignId)
+            ->where('salon_id', $salon->id)
+            ->first();
+
+        if (!$campaign) {
+            return response()->json(['message' => 'کمپین یافت نشد.'], 404);
+        }
+
+        $query = \App\Models\SmsCampaignMessage::where('campaign_id', $campaignId)
+            ->with(['customer:id,name,phone_number'])
+            ->latest();
+
+        $messages = $query->paginate($request->get('per_page', 20));
+
+        // Campaign summary
+        $campaignSummary = [
+            'campaign_id' => $campaign->id,
+            'message' => $campaign->message,
+            'customer_count' => $campaign->customer_count,
+            'total_cost' => $campaign->total_cost,
+            'approval_status' => $campaign->approval_status,
+            'approved_at' => $campaign->approved_at ? Jalalian::fromDateTime($campaign->approved_at)->format('Y/m/d H:i:s') : null,
+            'created_at' => Jalalian::fromDateTime($campaign->created_at)->format('Y/m/d H:i:s'),
+            'status_counts' => \App\Models\SmsCampaignMessage::where('campaign_id', $campaignId)
+                ->selectRaw('status, COUNT(*) as count')
+                ->groupBy('status')
+                ->get()
+                ->pluck('count', 'status'),
+        ];
+
+        $formattedMessages = $messages->getCollection()->map(function ($message) {
+            $data = [
+                'id' => $message->id,
+                'status' => $message->status,
+                'receptor' => $message->receptor,
+                'sent_at' => $message->sent_at ? Jalalian::fromDateTime($message->sent_at)->format('Y/m/d H:i:s') : null,
+                'delivered_at' => $message->delivered_at ? Jalalian::fromDateTime($message->delivered_at)->format('Y/m/d H:i:s') : null,
+                'external_response' => $message->external_response,
+            ];
+
+            if ($message->customer) {
+                $data['customer'] = [
+                    'id' => $message->customer->id,
+                    'name' => $message->customer->name,
+                    'phone' => $message->customer->phone_number,
+                ];
+            }
+
+            return $data;
+        });
+
+        return response()->json([
+            'campaign_summary' => $campaignSummary,
+            'data' => $formattedMessages,
+            'meta' => [
+                'current_page' => $messages->currentPage(),
+                'last_page' => $messages->lastPage(),
+                'per_page' => $messages->perPage(),
+                'total' => $messages->total(),
+                'from' => $messages->firstItem(),
+                'to' => $messages->lastItem(),
+            ],
         ]);
     }
 }
