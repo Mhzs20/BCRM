@@ -17,6 +17,7 @@ use App\Models\UserPackage;
 use Carbon\Carbon;
 use Morilog\Jalali\Jalali; // Explicitly import Jalali
 use Illuminate\Support\Facades\DB;
+use App\Jobs\SendSingleSmsJob;
 
 class AdminBulkSmsGiftController extends Controller
 {
@@ -311,9 +312,9 @@ class AdminBulkSmsGiftController extends Controller
                 'approved_by' => auth()->id(),
             ]);
 
-            // Optionally send a notification SMS
+            // Optionally send a notification SMS asynchronously
             if ($message && $salon->mobile) {
-                $smsService->sendSms($salon->mobile, $message);
+                SendSingleSmsJob::dispatch($salon->mobile, $message)->onQueue('sms');
             }
             $count++;
         }

@@ -19,8 +19,9 @@ class AdminSmsSettingController extends Controller
         $smsCharacterLimitFa = Setting::where('key', 'sms_part_char_limit_fa')->first();
         $smsCharacterLimitEn = Setting::where('key', 'sms_part_char_limit_en')->first();
         $smsPurchasePricePerPart = Setting::where('key', 'sms_purchase_price_per_part')->first();
+        $smsSenderNumber = Setting::where('key', 'sms_sender_number')->first();
 
-        return view('admin.sms-settings.index', compact('smsCostPerPart', 'smsCharacterLimitFa', 'smsCharacterLimitEn', 'smsPurchasePricePerPart'));
+        return view('admin.sms-settings.index', compact('smsCostPerPart', 'smsCharacterLimitFa', 'smsCharacterLimitEn', 'smsPurchasePricePerPart', 'smsSenderNumber'));
     }
 
     /**
@@ -36,6 +37,7 @@ class AdminSmsSettingController extends Controller
             'sms_part_char_limit_fa' => 'required|integer|min:1',
             'sms_part_char_limit_en' => 'required|integer|min:1',
             'sms_purchase_price_per_part' => 'required|numeric|min:0',
+            'sms_sender_number' => 'required|string|max:20',
         ]);
 
         Setting::updateOrCreate(
@@ -56,6 +58,11 @@ class AdminSmsSettingController extends Controller
         Setting::updateOrCreate(
             ['key' => 'sms_part_char_limit_en'],
             ['value' => $request->sms_part_char_limit_en]
+        );
+
+        Setting::updateOrCreate(
+            ['key' => 'sms_sender_number'],
+            ['value' => $request->sms_sender_number]
         );
 
         return redirect()->back()->with('success', 'تنظیمات پیامک با موفقیت به‌روزرسانی شد.');
