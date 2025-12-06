@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\SmsTransaction;
 use App\Models\User;
 use App\Services\SmsService;
+use App\Jobs\SendManualSmsBatch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
