@@ -10,6 +10,7 @@ use App\Models\Province;
 use App\Models\BusinessCategory;
 use App\Models\BusinessSubcategory;
 use App\Models\SalonSmsBalance;
+use App\Jobs\SendSingleSmsJob;
 use Carbon\Carbon;
 use App\Models\SmsTransaction;
 use App\Models\SalonNote;
@@ -436,9 +437,9 @@ class AdminSalonController extends Controller
                 'approved_by' => auth()->id(),
             ]);
 
-            // Optionally send a notification SMS
+            // Optionally send a notification SMS asynchronously
             if ($message && $salon->user->mobile) {
-                $smsService->sendSms($salon->user->mobile, $message);
+                SendSingleSmsJob::dispatch($salon->user->mobile, $message)->onQueue('sms');
             }
             $count++;
         }

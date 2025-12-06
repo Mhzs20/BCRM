@@ -15,6 +15,11 @@ class SendSmsCampaign implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * Route campaign sends to the dedicated sms queue.
+     */
+    public string $queue = 'sms';
+
     public $campaign;
 
     /**
