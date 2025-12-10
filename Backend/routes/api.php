@@ -133,6 +133,8 @@ Route::middleware('auth:api')->group(function () {
             Route::prefix('online-bookings')->name('online_bookings.')
                 ->middleware('feature:لینک اختصاصی رزرو آنلاین سالن')
                 ->group(function () {
+                    Route::get('setting', [\App\Http\Controllers\Api\OnlineBookingSettingController::class, 'show'])->name('setting.show');
+                    Route::post('setting', [\App\Http\Controllers\Api\OnlineBookingSettingController::class, 'update'])->name('setting.update');
                     Route::get('/', [\App\Http\Controllers\Api\OnlineBookingManagementController::class, 'index'])->name('index');
                     Route::post('{appointment}/approve', [\App\Http\Controllers\Api\OnlineBookingManagementController::class, 'approve'])->name('approve');
                     Route::post('{appointment}/reject', [\App\Http\Controllers\Api\OnlineBookingManagementController::class, 'reject'])->name('reject');
