@@ -121,7 +121,10 @@ class ServiceRenewalController extends Controller
         if ($templateId !== null) {
             RenewalReminderSetting::updateOrCreate(
                 ['salon_id' => $salon->id],
-                ['active_template_id' => $templateId]
+                [
+                    'active_template_id' => $templateId,
+                    'is_active' => true
+                ]
             );
         }
         if (!is_array($data) || empty($data)) {

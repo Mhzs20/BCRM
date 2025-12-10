@@ -46,7 +46,8 @@ class UpdateOrderAndBalance implements ShouldQueue
 
         DB::transaction(function () use ($order, $successfulTransaction) {
             // 1. Update the Order status to 'paid'
-            if ($order->status === 'pending') {
+            // Allow 'failed' status to recover from previous failed attempts if a new valid transaction occurs
+            if ($order->status === 'pending' || $order->status === 'failed' || $order->status === 'canceled') {
                 $order->update(['status' => 'paid']);
                 Log::info("Order {$order->id} status updated to 'paid'.");
 
@@ -83,6 +84,7 @@ class UpdateOrderAndBalance implements ShouldQueue
 
                         // Create SMS transaction record for purchase history
                         \App\Models\SmsTransaction::create([
+                            'user_id' => $order->user_id,
                             'salon_id' => $order->salon_id,
                             'sms_package_id' => $order->sms_package_id,
                             'type' => 'purchase',
