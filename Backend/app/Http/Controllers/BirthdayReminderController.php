@@ -113,6 +113,19 @@ class BirthdayReminderController extends Controller
             'is_global_active' => true,
             'send_days_before' => $data['send_days_before'] ?? null,
         ]);
+
+        // Ensure global active is true when updating settings
+        $reminder->is_global_active = true;
+
+        if (isset($data['send_time'])) {
+            $reminder->send_time = $data['send_time'];
+        }
+        if (isset($data['send_days_before'])) {
+            $reminder->send_days_before = $data['send_days_before'];
+        }
+        $reminder->template_id = $data['template_id'] ?? $reminder->template_id;
+        $reminder->save();
+
         $result = [];
         foreach ($data['customer_group_ids'] as $groupId => $settings) {
             $group = BirthdayReminderCustomerGroup::updateOrCreate([
@@ -121,6 +134,7 @@ class BirthdayReminderController extends Controller
             ], [
                 'is_active' => $settings['is_active'],
                 'send_days_before' => $settings['send_days_before'] ?? $reminder->send_days_before ?? 3,
+                'send_time' => $reminder->send_time // Sync send_time with global setting
             ]);
             $result[$groupId] = [
                 'success' => true,
@@ -129,7 +143,7 @@ class BirthdayReminderController extends Controller
                     'customer_group_id' => $groupId,
                     'is_active' => $group->is_active,
                     'send_days_before' => $group->send_days_before,
-                    'send_time' => $reminder->send_time,
+                    'send_time' => $group->send_time,
                     'template_id' => $reminder->template_id,
                     'updated_at' => $group->updated_at,
                     'created_at' => $group->created_at,
@@ -137,14 +151,7 @@ class BirthdayReminderController extends Controller
                 ]
             ];
         }
-        $reminder->template_id = $data['template_id'] ?? $reminder->template_id;
-        if (isset($data['send_time'])) {
-            $reminder->send_time = $data['send_time'];
-        }
-        if (isset($data['send_days_before'])) {
-            $reminder->send_days_before = $data['send_days_before'];
-        }
-        $reminder->save();
+        
         $response = [
             'success' => true,
             'send_days_before' => $reminder->send_days_before,

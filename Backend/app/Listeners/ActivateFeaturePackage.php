@@ -48,7 +48,8 @@ class ActivateFeaturePackage implements ShouldQueue
         try {
             DB::transaction(function () use ($order, $successfulTransaction) {
                 // 1. Update the Order status to 'completed' (if not already)
-                if ($order->status === 'pending') {
+                // Allow 'failed' status to recover from previous failed attempts
+                if ($order->status === 'pending' || $order->status === 'failed' || $order->status === 'canceled') {
                     $order->update(['status' => 'completed']);
                     Log::info("Order {$order->id} status updated to 'completed'.");
                 } else {
