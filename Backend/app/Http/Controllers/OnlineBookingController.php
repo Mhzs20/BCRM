@@ -13,6 +13,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Hashids\Hashids;
 use Morilog\Jalali\Jalalian;
+use App\Jobs\SendAppointmentConfirmationSms;
 
 class OnlineBookingController extends Controller
 {
@@ -58,6 +59,11 @@ class OnlineBookingController extends Controller
             $salon_name = $salon->name ?? null;
             $salon_phone = $salon->mobile ?? null;
             $salon_image = $salon->image ?? null;
+            $status = $appointment->status;
+
+            if ($status === 'pending_confirmation') {
+                return view('booking.pending', compact('service', 'date', 'operator', 'tracking_code', 'salon_id', 'salon_name', 'salon_phone', 'salon_image', 'hash'));
+            }
 
             return view('booking.success', compact('service', 'date', 'operator', 'tracking_code', 'salon_id', 'salon_name', 'salon_phone', 'salon_image', 'hash'));
         }
@@ -289,6 +295,12 @@ class OnlineBookingController extends Controller
                 ], 422);
             }
 
+            // Determine default status from salon settings
+            $defaultStatus = 'pending_confirmation';
+            if (isset($salon->online_booking_settings) && isset($salon->online_booking_settings['default_booking_status'])) {
+                $defaultStatus = $salon->online_booking_settings['default_booking_status'];
+            }
+
             // ایجاد نوبت
             $appointment = Appointment::create([
                 'salon_id' => $salonId,
@@ -297,7 +309,7 @@ class OnlineBookingController extends Controller
                 'appointment_date' => $request->appointment_date,
                 'start_time' => $request->start_time,
                 'end_time' => $endTime->format('H:i'),
-                'status' => 'pending_confirmation',
+                'status' => $defaultStatus,
                 'notes' => $request->notes,
                 'source' => 'online_booking'
             ]);
@@ -306,6 +318,11 @@ class OnlineBookingController extends Controller
             $appointment->services()->attach($request->service_ids);
 
             DB::commit();
+
+            // If status is confirmed, send confirmation SMS immediately
+            if ($appointment->status === 'confirmed') {
+                SendAppointmentConfirmationSms::dispatch($customer, $appointment, $salon, null);
+            }
 
             // Generate hash for appointment (if not present) and save
             try {

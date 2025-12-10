@@ -7,6 +7,7 @@ use App\Http\Resources\SmsCampaignResource;
 use App\Jobs\SendSmsCampaign;
 use App\Models\Salon;
 use App\Models\SmsCampaign;
+use App\Models\SmsTransaction;
 use App\Models\SalonSmsTemplate;
 use App\Models\Profession;
 use App\Models\CustomerGroup;
@@ -215,6 +216,25 @@ class SmsCampaignController extends Controller
                 if ($requiredParts > 0) {
                     $balance->decrement('balance', $requiredParts);
                 }
+
+                // Create SmsTransaction for the campaign
+                SmsTransaction::create([
+                    'user_id' => Auth::id(),
+                    'salon_id' => $salon->id,
+                    'amount' => 0,
+                    'sms_parts' => $requiredParts,
+                    'sms_count' => $requiredParts,
+                    'recipients_count' => $customers->count(),
+                    'sms_type' => 'campaign',
+                    'type' => 'send',
+                    'status' => 'pending',
+                    'approval_status' => $campaign->approval_status,
+                    'content' => $campaign->message,
+                    'sent_at' => null,
+                    'description' => 'کمپین پیامکی #' . $campaign->id,
+                    'receptor' => 'Campaign',
+                    'reference_id' => $campaign->id,
+                ]);
 
                 // Update campaign stats atomically (store parts count)
                 $campaign->update([
@@ -507,6 +527,15 @@ class SmsCampaignController extends Controller
         $campaign->approved_at = now();
         $campaign->save();
 
+        // Update SmsTransaction status
+        SmsTransaction::where('reference_id', $campaign->id)
+            ->where('sms_type', 'campaign')
+            ->update([
+                'approval_status' => 'approved',
+                'approved_by' => Auth::id(),
+                'approved_at' => now(),
+            ]);
+
         // Automatically trigger send process for approved campaigns
         if (in_array($campaign->status, ['draft', 'pending'])) {
             try {
@@ -536,6 +565,12 @@ class SmsCampaignController extends Controller
 
         try {
             DB::transaction(function () use ($campaign) {
+                // Check if messages already exist (meaning it was prepared by sendCampaign)
+                if ($campaign->messages()->exists()) {
+                    Log::info("Campaign {$campaign->id} already has messages. Skipping regeneration and balance deduction.");
+                    return;
+                }
+
                 // Re-run & lock relevant data
                 $filters = json_decode($campaign->filters, true) ?: [];
                 $customers = $this->buildFilteredQuery(new Request($filters), $campaign->salon)->get();
@@ -635,6 +670,16 @@ class SmsCampaignController extends Controller
             'rejection_reason' => $request->input('rejection_reason'),
         ]);
 
+        // Update SmsTransaction status
+        SmsTransaction::where('reference_id', $campaign->id)
+            ->where('sms_type', 'campaign')
+            ->update([
+                'approval_status' => 'rejected',
+                'approved_by' => Auth::id(),
+                'approved_at' => now(),
+                'rejection_reason' => $request->input('rejection_reason'),
+            ]);
+
         // Refund the deducted balance
         $salon = $campaign->salon;
         $salonSmsBalance = $salon->smsBalance()->firstOrCreate(['salon_id' => $salon->id], ['balance' => 0]);
@@ -676,6 +721,16 @@ class SmsCampaignController extends Controller
                 'approved_at' => now(),
                 'rejection_reason' => 'cancelled_by_user',
             ]);
+
+            // Update SmsTransaction status
+            SmsTransaction::where('reference_id', $campaign->id)
+                ->where('sms_type', 'campaign')
+                ->update([
+                    'approval_status' => 'cancelled',
+                    'approved_by' => $user->id,
+                    'approved_at' => now(),
+                    'rejection_reason' => 'cancelled_by_user',
+                ]);
 
             // Refund deducted balance if any
             $salonSmsBalance = $salon->smsBalance()->firstOrCreate(['salon_id' => $salon->id], ['balance' => 0]);

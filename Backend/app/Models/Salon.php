@@ -61,11 +61,13 @@ class Salon extends Model
         'is_active',
         'credit_score',
         'total_consumed', // Added for SMS consumption tracking
+        'online_booking_settings',
     ];
 
     protected $casts = [
         'credit_expiry_date' => 'date',
         'is_active' => 'boolean',
+        'online_booking_settings' => 'array',
     ];
 
     /**
