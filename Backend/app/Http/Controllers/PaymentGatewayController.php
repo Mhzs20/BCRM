@@ -122,7 +122,7 @@ class PaymentGatewayController extends Controller
                 // Find order by transaction ID
                 $order = Order::where('transaction_id', $authority)
                     ->where('type', 'wallet_package')
-                    ->where('status', 'pending')
+                    ->whereIn('status', ['pending', 'failed', 'canceled'])
                     ->first();
 
                 if (!$order) {

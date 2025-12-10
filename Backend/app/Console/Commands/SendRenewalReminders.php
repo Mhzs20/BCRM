@@ -41,11 +41,16 @@ class SendRenewalReminders extends Command
 
         $this->info('🚀 شروع بررسی یادآوری‌های ترمیم (سیستم جدید)...');
 
+        $currentTime = Carbon::now()->format('H:i');
+        $this->info("🕒 زمان فعلی: {$currentTime}");
+
         // دریافت تنظیمات فعال سرویس‌ها که سالن آن‌ها هم فعال است
+        // و زمان ارسال آن‌ها با زمان فعلی مطابقت دارد
         $activeServiceSettings = ServiceRenewalSetting::where('is_active', true)
             ->whereHas('salon.renewalReminderSetting', function($q) {
                 $q->where('is_active', true);
             })
+            ->where('reminder_time', 'like', "{$currentTime}%")
             ->with(['salon', 'service', 'template'])
             ->get();
 
