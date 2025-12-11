@@ -69,6 +69,7 @@
                     <p><strong>تاریخ ثبت‌نام:</strong> {{ verta($salon->created_at)->format('Y/m/d H:i') }}</p>
                     <p><strong>آخرین ورود:</strong> {{ $salon->user->last_login_at ? verta($salon->user->last_login_at)->format('Y/m/d H:i') : 'ثبت نشده' }}</p>
                     <p><strong>نوع فعالیت:</strong> {{ $salon->businessCategory->name ?? 'ثبت نشده' }}</p>
+                    <p><strong>تعداد مشتریان:</strong> {{ $salon->customers_count }}</p>
                     <p><strong>زیرمجموعه فعالیت:</strong>
                         @forelse ($salon->businessSubcategories as $subcategory)
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 ml-1">

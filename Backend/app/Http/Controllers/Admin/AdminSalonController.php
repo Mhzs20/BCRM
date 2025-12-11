@@ -183,6 +183,7 @@ class AdminSalonController extends Controller
         $cities = City::all(); // You might want to filter cities by province here
 
         $salon->load(['user', 'city', 'province', 'businessCategory', 'businessSubcategories', 'notes.user', 'smsBalance']);
+        $salon->loadCount('customers');
 
         return view('admin.salons.show', compact('salon', 'businessCategories', 'businessSubcategories', 'provinces', 'cities'));
     }
