@@ -834,4 +834,25 @@ class AdminSalonController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Remove the specified salon from storage.
+     */
+    public function destroy(Salon $salon)
+    {
+        try {
+            DB::beginTransaction();
+
+            // Delete the salon
+            $salon->delete();
+
+            DB::commit();
+
+            return redirect()->route('admin.salons.index')->with('success', 'سالن با موفقیت حذف شد.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'خطا در حذف سالن: ' . $e->getMessage());
+        }
+    }
 }
