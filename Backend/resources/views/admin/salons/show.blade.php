@@ -169,6 +169,9 @@
             <button type="button" onclick="openReduceSmsCreditModal({{ $salon->id }})" class="btn-action bg-red-600 text-white hover:bg-red-700 focus:ring-red-500">
                 <i class="ri-subtract-line ml-2"></i> کاهش اعتبار پیامک
             </button>
+            <button type="button" onclick="openDeleteModal({{ $salon->id }})" class="btn-action bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-lg">
+                <i class="ri-delete-bin-line ml-2"></i> حذف سالن
+            </button>
         </div>
     </div>
 
@@ -221,6 +224,7 @@
     @include('admin.salons.modals.reduce_sms_credit_modal', ['salon' => $salon])
     @include('admin.salons.modals.discount_codes_modal', ['salon' => $salon])
     @include('admin.salons.modals.feature_packages_modal', ['salon' => $salon])
+    @include('admin.salons.modals.delete_salon_modal', ['salon' => $salon])
 </div>
 
 <script>
@@ -284,6 +288,11 @@
         document.getElementById('modalSalonIdReduceSms').value = salonId;
         document.getElementById('reduceSmsCreditForm').action = `/admin/salons/${salonId}/reduce-sms-credit`;
         openModal('reduceSmsCreditModal');
+    }
+
+    function openDeleteModal(salonId) {
+        document.getElementById('deleteSalonForm').action = `/admin/salons/${salonId}`;
+        openModal('deleteSalonModal');
     }
 
     function openDiscountCodesModal(salonId) {
@@ -464,6 +473,9 @@
         }
         if (event.target.id === 'packageActivationModal') {
             closeModal('packageActivationModal');
+        }
+        if (event.target.id === 'deleteSalonModal') {
+            closeModal('deleteSalonModal');
         }
     }
 
