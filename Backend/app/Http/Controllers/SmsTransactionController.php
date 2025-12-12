@@ -177,7 +177,7 @@ class SmsTransactionController extends Controller
 
             // Create a pseudo-transaction object for the campaign
             $campaignTransaction = (object) [
-                'id' => 'campaign_' . $campaign->id,
+                'id' => $campaign->id,
                 'campaign_id' => $campaign->id,
                 'type' => 'campaign',
                 'sms_type' => 'bulk',
