@@ -15,11 +15,6 @@ class SendSmsCampaign implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    /**
-     * Route campaign sends to the dedicated sms queue.
-     */
-    public string $queue = 'sms';
-
     public $campaign;
 
     /**
@@ -30,6 +25,7 @@ class SendSmsCampaign implements ShouldQueue
     public function __construct(SmsCampaign $campaign)
     {
         $this->campaign = $campaign;
+        $this->onQueue('sms');
     }
 
     /**
