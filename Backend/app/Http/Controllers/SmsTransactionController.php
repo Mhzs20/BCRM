@@ -208,16 +208,37 @@ class SmsTransactionController extends Controller
             $processedTransactions->push($campaignTransaction);
         }
 
-        $formattedTransactions = $processedTransactions->map(function ($transaction) {
-            // محاسبه sms_count برای تراکنش‌های قدیمی که این فیلد null است
-            $smsCount = $transaction->sms_count;
+        // Pre-fetch missing SMS packages from Orders
+        $missingPackageOrderIds = [];
+        foreach ($processedTransactions as $transaction) {
+            if ($transaction instanceof SmsTransaction && 
+                !$transaction->smsPackage && 
+                $transaction->type === 'purchase' && 
+                $transaction->description) {
+                
+                if (preg_match('/سفارش (\d+)/', $transaction->description, $matches)) {
+                    $missingPackageOrderIds[$transaction->id] = $matches[1];
+                }
+            }
+        }
+
+        $orders = [];
+        $smsPackages = [];
+        if (!empty($missingPackageOrderIds)) {
+            $orders = \App\Models\Order::whereIn('id', array_unique($missingPackageOrderIds))->get()->keyBy('id');
+            $packageIds = $orders->pluck('sms_package_id')->filter()->unique();
+            if ($packageIds->isNotEmpty()) {
+                $smsPackages = \App\Models\SmsPackage::whereIn('id', $packageIds)->get()->keyBy('id');
+            }
+        }
+
+        $formattedTransactions = $processedTransactions->map(function ($transaction) use ($missingPackageOrderIds, $orders, $smsPackages) {
+             $smsCount = $transaction->sms_count;
             if ($smsCount === null && $transaction->content) {
-                // محاسبه تعداد پارت‌های پیامک بر اساس محتوا
-                $smsService = app(\App\Services\SmsService::class);
+                 $smsService = app(\App\Services\SmsService::class);
                 $smsCount = $smsService->calculateSmsParts($transaction->content);
             } elseif ($smsCount === null && $transaction->type === 'gift') {
-                // برای هدایا، sms_count برابر amount است
-                $smsCount = (int) $transaction->amount;
+                 $smsCount = (int) $transaction->amount;
             }
             
             $data = [
@@ -253,13 +274,26 @@ class SmsTransactionController extends Controller
             }
 
             // Add SMS package info if exists
-            if ($transaction->smsPackage) {
+            $smsPackage = $transaction->smsPackage;
+
+            // Fallback: Try to find package from order if missing
+            if (!$smsPackage && isset($missingPackageOrderIds[$transaction->id])) {
+                $orderId = $missingPackageOrderIds[$transaction->id];
+                if (isset($orders[$orderId])) {
+                    $order = $orders[$orderId];
+                    if ($order->sms_package_id && isset($smsPackages[$order->sms_package_id])) {
+                        $smsPackage = $smsPackages[$order->sms_package_id];
+                    }
+                }
+            }
+
+            if ($smsPackage) {
                 $data['package'] = [
-                    'id' => $transaction->smsPackage->id,
-                    'name' => $transaction->smsPackage->name,
-                    'sms_count' => $transaction->smsPackage->sms_count,
-                    'price' => $transaction->smsPackage->price,
-                    'discount_price' => $transaction->smsPackage->discount_price,
+                    'id' => $smsPackage->id,
+                    'name' => $smsPackage->name,
+                    'sms_count' => $smsPackage->sms_count,
+                    'price' => $smsPackage->price,
+                    'discount_price' => $smsPackage->discount_price,
                 ];
             }
 
