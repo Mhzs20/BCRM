@@ -844,12 +844,20 @@ class AdminSalonController extends Controller
         try {
             DB::beginTransaction();
 
+            // Get the user (owner) before deleting the salon
+            $user = $salon->user;
+
             // Delete the salon
             $salon->delete();
 
+            // Delete the user if it exists and is not a super admin
+            if ($user && !$user->is_superadmin) {
+                $user->delete();
+            }
+
             DB::commit();
 
-            return redirect()->route('admin.salons.index')->with('success', 'سالن با موفقیت حذف شد.');
+            return redirect()->route('admin.salons.index')->with('success', 'سالن و حساب کاربری مالک با موفقیت حذف شدند.');
 
         } catch (\Exception $e) {
             DB::rollBack();
