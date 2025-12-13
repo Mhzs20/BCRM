@@ -24,8 +24,8 @@ class Kernel extends ConsoleKernel
 		// Send renewal reminders every minute
 		$schedule->command('renewal:send-reminders')->everyMinute();
 
-		// Send birthday reminders daily at 09:00 AM
-		$schedule->command('reminders:send-birthday')->dailyAt('09:00');
+		// Send birthday reminders every minute to support any specific time set by user
+		$schedule->command('reminders:send-birthday')->everyMinute();
 	}
 
 	/**
