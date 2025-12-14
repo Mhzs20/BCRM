@@ -15,11 +15,13 @@ class ProfessionController extends Controller
     public function index()
     {
         $user = Auth::user();
+        // Allow access if active_salon_id is null (Global Templates)
+        
         if (is_null($user->active_salon_id)) {
-            return redirect()->route('admin.dashboard')->with('error', 'برای دسترسی به این بخش، ابتدا باید سالن فعال خود را انتخاب کنید.');
+             $professions = Profession::whereNull('salon_id')->paginate(10);
+        } else {
+             $professions = Profession::where('salon_id', $user->active_salon_id)->paginate(10);
         }
-
-        $professions = Profession::where('salon_id', $user->active_salon_id)->paginate(10);
 
         return view('admin.professions.index', compact('professions'));
     }
@@ -38,9 +40,7 @@ class ProfessionController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        if (is_null($user->active_salon_id)) {
-            return redirect()->route('admin.dashboard')->with('error', 'برای افزودن شغل، ابتدا باید سالن فعال خود را انتخاب کنید.');
-        }
+        // Allow creation if active_salon_id is null (Global Templates)
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -68,10 +68,8 @@ class ProfessionController extends Controller
     public function edit(Profession $profession)
     {
         $user = Auth::user();
-        if (is_null($user->active_salon_id)) {
-            return redirect()->route('admin.dashboard')->with('error', 'برای ویرایش شغل، ابتدا باید سالن فعال خود را انتخاب کنید.');
-        }
-
+        
+        // Check ownership: if user has salon, profession must match. If user has no salon (Global), profession must be global.
         if ($profession->salon_id !== $user->active_salon_id) {
             abort(403); // Forbidden
         }
@@ -84,10 +82,7 @@ class ProfessionController extends Controller
     public function update(Request $request, Profession $profession)
     {
         $user = Auth::user();
-        if (is_null($user->active_salon_id)) {
-            return redirect()->route('admin.dashboard')->with('error', 'برای ویرایش شغل، ابتدا باید سالن فعال خود را انتخاب کنید.');
-        }
-
+        
         if ($profession->salon_id !== $user->active_salon_id) {
             abort(403); // Forbidden
         }
@@ -109,10 +104,7 @@ class ProfessionController extends Controller
     public function destroy(Profession $profession)
     {
         $user = Auth::user();
-        if (is_null($user->active_salon_id)) {
-            return redirect()->route('admin.dashboard')->with('error', 'برای حذف شغل، ابتدا باید سالن فعال خود را انتخاب کنید.');
-        }
-
+        
         if ($profession->salon_id !== $user->active_salon_id) {
             abort(403); // Forbidden
         }

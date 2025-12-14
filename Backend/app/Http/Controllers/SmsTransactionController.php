@@ -38,17 +38,13 @@ class SmsTransactionController extends Controller
             $query->where('user_id', $user->id);
         }
         
-        // حذف پیامک‌های دسته‌جمعی که توسط ادمین برای کل کاربران فرستاده شده
-        // این پیامک‌ها با description شروع می‌شوند: "پیامک گروهی توسط ادمین"
         $query->where(function($q) {
             $q->where('description', 'NOT LIKE', 'پیامک گروهی توسط ادمین%')
               ->orWhereNull('description');
         });
 
-        // Additional filters (these can override the default purchase filter if needed)
         if ($request->filled('type')) {
             if ($request->type === 'send') {
-                // برای تراکنش‌های ارسال، چک کنیم type='send' یا sms_type مربوط به ارسال باشد
                 $query->where(function($q) {
                     $q->where('type', 'send')
                       ->orWhereIn('sms_type', [
@@ -58,13 +54,11 @@ class SmsTransactionController extends Controller
                       ]);
                 });
             } elseif ($request->type === 'purchase') {
-                // برای خرید، هم type و هم sms_type را چک کنیم
                 $query->where(function($q) {
                     $q->where('type', 'purchase')
                       ->orWhere('sms_type', 'purchase');
                 });
             } elseif ($request->type === 'gift') {
-                // برای هدیه، هم type و هم sms_type را چک کنیم
                 $query->where(function($q) {
                     $q->where('type', 'gift')
                       ->orWhere('sms_type', 'gift');
@@ -74,22 +68,18 @@ class SmsTransactionController extends Controller
             }
         }
 
-        // Filter by SMS type if provided
         if ($request->filled('sms_type')) {
             $query->where('sms_type', $request->sms_type);
         }
 
-        // Filter by status if provided
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // Filter by approval_status if provided
         if ($request->filled('approval_status')) {
             $query->where('approval_status', $request->approval_status);
         }
 
-        // Parse Jalali input dates (accepts Y/m/d) and convert to Carbon via Verta
         $fromDate = null;
         $toDate = null;
         try {
@@ -285,6 +275,11 @@ class SmsTransactionController extends Controller
 
             // Add SMS package info if exists
             $smsPackage = $transaction->smsPackage;
+
+            // Fallback 0: Try to load by ID if relation is missing but ID exists
+            if (!$smsPackage && $transaction->sms_package_id) {
+                $smsPackage = \App\Models\SmsPackage::find($transaction->sms_package_id);
+            }
 
             // Fallback: Try to find package from order if missing
             if (!$smsPackage && isset($missingPackageOrderIds[$transaction->id])) {
