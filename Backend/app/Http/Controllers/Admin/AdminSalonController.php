@@ -844,24 +844,49 @@ class AdminSalonController extends Controller
         try {
             DB::beginTransaction();
 
-            // Get the user (owner) before deleting the salon
-            $user = $salon->user;
-
-            // Delete the salon
+            // Delete the salon only
             $salon->delete();
-
-            // Delete the user if it exists and is not a super admin
-            if ($user && !$user->is_superadmin) {
-                $user->delete();
-            }
 
             DB::commit();
 
-            return redirect()->route('admin.salons.index')->with('success', 'سالن و حساب کاربری مالک با موفقیت حذف شدند.');
+            return redirect()->route('admin.salons.index')->with('success', 'سالن با موفقیت حذف شد.');
 
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'خطا در حذف سالن: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Remove the salon owner and all their salons.
+     */
+    public function destroyOwner(Salon $salon)
+    {
+        try {
+            DB::beginTransaction();
+
+            $user = $salon->user;
+
+            if ($user) {
+                if ($user->is_superadmin) {
+                    return back()->with('error', 'امکان حذف مدیر کل سیستم وجود ندارد.');
+                }
+                
+                // Deleting the user will cascade delete all their salons due to foreign key constraints
+                $user->delete();
+                
+                DB::commit();
+                return redirect()->route('admin.salons.index')->with('success', 'مالک و تمام سالن‌های وابسته با موفقیت حذف شدند.');
+            } else {
+                // If no user attached, just delete the salon
+                $salon->delete();
+                DB::commit();
+                return redirect()->route('admin.salons.index')->with('success', 'سالن با موفقیت حذف شد (مالک یافت نشد).');
+            }
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'خطا در حذف مالک: ' . $e->getMessage());
         }
     }
 }

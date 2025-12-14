@@ -83,6 +83,7 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
 
     // Salons
     Route::resource('salons', AdminSalonController::class);
+    Route::delete('salons/{salon}/destroy-owner', [AdminSalonController::class, 'destroyOwner'])->name('salons.destroy-owner');
     Route::post('salons/{salon}/toggle-status', [AdminSalonController::class, 'toggleStatus'])->name('salons.toggle-status');
     Route::post('salons/{salon}/reset-password', [AdminSalonController::class, 'resetPassword'])->name('salons.reset-password');
     Route::get('salons/{salon}/purchase-history', [AdminSalonController::class, 'purchaseHistory'])->name('salons.purchase-history');
