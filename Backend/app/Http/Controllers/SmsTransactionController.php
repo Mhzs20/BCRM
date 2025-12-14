@@ -234,6 +234,7 @@ class SmsTransactionController extends Controller
 
         $formattedTransactions = $processedTransactions->map(function ($transaction) use ($missingPackageOrderIds, $orders, $smsPackages, $allPackages) {
              $smsCount = $transaction->sms_count;
+
             if ($smsCount === null && $transaction->content) {
                  $smsService = app(\App\Services\SmsService::class);
                 $smsCount = $smsService->calculateSmsParts($transaction->content);
