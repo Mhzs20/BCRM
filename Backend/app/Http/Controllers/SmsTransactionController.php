@@ -277,7 +277,7 @@ class SmsTransactionController extends Controller
             $smsPackage = $transaction->smsPackage;
 
             // Fallback 0: Try to load by ID if relation is missing but ID exists
-            if (!$smsPackage && $transaction->sms_package_id) {
+            if (!$smsPackage && isset($transaction->sms_package_id) && $transaction->sms_package_id) {
                 $smsPackage = \App\Models\SmsPackage::find($transaction->sms_package_id);
             }
 
