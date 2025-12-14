@@ -173,6 +173,9 @@
             <button type="button" onclick="openDeleteModal({{ $salon->id }})" class="btn-action bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-lg">
                 <i class="ri-delete-bin-line ml-2"></i> حذف سالن
             </button>
+            <button type="button" onclick="openDeleteOwnerModal({{ $salon->id }})" class="btn-action bg-red-800 text-white hover:bg-red-900 focus:ring-red-700 shadow-lg border-2 border-red-900">
+                <i class="ri-user-unfollow-line ml-2"></i> حذف مالک و همه سالن‌ها
+            </button>
         </div>
     </div>
 
@@ -226,6 +229,7 @@
     @include('admin.salons.modals.discount_codes_modal', ['salon' => $salon])
     @include('admin.salons.modals.feature_packages_modal', ['salon' => $salon])
     @include('admin.salons.modals.delete_salon_modal', ['salon' => $salon])
+    @include('admin.salons.modals.delete_owner_modal', ['salon' => $salon])
 </div>
 
 <script>
@@ -294,6 +298,11 @@
     function openDeleteModal(salonId) {
         document.getElementById('deleteSalonForm').action = `/admin/salons/${salonId}`;
         openModal('deleteSalonModal');
+    }
+
+    function openDeleteOwnerModal(salonId) {
+        document.getElementById('deleteOwnerForm').action = `/admin/salons/${salonId}/destroy-owner`;
+        openModal('deleteOwnerModal');
     }
 
     function openDiscountCodesModal(salonId) {
@@ -477,6 +486,9 @@
         }
         if (event.target.id === 'deleteSalonModal') {
             closeModal('deleteSalonModal');
+        }
+        if (event.target.id === 'deleteOwnerModal') {
+            closeModal('deleteOwnerModal');
         }
     }
 
