@@ -15,11 +15,12 @@ class HowIntroducedController extends Controller
     public function index()
     {
         $user = Auth::user();
+        
         if (is_null($user->active_salon_id)) {
-            return redirect()->route('admin.dashboard')->with('error', 'برای دسترسی به این بخش، ابتدا باید سالن فعال خود را انتخاب کنید.');
+             $howIntroducedOptions = HowIntroduced::whereNull('salon_id')->paginate(10);
+        } else {
+             $howIntroducedOptions = HowIntroduced::where('salon_id', $user->active_salon_id)->paginate(10);
         }
-
-        $howIntroducedOptions = HowIntroduced::where('salon_id', $user->active_salon_id)->paginate(10);
 
         return view('admin.how-introduced.index', compact('howIntroducedOptions'));
     }
@@ -38,10 +39,7 @@ class HowIntroducedController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        if (is_null($user->active_salon_id)) {
-            return redirect()->route('admin.dashboard')->with('error', 'برای افزودن نحوه آشنایی، ابتدا باید سالن فعال خود را انتخاب کنید.');
-        }
-
+        
         $request->validate([
             'name' => 'required|string|max:255',
         ]);
@@ -69,11 +67,8 @@ class HowIntroducedController extends Controller
     public function edit(HowIntroduced $howIntroduced)
     {
         $user = Auth::user();
-        if (is_null($user->active_salon_id)) {
-            return redirect()->route('admin.dashboard')->with('error', 'برای ویرایش نحوه آشنایی، ابتدا باید سالن فعال خود را انتخاب کنید.');
-        }
-
-        // Ensure the option belongs to the authenticated salon
+        
+        // Ensure the option belongs to the authenticated salon or is global if user has no salon
         if ($howIntroduced->salon_id !== $user->active_salon_id) {
             abort(403); // Forbidden
         }
@@ -86,11 +81,8 @@ class HowIntroducedController extends Controller
     public function update(Request $request, HowIntroduced $howIntroduced)
     {
         $user = Auth::user();
-        if (is_null($user->active_salon_id)) {
-            return redirect()->route('admin.dashboard')->with('error', 'برای ویرایش نحوه آشنایی، ابتدا باید سالن فعال خود را انتخاب کنید.');
-        }
-
-        // Ensure the option belongs to the authenticated salon
+        
+        // Ensure the option belongs to the authenticated salon or is global if user has no salon
         if ($howIntroduced->salon_id !== $user->active_salon_id) {
             abort(403); // Forbidden
         }
@@ -112,11 +104,8 @@ class HowIntroducedController extends Controller
     public function destroy(HowIntroduced $howIntroduced)
     {
         $user = Auth::user();
-        if (is_null($user->active_salon_id)) {
-            return redirect()->route('admin.dashboard')->with('error', 'برای حذف نحوه آشنایی، ابتدا باید سالن فعال خود را انتخاب کنید.');
-        }
-
-        // Ensure the option belongs to the authenticated salon
+        
+        // Ensure the option belongs to the authenticated salon or is global if user has no salon
         if ($howIntroduced->salon_id !== $user->active_salon_id) {
             abort(403); // Forbidden
         }

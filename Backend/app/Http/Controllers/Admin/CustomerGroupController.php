@@ -15,11 +15,12 @@ class CustomerGroupController extends Controller
     public function index()
     {
         $user = Auth::user();
+        
         if (is_null($user->active_salon_id)) {
-            return redirect()->route('admin.dashboard')->with('error', 'برای دسترسی به این بخش، ابتدا باید سالن فعال خود را انتخاب کنید.');
+             $customerGroups = CustomerGroup::whereNull('salon_id')->paginate(10);
+        } else {
+             $customerGroups = CustomerGroup::where('salon_id', $user->active_salon_id)->paginate(10);
         }
-
-        $customerGroups = CustomerGroup::where('salon_id', $user->active_salon_id)->paginate(10);
 
         return view('admin.customer-groups.index', compact('customerGroups'));
     }
@@ -38,10 +39,7 @@ class CustomerGroupController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        if (is_null($user->active_salon_id)) {
-            return redirect()->route('admin.dashboard')->with('error', 'برای افزودن گروه مشتری، ابتدا باید سالن فعال خود را انتخاب کنید.');
-        }
-
+        
         $request->validate([
             'name' => 'required|string|max:255',
         ]);
@@ -68,10 +66,7 @@ class CustomerGroupController extends Controller
     public function edit(CustomerGroup $customerGroup)
     {
         $user = Auth::user();
-        if (is_null($user->active_salon_id)) {
-            return redirect()->route('admin.dashboard')->with('error', 'برای ویرایش گروه مشتری، ابتدا باید سالن فعال خود را انتخاب کنید.');
-        }
-
+        
         if ($customerGroup->salon_id !== $user->active_salon_id) {
             abort(403); // Forbidden
         }
@@ -84,10 +79,7 @@ class CustomerGroupController extends Controller
     public function update(Request $request, CustomerGroup $customerGroup)
     {
         $user = Auth::user();
-        if (is_null($user->active_salon_id)) {
-            return redirect()->route('admin.dashboard')->with('error', 'برای ویرایش گروه مشتری، ابتدا باید سالن فعال خود را انتخاب کنید.');
-        }
-
+        
         if ($customerGroup->salon_id !== $user->active_salon_id) {
             abort(403); // Forbidden
         }
@@ -109,10 +101,7 @@ class CustomerGroupController extends Controller
     public function destroy(CustomerGroup $customerGroup)
     {
         $user = Auth::user();
-        if (is_null($user->active_salon_id)) {
-            return redirect()->route('admin.dashboard')->with('error', 'برای حذف گروه مشتری، ابتدا باید سالن فعال خود را انتخاب کنید.');
-        }
-
+        
         if ($customerGroup->salon_id !== $user->active_salon_id) {
             abort(403); // Forbidden
         }
