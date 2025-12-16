@@ -42,6 +42,11 @@ class SyncSalonTemplates extends Command
         foreach ($salons as $salon) {
             // Sync Professions
             foreach ($templateProfessions as $template) {
+                // Safety: If salon is newer than template, assume it was deleted by user
+                if ($salon->created_at && $template->created_at && $salon->created_at->gt($template->created_at)) {
+                    continue;
+                }
+
                 $exists = $salon->professions()->where('name', $template->name)->exists();
                 if (!$exists) {
                     $salon->professions()->create(['name' => $template->name]);
@@ -50,6 +55,11 @@ class SyncSalonTemplates extends Command
 
             // Sync HowIntroduced
             foreach ($templateHowIntroduceds as $template) {
+                // Safety: If salon is newer than template, assume it was deleted by user
+                if ($salon->created_at && $template->created_at && $salon->created_at->gt($template->created_at)) {
+                    continue;
+                }
+
                 $exists = $salon->howIntroduceds()->where('name', $template->name)->exists();
                 if (!$exists) {
                     $salon->howIntroduceds()->create(['name' => $template->name]);
@@ -58,6 +68,11 @@ class SyncSalonTemplates extends Command
 
             // Sync CustomerGroups
             foreach ($templateCustomerGroups as $template) {
+                // Safety: If salon is newer than template, assume it was deleted by user
+                if ($salon->created_at && $template->created_at && $salon->created_at->gt($template->created_at)) {
+                    continue;
+                }
+
                 $exists = $salon->customerGroups()->where('name', $template->name)->exists();
                 if (!$exists) {
                     $salon->customerGroups()->create(['name' => $template->name]);

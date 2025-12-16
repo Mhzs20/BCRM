@@ -60,6 +60,14 @@ class HowIntroducedSeeder extends Seeder
             $salons = collect([$defaultSalon]); // Use collect to make it iterable like Salon::all()
         }
 
+        // Create Global Templates (salon_id = null)
+        foreach ($defaultOptions as $option) {
+            HowIntroduced::firstOrCreate(
+                ['salon_id' => null, 'name' => $option],
+                ['salon_id' => null, 'name' => $option]
+            );
+        }
+
         foreach ($salons as $salon) {
             foreach ($defaultOptions as $option) {
                 HowIntroduced::firstOrCreate(

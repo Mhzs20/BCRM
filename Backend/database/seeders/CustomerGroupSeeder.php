@@ -39,6 +39,14 @@ class CustomerGroupSeeder extends Seeder
             $salons = collect([$defaultSalon]);
         }
 
+        // Create Global Templates (salon_id = null)
+        foreach ($defaultCustomerGroups as $groupName) {
+            CustomerGroup::firstOrCreate(
+                ['salon_id' => null, 'name' => $groupName],
+                ['salon_id' => null, 'name' => $groupName]
+            );
+        }
+
         foreach ($salons as $salon) {
             foreach ($defaultCustomerGroups as $groupName) {
                 CustomerGroup::firstOrCreate(
