@@ -198,41 +198,32 @@ class SmsTransactionController extends Controller
             $processedTransactions->push($campaignTransaction);
         }
 
-        // Pre-fetch missing SMS packages from Orders
+        // Pre-fetch missing SMS packages from Orders and load all packages for fallback matching
         $missingPackageOrderIds = [];
-        $needsFallback = false;
+        $needsOrderFallback = false;
 
         foreach ($processedTransactions as $transaction) {
             if ($transaction instanceof SmsTransaction && 
                 !$transaction->smsPackage && 
                 $transaction->type === 'purchase') {
                 
-                $needsFallback = true;
-
                 if ($transaction->description && preg_match('/سفارش (\d+)/', $transaction->description, $matches)) {
                     $missingPackageOrderIds[$transaction->id] = $matches[1];
+                    $needsOrderFallback = true;
                 }
             }
         }
 
         $orders = [];
-        $smsPackages = [];
-        $allPackages = collect();
+        // Always fetch all packages to support "nearest match" fallback efficiently
+        // This is lightweight enough (usually < 20 packages) to do on every request involving purchases
+        $allPackages = \App\Models\SmsPackage::all();
 
-        if ($needsFallback) {
-            // Fetch all packages for fallback matching (including inactive ones)
-            $allPackages = \App\Models\SmsPackage::all();
-
-            if (!empty($missingPackageOrderIds)) {
-                $orders = \App\Models\Order::whereIn('id', array_unique($missingPackageOrderIds))->get()->keyBy('id');
-                $packageIds = $orders->pluck('sms_package_id')->filter()->unique();
-                if ($packageIds->isNotEmpty()) {
-                    $smsPackages = \App\Models\SmsPackage::whereIn('id', $packageIds)->get()->keyBy('id');
-                }
-            }
+        if ($needsOrderFallback && !empty($missingPackageOrderIds)) {
+            $orders = \App\Models\Order::whereIn('id', array_unique($missingPackageOrderIds))->get()->keyBy('id');
         }
 
-        $formattedTransactions = $processedTransactions->map(function ($transaction) use ($missingPackageOrderIds, $orders, $smsPackages, $allPackages) {
+        $formattedTransactions = $processedTransactions->map(function ($transaction) use ($missingPackageOrderIds, $orders, $allPackages) {
              $smsCount = $transaction->sms_count;
 
             if ($smsCount === null && $transaction->content) {
@@ -277,41 +268,44 @@ class SmsTransactionController extends Controller
             // Add SMS package info if exists
             $smsPackage = $transaction->smsPackage;
 
-            // Fallback 0: Try to load by ID if relation is missing but ID exists
-            if (!$smsPackage && isset($transaction->sms_package_id) && $transaction->sms_package_id) {
-                $smsPackage = \App\Models\SmsPackage::find($transaction->sms_package_id);
-            }
+            // Fallback Logic to find package if relation is missing
+            if (!$smsPackage && $transaction->type === 'purchase') {
+                // Priority 1: Check if sms_package_id exists on transaction
+                if (!empty($transaction->sms_package_id)) {
+                    $smsPackage = $allPackages->firstWhere('id', $transaction->sms_package_id);
+                }
 
-            // Fallback: Try to find package from order if missing
-            if (!$smsPackage && isset($missingPackageOrderIds[$transaction->id])) {
-                $orderId = $missingPackageOrderIds[$transaction->id];
-                if (isset($orders[$orderId])) {
-                    $order = $orders[$orderId];
-                    if ($order->sms_package_id && isset($smsPackages[$order->sms_package_id])) {
-                        $smsPackage = $smsPackages[$order->sms_package_id];
+                // Priority 2: Check Order in description
+                if (!$smsPackage && isset($missingPackageOrderIds[$transaction->id])) {
+                    $orderId = $missingPackageOrderIds[$transaction->id];
+                    if (isset($orders[$orderId])) {
+                        $order = $orders[$orderId];
+                        if ($order->sms_package_id) {
+                            $smsPackage = $allPackages->firstWhere('id', $order->sms_package_id);
+                        }
                     }
                 }
-            }
 
-            // Fallback 2: Try to find package by matching sms_count or amount
-            if (!$smsPackage && $transaction->type === 'purchase' && $allPackages->isNotEmpty()) {
-                // Try exact match on count and price
-                $smsPackage = $allPackages->first(function($p) use ($transaction, $smsCount) {
-                    return $p->sms_count == $smsCount && $p->price == $transaction->amount;
-                });
-                
-                // Try match on count only
-                if (!$smsPackage) {
-                    $smsPackage = $allPackages->first(function($p) use ($smsCount) {
-                        return $p->sms_count == $smsCount;
+                // Priority 3: Find nearest package by sms_count and price
+                if (!$smsPackage && $allPackages->isNotEmpty()) {
+                    // Try exact match on count and price
+                    $smsPackage = $allPackages->first(function($p) use ($transaction, $smsCount) {
+                        return $p->sms_count == $smsCount && $p->price == $transaction->amount;
                     });
-                }
-                
-                // Try match on price only
-                if (!$smsPackage) {
-                    $smsPackage = $allPackages->first(function($p) use ($transaction) {
-                        return $p->price == $transaction->amount;
-                    });
+                    
+                    // Try match on count only
+                    if (!$smsPackage && $smsCount > 0) {
+                        $smsPackage = $allPackages->first(function($p) use ($smsCount) {
+                            return $p->sms_count == $smsCount;
+                        });
+                    }
+                    
+                    // Try match on price only
+                    if (!$smsPackage && $transaction->amount > 0) {
+                        $smsPackage = $allPackages->first(function($p) use ($transaction) {
+                            return $p->price == $transaction->amount;
+                        });
+                    }
                 }
             }
 
