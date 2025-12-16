@@ -42,7 +42,12 @@ class SendBirthdayReminders extends Command
                 $pivot = $group->pivot;
                 
                 // Check time unless forced
-                if (!$force && $pivot->send_time !== $currentTime) {
+                // Changed: Instead of exact match, check if current time >= send_time
+                // This ensures SMS is sent even if the exact minute was missed
+                $sendTime = Carbon::createFromFormat('H:i', substr($pivot->send_time, 0, 5));
+                $currentTimeCarbon = Carbon::createFromFormat('H:i', $currentTime);
+                
+                if (!$force && $currentTimeCarbon->lt($sendTime)) {
                     continue;
                 }
                 
@@ -61,6 +66,18 @@ class SendBirthdayReminders extends Command
                     $targetDate = $now->copy()->addDays($pivot->send_days_before);
                     
                     if ($birthday->month === $targetDate->month && $birthday->day === $targetDate->day) {
+                        // Check if birthday SMS already sent today
+                        $alreadySent = \App\Models\SmsTransaction::where('customer_id', $customer->id)
+                            ->where('salon_id', $salon->id)
+                            ->where('sms_type', 'birthday_greeting')
+                            ->whereDate('created_at', now()->toDateString())
+                            ->exists();
+                        
+                        if ($alreadySent) {
+                            $this->warn("Birthday SMS already sent today to {$customer->name}. Skipping.");
+                            continue;
+                        }
+                        
                         $this->info("Sending birthday SMS to {$customer->phone_number} (Customer: {$customer->name}) for group {$group->name}");
                         
                         try {
