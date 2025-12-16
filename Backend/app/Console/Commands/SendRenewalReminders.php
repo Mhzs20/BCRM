@@ -100,10 +100,12 @@ class SendRenewalReminders extends Command
                         continue;
                     }
 
-                    // بررسی اینکه آیا قبلاً یادآوری ارسال شده
                     $existingLog = RenewalReminderLog::where('appointment_id', $appointment->id)
                         ->where('service_id', $service->id)
-                        ->where('status', 'sent')
+                        ->where(function($q) {
+                            $q->where('status', 'sent')
+                              ->orWhereDate('created_at', Carbon::today());
+                        })
                         ->first();
 
                     if ($existingLog) {
