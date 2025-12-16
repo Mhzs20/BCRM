@@ -19,7 +19,7 @@ class SendRenewalReminders extends Command
      *
      * @var string
      */
-    protected $signature = 'renewal:send-reminders {--dry-run : نمایش لیست بدون ارسال واقعی}';
+    protected $signature = 'renewal:send-reminders {--dry-run : نمایش لیست بدون ارسال واقعی} {--force : ارسال بدون توجه به زمان تنظیم شده}';
 
     /**
      * The console command description.
@@ -34,9 +34,14 @@ class SendRenewalReminders extends Command
     public function handle()
     {
         $isDryRun = $this->option('dry-run');
+        $force = $this->option('force');
         
         if ($isDryRun) {
             $this->info('🔍 حالت بررسی فعال - هیچ پیامکی ارسال نخواهد شد');
+        }
+        
+        if ($force) {
+            $this->info('⚡ حالت اجباری فعال - بدون توجه به زمان تنظیم شده');
         }
 
         $this->info('🚀 شروع بررسی یادآوری‌های ترمیم (سیستم جدید)...');
@@ -45,14 +50,19 @@ class SendRenewalReminders extends Command
         $this->info("🕒 زمان فعلی: {$currentTime}");
 
         // دریافت تنظیمات فعال سرویس‌ها که سالن آن‌ها هم فعال است
-        // و زمان ارسال آن‌ها با زمان فعلی مطابقت دارد
-        $activeServiceSettings = ServiceRenewalSetting::where('is_active', true)
+        $query = ServiceRenewalSetting::where('is_active', true)
             ->whereHas('salon.renewalReminderSetting', function($q) {
                 $q->where('is_active', true);
-            })
-            ->where('reminder_time', 'like', "{$currentTime}%")
-            ->with(['salon', 'service', 'template'])
-            ->get();
+            });
+        
+        // Only check time if not forcing
+        // Changed: Instead of exact minute match, check if current time >= reminder time
+        // This ensures SMS is sent even if the exact minute was missed
+        if (!$force) {
+            $query->whereRaw("TIME(reminder_time) <= TIME(?)", [$currentTime . ':00']);
+        }
+        
+        $activeServiceSettings = $query->with(['salon', 'service', 'template'])->get();
 
         if ($activeServiceSettings->isEmpty()) {
             $this->warn('❌ هیچ سرویسی تنظیمات یادآوری ترمیم فعال ندارد.');
