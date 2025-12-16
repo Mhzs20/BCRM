@@ -317,6 +317,16 @@ class SmsTransactionController extends Controller
                     'price' => $smsPackage->price,
                     'discount_price' => $smsPackage->discount_price,
                 ];
+            } elseif ($transaction->type === 'purchase') {
+                // Final Fallback: Create a virtual package from transaction data
+                // This ensures the frontend always receives a package object structure
+                $data['package'] = [
+                    'id' => null, // No real ID
+                    'name' => 'بسته پیامک (آرشیو شده)', // Generic name
+                    'sms_count' => $smsCount ?? 0,
+                    'price' => $transaction->amount,
+                    'discount_price' => $transaction->amount,
+                ];
             }
 
             // Add customer info if exists
