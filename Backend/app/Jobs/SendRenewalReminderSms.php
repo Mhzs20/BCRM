@@ -91,14 +91,13 @@ class SendRenewalReminderSms implements ShouldQueue
                 'status' => 'pending'
             ]);
 
-            // ارسال پیامک
             $result = $smsService->sendSms($this->customer->phone_number, $message);
 
-            // به‌روزرسانی وضعیت بر اساس نتیجه ارسال
-            if (isset($result['status']) && $result['status'] === 'success') {
+            if ($result && is_array($result) && count($result) > 0) {
+                $entry = $result[0];
                 $reminderLog->update([
                     'status' => 'sent',
-                    'sms_message_id' => $result['message_id'] ?? null,
+                    'sms_message_id' => $entry['messageid'] ?? null,
                     'sent_at' => now()
                 ]);
 
@@ -106,10 +105,10 @@ class SendRenewalReminderSms implements ShouldQueue
             } else {
                 $reminderLog->update([
                     'status' => 'failed',
-                    'error_message' => $result['message'] ?? 'خطای نامشخص در ارسال پیامک'
+                    'error_message' => 'خطا در ارسال پیامک (Null response from SmsService)'
                 ]);
 
-                Log::error("Failed to send renewal reminder for appointment {$this->appointment->id}: " . ($result['message'] ?? 'Unknown error'));
+                Log::error("Failed to send renewal reminder for appointment {$this->appointment->id}: SmsService returned null");
             }
 
         } catch (\Exception $e) {

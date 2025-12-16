@@ -201,23 +201,68 @@ class SmsTransactionController extends Controller
         // Pre-fetch missing SMS packages from Orders and load all packages for fallback matching
         $missingPackageOrderIds = [];
         $needsOrderFallback = false;
+        
+        // Collect transaction IDs and Reference IDs to find matching financial transactions
+        $transactionIds = [];
+        $referenceIds = [];
 
         foreach ($processedTransactions as $transaction) {
             if ($transaction instanceof SmsTransaction && 
                 !$transaction->smsPackage && 
                 $transaction->type === 'purchase') {
                 
+                $needsOrderFallback = true;
+                $foundOrderId = null;
+
+                // 1. Try to find Order ID from description
                 if ($transaction->description && preg_match('/سفارش (\d+)/', $transaction->description, $matches)) {
-                    $missingPackageOrderIds[$transaction->id] = $matches[1];
-                    $needsOrderFallback = true;
+                    $foundOrderId = $matches[1];
+                }
+                
+                if ($foundOrderId) {
+                    $missingPackageOrderIds[$transaction->id] = $foundOrderId;
+                } else {
+                    // 2. Prepare to find via Transaction/Reference ID
+                    if ($transaction->transaction_id) {
+                        $transactionIds[$transaction->id] = $transaction->transaction_id;
+                    }
+                    if ($transaction->reference_id) {
+                        $referenceIds[$transaction->id] = $transaction->reference_id;
+                    }
                 }
             }
         }
 
         $orders = [];
         // Always fetch all packages to support "nearest match" fallback efficiently
-        // This is lightweight enough (usually < 20 packages) to do on every request involving purchases
         $allPackages = \App\Models\SmsPackage::all();
+
+        // Find Orders via Financial Transactions
+        if (!empty($transactionIds) || !empty($referenceIds)) {
+            $financialTransactions = \App\Models\Transaction::whereIn('transaction_id', $transactionIds)
+                ->orWhereIn('reference_id', $referenceIds)
+                ->orWhereIn('id', $referenceIds) // In case reference_id stored the internal ID (Wallet)
+                ->get();
+            
+            foreach ($financialTransactions as $fTransaction) {
+                // Map back to SmsTransaction
+                // We need to know which SmsTransaction this financial transaction belongs to.
+                // Since we can't easily reverse map without looping, we'll do it in the main loop or map it here if unique.
+                // Simpler approach: Load these orders into the main $orders array.
+                if ($fTransaction->order_id) {
+                    // We need to link this order_id to the specific SmsTransaction ID
+                    // Let's find which SmsTransaction matches this financial transaction
+                    foreach ($processedTransactions as $t) {
+                        if (isset($missingPackageOrderIds[$t->id])) continue; // Already found
+
+                        if (($t->transaction_id && $t->transaction_id == $fTransaction->transaction_id) ||
+                            ($t->reference_id && ($t->reference_id == $fTransaction->reference_id || $t->reference_id == $fTransaction->id))) {
+                            $missingPackageOrderIds[$t->id] = $fTransaction->order_id;
+                        }
+                    }
+                }
+            }
+        }
 
         if ($needsOrderFallback && !empty($missingPackageOrderIds)) {
             $orders = \App\Models\Order::whereIn('id', array_unique($missingPackageOrderIds))->get()->keyBy('id');
