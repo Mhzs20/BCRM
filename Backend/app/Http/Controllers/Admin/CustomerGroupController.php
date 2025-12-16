@@ -44,10 +44,19 @@ class CustomerGroupController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-        CustomerGroup::create([
+        $customerGroup = CustomerGroup::create([
             'salon_id' => $user->active_salon_id,
             'name' => $request->name,
         ]);
+
+        if (is_null($user->active_salon_id)) {
+            \App\Jobs\SyncGlobalTemplateToSalons::dispatch(
+                \App\Models\CustomerGroup::class, 
+                $customerGroup->id, 
+                $customerGroup->name,
+                $customerGroup->created_at
+            );
+        }
 
         return redirect()->route('admin.customer-groups.index')->with('success', 'گروه مشتری با موفقیت اضافه شد.');
     }

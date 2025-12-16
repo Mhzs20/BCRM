@@ -44,10 +44,19 @@ class HowIntroducedController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-        HowIntroduced::create([
+        $howIntroduced = HowIntroduced::create([
             'salon_id' => $user->active_salon_id,
             'name' => $request->name,
         ]);
+
+        if (is_null($user->active_salon_id)) {
+            \App\Jobs\SyncGlobalTemplateToSalons::dispatch(
+                \App\Models\HowIntroduced::class, 
+                $howIntroduced->id, 
+                $howIntroduced->name,
+                $howIntroduced->created_at
+            );
+        }
 
         return redirect()->route('admin.how-introduced.index')->with('success', 'نحوه آشنایی با موفقیت اضافه شد.');
     }

@@ -17,25 +17,28 @@ class SalonObserver
         // Copy Professions
         $professions = Profession::whereNull('salon_id')->get();
         foreach ($professions as $profession) {
-            $salon->professions()->create([
-                'name' => $profession->name,
-            ]);
+            $salon->professions()->firstOrCreate(
+                ['name' => $profession->name],
+                ['name' => $profession->name]
+            );
         }
 
         // Copy HowIntroduced
         $howIntroduceds = HowIntroduced::whereNull('salon_id')->get();
         foreach ($howIntroduceds as $howIntroduced) {
-            $salon->howIntroduceds()->create([
-                'name' => $howIntroduced->name,
-            ]);
+            $salon->howIntroduceds()->firstOrCreate(
+                ['name' => $howIntroduced->name],
+                ['name' => $howIntroduced->name]
+            );
         }
 
         // Copy CustomerGroups
         $customerGroups = CustomerGroup::whereNull('salon_id')->get();
         foreach ($customerGroups as $customerGroup) {
-            $salon->customerGroups()->create([
-                'name' => $customerGroup->name,
-            ]);
+            $salon->customerGroups()->firstOrCreate(
+                ['name' => $customerGroup->name],
+                ['name' => $customerGroup->name]
+            );
         }
     }
 }

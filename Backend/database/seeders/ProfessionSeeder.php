@@ -64,6 +64,22 @@ class ProfessionSeeder extends Seeder
             $salons = collect([$defaultSalon]);
         }
 
+        // Create Global Templates (salon_id = null)
+        foreach ($defaultProfessions as $professionName) {
+            Profession::firstOrCreate(
+                ['salon_id' => null, 'name' => $professionName],
+                ['salon_id' => null, 'name' => $professionName]
+            );
+        }
+
+        // Create Global Templates (salon_id = null)
+        foreach ($defaultProfessions as $professionName) {
+            Profession::firstOrCreate(
+                ['salon_id' => null, 'name' => $professionName],
+                ['salon_id' => null, 'name' => $professionName]
+            );
+        }
+
         foreach ($salons as $salon) {
             foreach ($defaultProfessions as $professionName) {
                 Profession::firstOrCreate(

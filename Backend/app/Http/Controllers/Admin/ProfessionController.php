@@ -46,10 +46,19 @@ class ProfessionController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-        Profession::create([
+        $profession = Profession::create([
             'salon_id' => $user->active_salon_id,
             'name' => $request->name,
         ]);
+
+        if (is_null($user->active_salon_id)) {
+            \App\Jobs\SyncGlobalTemplateToSalons::dispatch(
+                \App\Models\Profession::class, 
+                $profession->id, 
+                $profession->name,
+                $profession->created_at
+            );
+        }
 
         return redirect()->route('admin.professions.index')->with('success', 'شغل با موفقیت اضافه شد.');
     }
