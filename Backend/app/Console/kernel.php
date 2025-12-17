@@ -13,7 +13,7 @@ class Kernel extends ConsoleKernel
 	protected function schedule(Schedule $schedule): void
 	{
 		// Send SMS reminders every minute
-		$schedule->command('sms:send-reminders')->everyMinute();
+		$schedule->command('sms:send-reminders')->everyMinute()->withoutOverlapping();
 
 		// Cancel past appointments - runs every 5 minutes for optimal user experience
 		$schedule->command('appointments:cancel-past')->everyFiveMinutes();
