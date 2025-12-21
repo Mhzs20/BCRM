@@ -32,11 +32,15 @@ class SatisfactionController extends Controller
         $request->validate([
             'rating' => 'required|integer|min:1|max:5',
             'text_feedback' => 'nullable|string',
+            'strengths_selected' => 'nullable|string',
+            'weaknesses_selected' => 'nullable|string',
         ]);
 
         $appointment->feedback()->create([
             'rating' => $request->rating,
             'text_feedback' => $request->text_feedback,
+            'strengths_selected' => json_decode($request->strengths_selected, true) ?? [],
+            'weaknesses_selected' => json_decode($request->weaknesses_selected, true) ?? [],
         ]);
 
         return view('appointments.satisfaction', [

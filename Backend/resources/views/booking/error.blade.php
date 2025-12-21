@@ -6,9 +6,7 @@
     <title>رزرو نوبت با خطا مواجه شد</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
-        @font-face { font-family: 'Peyda'; src: url('/fonts/Peyda-Regular.woff2') format('woff2'); }
-        @font-face { font-family: 'Peyda'; src: url('/fonts/Peyda-Bold.woff2') format('woff2'); font-weight: bold; }
-        .font-peyda { font-family: 'Peyda', 'IRANYekan', Tahoma, Verdana, sans-serif; }
+        .font-peyda { font-family: 'PeydaWeb', 'Peyda', 'IRANYekan', Tahoma, Verdana, sans-serif; }
     </style>
 </head>
 <body class="bg-gray-100 font-peyda antialiased">

@@ -119,60 +119,57 @@
         </div>
     </section>
 
-    <section class="mt-5">
-        <div class="flex justify-end items-center">
-            <h3 class="text-neutral-700 text-sm mr-2 font-bold text-right">ارتباط با سالن</h3>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M10 13C10.4295 13.5741 10.9774 14.0491 11.6066 14.3929C12.2357 14.7367 12.9315 14.9411 13.6467 14.9923C14.3618 15.0435 15.0796 14.9403 15.7513 14.6897C16.4231 14.4392 17.0331 14.047 17.54 13.54L20.54 10.54C21.4508 9.59695 21.9548 8.33394 21.9434 7.02296C21.932 5.71198 21.4061 4.45791 20.4791 3.53087C19.5521 2.60383 18.298 2.07799 16.987 2.0666C15.676 2.0552 14.413 2.55918 13.47 3.46997L11.75 5.17997" stroke="#353535" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M13.9982 10.9992C13.5688 10.4251 13.0209 9.95007 12.3917 9.60631C11.7625 9.26255 11.0667 9.05813 10.3516 9.00691C9.63645 8.9557 8.91866 9.05888 8.2469 9.30947C7.57514 9.56005 6.96513 9.95218 6.45825 10.4592L3.45825 13.4592C2.54746 14.4023 2.04348 15.6653 2.05488 16.9763C2.06627 18.2872 2.59211 19.5413 3.51915 20.4683C4.44619 21.3954 5.70026 21.9212 7.01124 21.9326C8.32222 21.944 9.58524 21.44 10.5282 20.5292L12.2382 18.8192" stroke="#353535" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        </div>
-        <div class="grid grid-cols-3 gap-2 mt-3.5">
-            @if($appointment->salon->whatsapp)
-                <a href="https://wa.me/+98{{ ltrim($appointment->salon->whatsapp, '0') }}"
-                   class="bg-white rounded-lg shadow p-4 text-center">
-                    <div
-                        class="w-10 h-10 mx-auto  rounded-full flex items-center justify-center">
-                        <img src="{{ asset('assets/img/whatsapp.png') }}" alt="whatsapp" class="w-full h-full"/>
-                    </div>
-                    <p class="text-neutral-700 text-sm font-bold mt-2">واتس اپ</p>
-                    <p class="text-neutral-400 text-[8px] font-light">{{ str_replace($englishDigits, $persianDigits, $appointment->salon->whatsapp) }}</p>
-                </a>
-            @endif
-            @if($appointment->salon->telegram)
-                <a href="https://t.me/{{ $appointment->salon->telegram }}"
-                   class="bg-white rounded-lg shadow p-4 text-center">
-                    <div
-                        class="w-10 h-10 mx-auto  rounded-full flex items-center justify-center">
-                        <img src="{{ asset('assets/img/telegram.png') }}" alt="telegram" class="w-full h-full"/>
-                    </div>
-                    <p class="text-neutral-700 text-sm font-bold mt-2">تلگرام</p>
-                    <p class="text-neutral-400 text-[8px] font-light">{{ $appointment->salon->telegram }}</p>
-                </a>
-            @endif
-            @if($appointment->salon->instagram)
-                <a href="https://instagram.com/{{ $appointment->salon->instagram }}"
-                   class="bg-white rounded-lg shadow p-4 text-center">
-                    <div
-                        class="w-10 h-10 mx-auto  rounded-full flex items-center justify-center">
-                        <img src="{{ asset('assets/img/instagram.png') }}" alt="instagram" class="w-full h-full"/>
-                    </div>
-                    <p class="text-neutral-700 text-sm font-bold mt-2">اینستاگرام</p>
-                    <p class="text-neutral-400 text-[8px] font-light">{{ $appointment->salon->instagram }}</p>
-                </a>
-            @endif
-        </div>
-        <div class="grid grid-cols-1 mt-3.5">
-            <a href="tel:{{ $appointment->salon->support_phone_number }}"
-               class="bg-white flex rounded-lg shadow p-4 text-center justify-center items-center">
-                <div
-                    class="w-10 h-10  rounded-full flex items-center justify-center">
-                    <img src="{{ asset('assets/img/phone.png') }}" alt="instagram" class="w-full h-full"/>
+    @if($appointment->feedback)
+        @php
+            $strengths = "";
+            $weaknesses = "";
+            $parts = explode("\n", $appointment->feedback->text_feedback);
+            foreach ($parts as $part) {
+                if (str_contains($part, "نقاط قوت:")) {
+                    $strengths = trim(str_replace("نقاط قوت:", "", $part));
+                }
+                if (str_contains($part, "نقاط ضعف:")) {
+                    $weaknesses = trim(str_replace("نقاط ضعف:", "", $part));
+                }
+            }
+        @endphp
+        <section class="mt-8 flex flex-col gap-4">
+             <div class="w-full flex justify-end items-center gap-1.5 px-1">
+                <div class="text-neutral-700 text-sm font-bold font-peyda text-right">بازخورد ثبت شده شما :</div>
+                <div class="w-6 h-6 relative flex items-center justify-center">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#353535" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 8V12" stroke="#353535" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 16H12.01" stroke="#353535" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                 </div>
-                <p class="text-neutral-700 text-sm font-bold ml-2 mt-2">{{ str_replace($englishDigits, $persianDigits, $appointment->salon->support_phone_number) }}</p>
-            </a>
-        </div>
-    </section>
+            </div>
+
+            <div class="w-full h-14 bg-white rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] flex justify-center items-center">
+                <x-star-rating :rating="$appointment->feedback->rating" />
+            </div>
+
+            @if($strengths || $weaknesses)
+            <div class="w-full h-32 bg-white rounded-lg shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)] flex flex-col justify-center gap-4 px-4 overflow-hidden">
+                @if($strengths)
+                <div class="flex flex-col items-center gap-1">
+                    <div class="text-zinc-400 text-[10px] font-normal font-iranyekan">نقاط قوت</div>
+                    <div class="text-zinc-900 text-sm font-bold font-iranyekan">{{ $strengths }}</div>
+                </div>
+                @endif
+                
+                @if($weaknesses)
+                <div class="flex flex-col items-center gap-1">
+                    <div class="text-zinc-400 text-[10px] font-normal font-iranyekan">نقاط ضعف</div>
+                    <div class="text-rose-500 text-sm font-bold font-iranyekan">{{ $weaknesses }}</div>
+                </div>
+                @endif
+            </div>
+            @endif
+        </section>
+    @endif
+
+    <x-salon-contact :salon="$appointment->salon" />
 
     <section class="mt-5">
         <div class="flex justify-end items-center">
