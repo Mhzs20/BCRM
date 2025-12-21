@@ -6,27 +6,8 @@
     <title>نوبت شما با موفقیت ثبت شد</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
-        @font-face {
-            font-family: 'Peyda';
-            src: url('/fonts/Peyda-Regular.woff2') format('woff2');
-            font-weight: normal;
-            font-style: normal;
-        }
-        @font-face {
-            font-family: 'Peyda';
-            src: url('/fonts/Peyda-Bold.woff2') format('woff2');
-            font-weight: bold;
-            font-style: normal;
-        }
-        @font-face {
-            font-family: 'Peyda';
-            src: url('/fonts/Peyda-Black.woff2') format('woff2');
-            font-weight: 900;
-            font-style: normal;
-        }
-        
         .font-peyda {
-            font-family: 'Peyda', 'IRANYekan', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'PeydaWeb', 'Peyda', 'IRANYekan', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         .dir-ltr {
