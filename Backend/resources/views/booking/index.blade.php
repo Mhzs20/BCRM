@@ -789,7 +789,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let selectedServices = [];
     let selectedDate = null;
     let selectedDateTime = null;
-    const salonId = {{ $salon->id ?? 1051 }}; // Default to 1051 if not set
+    const salonId = {{ $salon->id ?? 1051 }}; 
+    const enabledDays = {{ json_encode($salon->online_booking_settings['enabled_days'] ?? [0,1,2,3,4,5,6]) }};
+
+    // ... (rest of search helpers)
 
     // Helper function to convert digits to Persian - Optimized
     const persianDigits = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
@@ -1571,11 +1574,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
 
                 const isFriday = (c === 6);
+                const isDayEnabled = enabledDays.includes(c);
 
                 if (isPastDate) {
                     cell.className += ' bg-gradient-to-b from-gray-300/30 to-gray-400/50 border-gray-400 cursor-not-allowed opacity-50';
                     cell.title = 'در روزهای گذشته نمیشه نوبت ثبت کرد';
                     cell.addEventListener('click', function(e) { e.preventDefault(); showTooltip(this, 'در روزهای گذشته نمیشه نوبت ثبت کرد'); });
+                } else if (!isDayEnabled) {
+                    cell.className += ' bg-gradient-to-b from-gray-200/40 to-gray-300/60 border-gray-300 cursor-not-allowed opacity-60';
+                    cell.title = 'رزرو در این روز مقدور نیست';
+                    cell.addEventListener('click', function(e) { e.preventDefault(); showTooltip(this, 'رزرو در این روز مقدور نیست'); });
                 } else if (isHolidayFlag) {
                     // Unified Red Style for all holidays
                     cell.className += ' bg-red-100 border-red-500 cursor-pointer';
@@ -1599,7 +1607,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 const dayNumber = document.createElement('div');
-                dayNumber.className = `day-number absolute inset-0 flex items-center justify-center text-center text-2xl sm:text-3xl font-bold font-iranyekan ${isPastDate ? 'text-gray-400' : isHolidayFlag ? 'text-red-700' : isToday ? 'text-blue-600' : isFriday ? 'text-rose-500' : 'text-neutral-700'}`;
+                dayNumber.className = `day-number absolute inset-0 flex items-center justify-center text-center text-2xl sm:text-3xl font-bold font-iranyekan ${isPastDate || !isDayEnabled ? 'text-gray-400' : isHolidayFlag ? 'text-red-700' : isToday ? 'text-blue-600' : isFriday ? 'text-rose-500' : 'text-neutral-700'}`;
                 if (isHolidayFlag) dayNumber.style.color = '#b91c1c';
 
                 // Show Jalali day as the main large number (Standard view)
@@ -1623,9 +1631,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     cell.dataset.gregorian = '';
                     console.warn('Failed to compute fallback gregorian for cell', currentPersianYear, currentPersianMonth + 1, jalaliDay, e);
                 }
-                cell.dataset.isPast = isPastDate.toString();
+                cell.dataset.isPast = (isPastDate || !isDayEnabled).toString();
 
-                if (!isPastDate && !isHolidayFlag) {
+                if (!isPastDate && isDayEnabled && !isHolidayFlag) {
                     cell.addEventListener('click', function() { selectCalendarDate(this); });
                 }
 

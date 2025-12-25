@@ -13,7 +13,9 @@ class OnlineBookingSettingController extends Controller
         $salon = Salon::findOrFail($salonId);
         
         $defaults = [
-            'default_booking_status' => 'pending_confirmation'
+            'default_booking_status' => 'pending_confirmation',
+            'enabled' => true,
+            'enabled_days' => [0, 1, 2, 3, 4, 5, 6] // 0=Sat, ..., 6=Fri
         ];
         
         $settings = $salon->online_booking_settings ?? [];
@@ -30,20 +32,34 @@ class OnlineBookingSettingController extends Controller
     public function update(Request $request, $salonId)
     {
         $request->validate([
-            'default_booking_status' => 'required|in:pending_confirmation,confirmed',
+            'default_booking_status' => 'sometimes|required|in:pending_confirmation,confirmed',
+            'enabled' => 'sometimes|required|boolean',
+            'enabled_days' => 'sometimes|required|array',
+            'enabled_days.*' => 'integer|min:0|max:6',
         ]);
 
         $salon = Salon::findOrFail($salonId);
         
         $settings = $salon->online_booking_settings ?? [];
-        $settings['default_booking_status'] = $request->default_booking_status;
+        
+        if ($request->has('default_booking_status')) {
+            $settings['default_booking_status'] = $request->default_booking_status;
+        }
+        
+        if ($request->has('enabled')) {
+            $settings['enabled'] = filter_var($request->enabled, FILTER_VALIDATE_BOOLEAN);
+        }
+        
+        if ($request->has('enabled_days')) {
+            $settings['enabled_days'] = $request->enabled_days;
+        }
         
         $salon->online_booking_settings = $settings;
         $salon->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'با موفقیت بروزرسانی شد.',
+            'message' => 'تنظیمات رزرو آنلاین با موفقیت بروزرسانی شد.',
             'data' => $salon->online_booking_settings
         ]);
     }

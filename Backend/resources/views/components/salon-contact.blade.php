@@ -23,7 +23,7 @@
                     ['key' => 'whatsapp', 'label' => 'واتس اپ', 'icon' => 'whatsapp.svg', 'url' => 'https://wa.me/+98' . ltrim($salon->whatsapp, '0'), 'val' => $salon->whatsapp],
                     ['key' => 'telegram', 'label' => 'تلگرام', 'icon' => 'telegram.svg', 'url' => 'https://t.me/' . $salon->telegram, 'val' => $salon->telegram],
                     ['key' => 'instagram', 'label' => 'اینستاگرام', 'icon' => 'instagram.svg', 'url' => 'https://instagram.com/' . $salon->instagram, 'val' => $salon->instagram],
-                ];
+                    ];
             @endphp
 
             @foreach($socials as $social)

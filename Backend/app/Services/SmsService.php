@@ -584,6 +584,36 @@ class SmsService
     // public function sendOtp(...) { ... }
     // public function sendCustomMessage(...) { ... }
 
+    /**
+     * Send a system template immediately to any phone number (exclusive link use-case)
+     * This is intended to be used by salon users to send admin/global templates without approval
+     *
+     * @param Salon $salon
+     * @param SalonSmsTemplate $template
+     * @param string $receptor
+     * @param array $dataForTemplate
+     * @param int|null $customerId
+     * @return array
+     */
+    public function sendTemplateNow(Salon $salon, SalonSmsTemplate $template, string $receptor, array $dataForTemplate, ?int $customerId = null): array
+    {
+        if (!$template || !$template->is_active || $template->salon_id !== null) {
+            return ['status' => 'error', 'message' => 'Template is invalid or inactive'];
+        }
+
+        // Use a dedicated event type to identify these sends
+        return $this->sendMessageUsingTemplate(
+            $salon,
+            'exclusive_link',
+            $receptor,
+            $dataForTemplate,
+            $customerId,
+            null,
+            null,
+            $template->id
+        );
+    }
+
     public function sendAppointmentConfirmation(Customer $customer, Appointment $appointment, Salon $salon, ?string $detailsUrl = null): array
     {
         // Check if confirmation SMS has already been sent for this appointment
@@ -854,6 +884,19 @@ class SmsService
     public function calculateSmsCount(string $message): int
     {
         return $this->calculateSmsParts($message);
+    }
+
+    /**
+     * Compile a template text with provided variables and return the compiled string.
+     * Public wrapper around the private compileTemplate method to aid previews.
+     *
+     * @param string|null $templateText
+     * @param array $data
+     * @return string
+     */
+    public function compileTemplateText(?string $templateText, array $data = []): string
+    {
+        return $this->compileTemplate($templateText, $data);
     }
 
     /**
