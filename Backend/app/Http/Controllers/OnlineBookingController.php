@@ -26,8 +26,11 @@ class OnlineBookingController extends Controller
                 $query->where('is_active', true);
             }])->findOrFail($salonId);
 
-            // اگر سالن فعال نباشد، پیغام مناسب نمایش داده شود
-            if (!$salon->is_active) {
+            $settings = $salon->online_booking_settings ?? [];
+            $isEnabled = $settings['enabled'] ?? true;
+
+            // اگر سالن فعال نباشد یا رزرو آنلاین غیرفعال شده باشد
+            if (!$salon->is_active || !$isEnabled) {
                 return view('booking.salon-inactive', compact('salon'));
             }
 
@@ -104,10 +107,13 @@ class OnlineBookingController extends Controller
                 $query->where('is_active', true);
             }])->findOrFail($salonId);
             
-            if (!$salon->is_active) {
+            $settings = $salon->online_booking_settings ?? [];
+            $isEnabled = $settings['enabled'] ?? true;
+
+            if (!$salon->is_active || !$isEnabled) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'سالن در حال حاضر فعال نیست'
+                    'message' => 'رزرو آنلاین برای این سالن در حال حاضر فعال نیست'
                 ], 404);
             }
 
@@ -165,6 +171,16 @@ class OnlineBookingController extends Controller
             }
 
             $salon = Salon::findOrFail($salonId);
+            $settings = $salon->online_booking_settings ?? [];
+            $isEnabled = $settings['enabled'] ?? true;
+
+            if (!$salon->is_active || !$isEnabled) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'رزرو آنلاین برای این سالن در حال حاضر فعال نیست'
+                ], 404);
+            }
+
             $date = Carbon::parse($request->date);
             $serviceIds = $request->service_ids;
 
@@ -180,6 +196,22 @@ class OnlineBookingController extends Controller
                     'success' => false,
                     'message' => 'برخی از خدمات انتخابی نامعتبر هستند'
                 ], 422);
+            }
+
+            $settings = $salon->online_booking_settings ?? [];
+            $enabledDays = $settings['enabled_days'] ?? [0, 1, 2, 3, 4, 5, 6];
+            
+            $dayOfWeek = ($date->dayOfWeek + 1) % 7;
+            if (!in_array($dayOfWeek, $enabledDays)) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'date' => $date->format('Y-m-d'),
+                        'jalali_date' => verta($date)->format('Y/m/d'),
+                        'day_name' => verta($date)->format('l'),
+                        'available_times' => []
+                    ]
+                ]);
             }
 
             $availableTimes = $this->getAvailableTimesForDate($salonId, $date, $serviceIds);
@@ -226,12 +258,26 @@ class OnlineBookingController extends Controller
             }
 
             $salon = Salon::findOrFail($salonId);
+            $settings = $salon->online_booking_settings ?? [];
+            $isEnabled = $settings['enabled'] ?? true;
             
-            if (!$salon->is_active) {
+            if (!$salon->is_active || !$isEnabled) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'سالن در حال حاضر فعال نیست'
+                    'message' => 'رزرو آنلاین برای این سالن در حال حاضر فعال نیست'
                 ], 404);
+            }
+
+            // بررسی مجاز بودن روز رزرو بر اساس تنظیمات سالن
+            $enabledDays = $settings['enabled_days'] ?? [0, 1, 2, 3, 4, 5, 6];
+            $appointmentDate = Carbon::parse($request->appointment_date);
+            $dayOfWeek = ($appointmentDate->dayOfWeek + 1) % 7; // هماهنگ با تقویم شمسی پروژه (۰=شنبه)
+
+            if (!in_array($dayOfWeek, $enabledDays)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'رزرو برای این روز در حال حاضر مقدور نیست'
+                ], 422);
             }
 
             DB::beginTransaction();
@@ -376,6 +422,18 @@ class OnlineBookingController extends Controller
             $checkDate = $today->copy()->addDays($i);
             $serviceIds = $serviceId ? [$serviceId] : [];
             
+            $settings = ($salonOrId instanceof Salon) ? ($salonOrId->online_booking_settings ?? []) : [];
+            if (!($salonOrId instanceof Salon)) {
+                $s = Salon::find($salonOrId);
+                $settings = $s ? ($s->online_booking_settings ?? []) : [];
+            }
+            $enabledDays = $settings['enabled_days'] ?? [0, 1, 2, 3, 4, 5, 6];
+            $dayOfWeek = ($checkDate->dayOfWeek + 1) % 7;
+            
+            if (!in_array($dayOfWeek, $enabledDays)) {
+                continue;
+            }
+
             // Pass the salon object/ID directly
             $availableTimes = $this->getAvailableTimesForDate($salonOrId, $checkDate, $serviceIds);
             

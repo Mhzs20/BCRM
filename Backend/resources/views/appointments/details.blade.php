@@ -123,13 +123,41 @@
         @php
             $strengths = "";
             $weaknesses = "";
-            $parts = explode("\n", $appointment->feedback->text_feedback);
-            foreach ($parts as $part) {
-                if (str_contains($part, "نقاط قوت:")) {
-                    $strengths = trim(str_replace("نقاط قوت:", "", $part));
+            // prefer structured data if available (array of strings or array of {key,label})
+            if ($appointment->feedback->strengths_selected && is_array($appointment->feedback->strengths_selected)) {
+                $labels = [];
+                foreach ($appointment->feedback->strengths_selected as $s) {
+                    if (is_array($s) && isset($s['label'])) {
+                        $labels[] = $s['label'];
+                    } elseif (is_string($s)) {
+                        $labels[] = $s;
+                    }
                 }
-                if (str_contains($part, "نقاط ضعف:")) {
-                    $weaknesses = trim(str_replace("نقاط ضعف:", "", $part));
+                if (count($labels)) $strengths = implode('، ', $labels);
+            }
+
+            if ($appointment->feedback->weaknesses_selected && is_array($appointment->feedback->weaknesses_selected)) {
+                $labels = [];
+                foreach ($appointment->feedback->weaknesses_selected as $s) {
+                    if (is_array($s) && isset($s['label'])) {
+                        $labels[] = $s['label'];
+                    } elseif (is_string($s)) {
+                        $labels[] = $s;
+                    }
+                }
+                if (count($labels)) $weaknesses = implode('، ', $labels);
+            }
+
+            // Fallback to text_feedback parsing
+            if (!$strengths && !$weaknesses && $appointment->feedback->text_feedback) {
+                $parts = explode("\n", $appointment->feedback->text_feedback);
+                foreach ($parts as $part) {
+                    if (str_contains($part, "نقاط قوت:")) {
+                        $strengths = trim(str_replace("نقاط قوت:", "", $part));
+                    }
+                    if (str_contains($part, "نقاط ضعف:")) {
+                        $weaknesses = trim(str_replace("نقاط ضعف:", "", $part));
+                    }
                 }
             }
         @endphp

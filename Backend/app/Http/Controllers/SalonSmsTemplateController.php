@@ -21,6 +21,7 @@ class SalonSmsTemplateController extends Controller
         'appointment_modification',
         'birthday_greeting',
         'service_specific_notes',
+        'exclusive_link', // لینک اختصاصی رزرو آنلاین
     ];
 
     public function index(Request $request): JsonResponse
@@ -255,6 +256,8 @@ class SalonSmsTemplateController extends Controller
                 return "زادروزتان خجسته باد، {{customer_name}} عزیز! با آرزوی بهترین‌ها از طرف سالن {{salon_name}}.";
             case 'service_specific_notes':
                 return "مشتری گرامی {{customer_name}}، برای نوبت {{service_name}} شما در تاریخ {{appointment_date}} ساعت {{appointment_time}}:\n{{service_specific_notes}}\nسالن {{salon_name}}";
+            case 'exclusive_link':
+                return "سلام {{customer_name}}، برای رزرو آنلاین در سالن {{salon_name}} روی لینک زیر کلیک کنید: {{details_url}}";
             default:
                 return "";
         }
@@ -269,7 +272,43 @@ class SalonSmsTemplateController extends Controller
             'appointment_modification' => 'اصلاح نوبت',
             'birthday_greeting'      => 'تبریک تولد',
             'service_specific_notes' => 'نکات قبل از خدمت',
+            'exclusive_link' => 'لینک اختصاصی رزرو آنلاین',
         ];
         return $descriptions[$eventType] ?? $eventType;
+    }
+
+    /**
+     * Return available templates for exclusive link sending (system + global custom)
+     */
+    public function exclusiveTemplates(): JsonResponse
+    {
+        $systemTemplate = SalonSmsTemplate::whereNull('salon_id')
+            ->where('template_type', 'system_event')
+            ->where('event_type', 'exclusive_link')
+            ->first();
+
+        $customTemplates = SalonSmsTemplate::whereNull('salon_id')
+            ->where('template_type', 'custom')
+            ->where('is_active', true)
+            ->where('event_type', 'exclusive_link')
+            ->get();
+
+        return response()->json([
+            'data' => [
+                'system_template' => $systemTemplate ? [
+                    'id' => $systemTemplate->id,
+                    'template' => $systemTemplate->template,
+                    'is_active' => $systemTemplate->is_active,
+                ] : null,
+                'custom_templates' => $customTemplates->map(function($t){
+                    return [
+                        'id' => $t->id,
+                        'title' => $t->title,
+                        'template' => $t->template,
+                        'is_active' => $t->is_active,
+                    ];
+                })->values(),
+            ]
+        ]);
     }
 }

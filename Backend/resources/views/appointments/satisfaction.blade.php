@@ -34,24 +34,34 @@
         /* Strength Theme */
         #strength-tags .tag-item { 
             border-color: #18181b !important; 
+            transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease;
         }
         #strength-tags .tag-item .tag-text {
             color: #18181b !important;
         }
         #strength-tags .tag-item.selected { 
-            background-color: rgba(24, 24, 27, 0.1) !important; 
+            background-color: rgba(24, 24, 27, 0.12) !important; 
+            border-color: #111827 !important;
+            box-shadow: 0 8px 22px rgba(24,24,27,0.08) !important;
+            transform: translateY(-3px) scale(1.01) !important;
         }
+        #strength-tags .tag-item.selected .tag-text { color: #08101a !important; font-weight:700; }
 
         /* Weakness Theme */
         #weakness-tags .tag-item { 
             border-color: #f43f5e !important; 
+            transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease;
         }
         #weakness-tags .tag-item .tag-text { 
             color: #f43f5e !important; 
         }
         #weakness-tags .tag-item.selected { 
-            background-color: rgba(244, 63, 94, 0.1) !important; 
+            background-color: rgba(244, 63, 94, 0.12) !important; 
+            border-color: #f43f5e !important;
+            box-shadow: 0 8px 22px rgba(244,63,94,0.08) !important;
+            transform: translateY(-3px) scale(1.01) !important;
         }
+        #weakness-tags .tag-item.selected .tag-text { color: #b91c2c !important; font-weight:700; }
     </style>
 </head>
 <body class="bg-gray-100 font-peyda min-h-screen">
@@ -64,12 +74,31 @@
         $feedback = $appointment->feedback;
         $strengths = "";
         $weaknesses = "";
+
         if ($feedback) {
+            // support both array of strings and array of objects {key,label}
             if ($feedback->strengths_selected && is_array($feedback->strengths_selected)) {
-                $strengths = implode('، ', $feedback->strengths_selected);
+                $labels = [];
+                foreach ($feedback->strengths_selected as $s) {
+                    if (is_array($s) && isset($s['label'])) {
+                        $labels[] = $s['label'];
+                    } elseif (is_string($s)) {
+                        $labels[] = $s;
+                    }
+                }
+                if (count($labels)) $strengths = implode('، ', $labels);
             }
+
             if ($feedback->weaknesses_selected && is_array($feedback->weaknesses_selected)) {
-                $weaknesses = implode('، ', $feedback->weaknesses_selected);
+                $labels = [];
+                foreach ($feedback->weaknesses_selected as $s) {
+                    if (is_array($s) && isset($s['label'])) {
+                        $labels[] = $s['label'];
+                    } elseif (is_string($s)) {
+                        $labels[] = $s;
+                    }
+                }
+                if (count($labels)) $weaknesses = implode('، ', $labels);
             }
 
             // Fallback to parsing text_feedback if structured data is missing
@@ -204,17 +233,25 @@
                      </div>
 
                      <div id="strength-tags" class="hidden grid grid-cols-2 gap-3 mb-4 transition-opacity duration-300">
-                        @foreach(['پرسنل با دقت و با حوصله', 'مواد مصرفی با کیفیت', 'نوبت دهی آسان', 'قیمت منصفانه'] as $tag)
-                             <div class="tag-item flex items-center justify-center p-2 h-10 rounded-md shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)]" data-tag="{{ $tag }}">
-                                  <span class="tag-text text-zinc-900 text-xs sm:text-xs font-bold font-iranyekan">{{ $tag }}</span>
+                        @foreach($strengthTags ?? [] as $tag)
+                             @php
+                                 $label = is_array($tag) && isset($tag['label']) ? $tag['label'] : (is_string($tag) ? $tag : '');
+                                 $key = is_array($tag) && isset($tag['key']) ? $tag['key'] : md5($label);
+                             @endphp
+                             <div class="tag-item flex items-center justify-center p-2 h-10 rounded-md shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)]" data-tag="{{ $label }}" data-key="{{ $key }}">
+                                  <span class="tag-text text-zinc-900 text-xs sm:text-xs font-bold font-iranyekan">{{ $label }}</span>
                              </div>
                         @endforeach
                      </div>
 
                      <div id="weakness-tags" class="grid grid-cols-2 gap-3 mb-4 transition-opacity duration-300 w-full">
-                        @foreach(['محیط شلوغ و بی نظم', 'کیفیت پایین خدمات', 'رفتار نامناسب پرسنل', 'عدم راهنمایی مناسب'] as $tag)
-                             <div class="tag-item flex items-center justify-center p-2 h-10 rounded-md shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)]" data-tag="{{ $tag }}">
-                                  <span class="tag-text text-rose-500 text-xs sm:text-xs font-bold font-iranyekan">{{ $tag }}</span>
+                        @foreach($weaknessTags ?? [] as $tag)
+                             @php
+                                 $label = is_array($tag) && isset($tag['label']) ? $tag['label'] : (is_string($tag) ? $tag : '');
+                                 $key = is_array($tag) && isset($tag['key']) ? $tag['key'] : md5($label);
+                             @endphp
+                             <div class="tag-item flex items-center justify-center p-2 h-10 rounded-md shadow-[0px_3px_15px_0px_rgba(65,105,225,0.08)]" data-tag="{{ $label }}" data-key="{{ $key }}">
+                                  <span class="tag-text text-rose-500 text-xs sm:text-xs font-bold font-iranyekan">{{ $label }}</span>
                              </div>
                         @endforeach
                      </div>
@@ -254,9 +291,14 @@
         const clearBtn = document.getElementById('clear-form');
 
         let selectedRating = 0;
-        let selectedStrengths = new Set();
-        let selectedWeaknesses = new Set();
+        // use Maps keyed by tag key so label changes won't break historical data mapping
+        let selectedStrengths = new Map(); // key => label
+        let selectedWeaknesses = new Map(); // key => label
         let activeTab = 'weakness'; // strength or weakness
+
+        // initial selections passed from server (if any)
+        const initialStrengths = {!! json_encode($initialStrengths ?? []) !!};
+        const initialWeaknesses = {!! json_encode($initialWeaknesses ?? []) !!};
 
         // Rating Logic
         ratingItems.forEach(item => {
@@ -286,32 +328,74 @@
         // Tag Logic
         tagItems.forEach(tag => {
             tag.addEventListener('click', function() {
-                const text = this.getAttribute('data-tag');
+                const label = this.getAttribute('data-tag');
+                const key = this.getAttribute('data-key');
                 const isStrength = this.closest('#strength-tags') !== null;
-                const set = isStrength ? selectedStrengths : selectedWeaknesses;
+                const map = isStrength ? selectedStrengths : selectedWeaknesses;
 
-                if(set.has(text)) {
-                    set.delete(text);
+                if (!key || !label) return;
+
+                if(map.has(key)) {
+                    map.delete(key);
                     this.classList.remove('selected');
                 } else {
-                    set.add(text);
+                    map.set(key, label);
                     this.classList.add('selected');
                 }
                 updateFeedbackInput();
             });
         });
 
+        // pre-select tags if server sent initial selections
+        function preselectInitial() {
+            try {
+                const serverStrengths = {!! json_encode($initialStrengths ?? []) !!};
+                const serverWeaknesses = {!! json_encode($initialWeaknesses ?? []) !!};
+
+                if (Array.isArray(serverStrengths)) {
+                    serverStrengths.forEach(item => {
+                        const key = item.key;
+                        const label = item.label;
+                        const el = document.querySelector('.tag-item[data-key="' + key + '"]');
+                        if (el) {
+                            el.classList.add('selected');
+                            selectedStrengths.set(key, label);
+                        }
+                    });
+                }
+
+                if (Array.isArray(serverWeaknesses)) {
+                    serverWeaknesses.forEach(item => {
+                        const key = item.key;
+                        const label = item.label;
+                        const el = document.querySelector('.tag-item[data-key="' + key + '"]');
+                        if (el) {
+                            el.classList.add('selected');
+                            selectedWeaknesses.set(key, label);
+                        }
+                    });
+                }
+
+                updateFeedbackInput();
+            } catch (e) {
+                console.warn('preselectInitial failed', e);
+            }
+        }
+
+        preselectInitial();
+
         function updateFeedbackInput() {
             let feedback = "";
             if(selectedStrengths.size > 0) {
-                feedback += "نقاط قوت: " + Array.from(selectedStrengths).join('، ') + "\n";
+                feedback += "نقاط قوت: " + Array.from(selectedStrengths.values()).join('، ') + "\n";
             }
             if(selectedWeaknesses.size > 0) {
-                feedback += "نقاط ضعف: " + Array.from(selectedWeaknesses).join('، ');
+                feedback += "نقاط ضعف: " + Array.from(selectedWeaknesses.values()).join('، ');
             }
             textFeedbackInput.value = feedback;
-            strengthsSelectedInput.value = JSON.stringify(Array.from(selectedStrengths));
-            weaknessesSelectedInput.value = JSON.stringify(Array.from(selectedWeaknesses));
+            // store as array of objects {key,label}
+            strengthsSelectedInput.value = JSON.stringify(Array.from(selectedStrengths.entries()).map(([k,v]) => ({key: k, label: v})));
+            weaknessesSelectedInput.value = JSON.stringify(Array.from(selectedWeaknesses.entries()).map(([k,v]) => ({key: k, label: v})));
         }
 
         // Tabs Logic
