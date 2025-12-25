@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('exclusive_link_preparations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('salon_id')->constrained('salons')->onDelete('cascade');
-            $table->foreignId('template_id')->constrained('salon_sms_templates')->onDelete('set null')->nullable();
+            $table->foreignId('template_id')->nullable()->constrained('salon_sms_templates')->onDelete('set null');
             $table->string('recipients_type')->comment('all_customers|selected_customers|phone_contacts');
             $table->json('recipients')->nullable()->comment('Array of recipients or phone numbers, depending on type');
             $table->integer('recipients_count')->default(0);
