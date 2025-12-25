@@ -124,10 +124,11 @@ class SatisfactionController extends Controller
             'weaknesses_selected' => json_decode($request->weaknesses_selected, true) ?? [],
         ]);
 
-        return view('appointments.satisfaction', [
-            'appointment' => $appointment,
-            'success_message' => 'از بازخورد شما سپاسگزاریم'
-        ]);
+        // Reload the appointment to ensure the feedback relationship is available to the view
+        $appointment->load('feedback');
+
+        // Redirect to the show route so showByHash loads tags and initial selections properly
+        return redirect()->route('satisfaction.show.hash', ['hash' => $appointment->hash]);
     }
 
     public function sendSurvey(Appointment $appointment)
