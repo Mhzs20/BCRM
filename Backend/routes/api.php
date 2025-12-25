@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\AppController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\BannerController as ApiBannerController;
 use App\Http\Controllers\SatisfactionController;
+use App\Http\Controllers\ExclusiveLinkController;
 use App\Http\Controllers\ContactPickerController;
 use App\Http\Controllers\RenewalReminderController;
 use App\Http\Controllers\ServiceRenewalController;
@@ -140,18 +141,19 @@ Route::middleware('auth:api')->group(function () {
                     Route::post('{appointment}/reject', [\App\Http\Controllers\Api\OnlineBookingManagementController::class, 'reject'])->name('reject');
                 });
 
-            Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete'])->name('customers.bulkDelete');
-            Route::get('customers/{customer}/appointments', [CustomerController::class, 'listCustomerAppointments'])->name('customers.appointments');
-//            Route::get('customers/search', [CustomerController::class, 'search'])->name('customers.search');
-            Route::post('customers/import/excel', [DashboardController::class, 'importCustomers'])->name('customers.import.excel');
-                        // SMS Account endpoints (Salon specific)
-                        Route::prefix('sms-account')->name('sms_account.')->group(function () {
-                            Route::get('transactions', [SmsTransactionController::class, 'index'])->name('transactions.index');
-                            Route::get('financial-transactions', [SmsTransactionController::class, 'financialTransactions'])->name('financial_transactions.index');
-                            Route::get('sent-messages', [SmsTransactionController::class, 'salonSentMessages'])->name('sent_messages.index');
-                        });
+            // Prepare exclusive links (preview & estimate)
+            Route::post('exclusive-links/prepare', [ExclusiveLinkController::class, 'prepare'])
+                ->name('exclusive_links.prepare');
+
+            // Send exclusive links (system templates) immediately (no admin approval)
+            Route::post('exclusive-links/send', [ExclusiveLinkController::class, 'send'])
+                ->name('exclusive_links.send');
 
             Route::post('customers/import/contacts', [CustomerController::class, 'importContacts'])->name('customers.import.contacts');
+                        Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete'])->name('customers.bulkDelete');
+                        Route::get('customers/{customer}/appointments', [CustomerController::class, 'listCustomerAppointments'])->name('customers.appointments');
+                        // Route::get('customers/search', [CustomerController::class, 'search'])->name('customers.search');
+                        Route::post('customers/import/excel', [DashboardController::class, 'importCustomers'])->name('customers.import.excel');
             Route::apiResource('customers', CustomerController::class)->except(['create', 'edit']);
 
             // Contact API Picker Routes
@@ -293,6 +295,8 @@ Route::middleware('auth:api')->group(function () {
     Route::prefix('salon-settings')->name('salon_settings.')->group(function () {
         Route::get('sms-templates', [SalonSmsTemplateController::class, 'index'])->name('sms_templates.index');
         Route::post('sms-templates', [SalonSmsTemplateController::class, 'storeOrUpdate'])->name('sms_templates.store_or_update');
+        // Get templates related to exclusive link (system + global custom)
+        Route::get('exclusive-link-templates', [SalonSmsTemplateController::class, 'exclusiveTemplates'])->name('exclusive_link_templates.index');
     // Custom categories
     Route::post('sms-template-categories', [SalonSmsTemplateController::class, 'createCategory'])->name('sms_template_categories.create');
     Route::put('sms-template-categories/{category}', [SalonSmsTemplateController::class, 'updateCategory'])->name('sms_template_categories.update');

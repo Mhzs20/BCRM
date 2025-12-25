@@ -76,8 +76,31 @@ class GlobalSmsTemplateSeeder extends Seeder
                 'event_type' => 'appointment_cancellation',
                 'template' => '{{customer_name}} عزیز، متاسفانه نوبت شما در {{salon_name}} برای تاریخ {{appointment_date}} ساعت {{start_time}} لغو گردید. جهت رزرو مجدد تماس بگیرید.',
                 'is_active' => true,
+            ],            // Exclusive link template for system
+            [
+                'salon_id' => null,
+                'event_type' => 'exclusive_link',
+                'template' => 'سلام {{customer_name}}، برای رزرو آنلاین در سالن {{salon_name}} روی لینک زیر کلیک کنید: {{details_url}}',
+                'is_active' => true,
+                'template_type' => 'system_event',
             ],
-        ];
+            // Global custom templates for exclusive links (available in admin panel)
+            [
+                'salon_id' => null,
+                'event_type' => 'exclusive_link',
+                'template_type' => 'custom',
+                'title' => 'قالب لینک رزرو آنلاین رسمی',
+                'template' => 'لینک رزرو آنلاین برای {{salon_name}}: {{details_url}}',
+                'is_active' => true,
+            ],
+            [
+                'salon_id' => null,
+                'event_type' => 'exclusive_link',
+                'template_type' => 'custom',
+                'title' => 'قالب دوستانه لینک اختصاصی',
+                'template' => 'سلام {{customer_name}} عزیز! لینک رزرو شما: {{details_url}} — منتظر دیدارتون هستیم. {{salon_name}}',
+                'is_active' => true,
+            ],        ];
 
         foreach ($globalTemplates as $template) {
             // بررسی duplicate بر اساس template content

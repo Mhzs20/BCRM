@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use App\Jobs\SendAppointmentConfirmationSms;
 use Illuminate\Support\Facades\DB;
 use App\Services\SmsService;
+use Morilog\Jalali\Jalalian;
 
 class OnlineBookingManagementController extends Controller
 {
@@ -20,17 +21,46 @@ class OnlineBookingManagementController extends Controller
     }
 
     /**
-     * List pending online bookings for a salon.
+     * List online bookings for a salon with filtering.
      */
     public function index(Request $request, $salonId)
     {
         $perPage = $request->input('per_page', 15);
+        $status = $request->input('status'); // pending, confirmed, canceled
+        $jalaliDate = $request->input('date'); // YYYY/MM/DD or YYYY-MM-DD
 
-        $appointments = Appointment::where('salon_id', $salonId)
+        $query = Appointment::where('salon_id', $salonId)
             ->where('source', 'online_booking')
-            ->where('status', 'pending_confirmation')
-            ->with(['customer', 'staff', 'services'])
-            ->orderBy('created_at', 'desc')
+            ->with(['customer', 'staff', 'services']);
+
+        // Status Filter
+        if ($status) {
+            if ($status === 'pending') {
+                $query->where('status', 'pending_confirmation');
+            } elseif ($status === 'confirmed') {
+                $query->where('status', 'confirmed');
+            } elseif ($status === 'canceled') {
+                $query->where('status', 'canceled');
+            }
+        } else {
+            // Default to pending_confirmation if no status is provided (preserving existing behavior)
+            $query->where('status', 'pending_confirmation');
+        }
+
+        // Jalali Date Filter
+        if ($jalaliDate) {
+            try {
+                // Replace / with - for consistency
+                $jalaliDate = str_replace('/', '-', $jalaliDate);
+                $date = Jalalian::fromFormat('Y-m-d', $jalaliDate)->toCarbon()->format('Y-m-d');
+                $query->whereDate('appointment_date', $date);
+            } catch (\Exception $e) {
+                // Ignore invalid date format
+            }
+        }
+
+        $appointments = $query->orderBy('appointment_date', 'desc')
+            ->orderBy('start_time', 'desc')
             ->paginate($perPage);
 
         return response()->json([
