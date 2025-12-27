@@ -119,6 +119,7 @@ class OnlineBookingController extends Controller
 
             $services = Service::where('salon_id', $salonId)
                 ->where('is_active', true)
+                ->where('is_online_bookable', true)
                 ->orderBy('name')
                 ->get()
                 ->map(function ($service) use ($salon) {
@@ -129,6 +130,7 @@ class OnlineBookingController extends Controller
                         'id' => $service->id,
                         'name' => $service->name,
                         'price' => $service->price,
+                        'is_online_bookable' => $service->is_online_bookable,
                         'next_available' => $nextAvailable ? [
                             'date' => $nextAvailable['date'],
                             'time' => $nextAvailable['time'],
