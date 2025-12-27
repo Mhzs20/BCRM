@@ -42,6 +42,7 @@ class UpdateServiceRequest extends FormRequest
 
                 // 'boolean' rule can be strict. 'in:true,false,1,0' is more flexible with form data.
                 'is_active' => ['sometimes', 'boolean'],
+                'is_online_bookable' => ['sometimes', 'boolean'],
 
                 'staff_ids' => ['sometimes', 'nullable', 'array'],
                 'staff_ids.*' => ['integer', Rule::exists('salon_staff', 'id')->where(function ($query) use ($salonId) {
