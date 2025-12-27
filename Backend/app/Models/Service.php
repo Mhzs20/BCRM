@@ -17,11 +17,13 @@ class Service extends Model
         'name',
         'price',
         'is_active',
+        'is_online_bookable',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
         'is_active' => 'boolean',
+        'is_online_bookable' => 'boolean',
     ];
 
     public function salon()
