@@ -16,6 +16,7 @@ class Service extends Model
         'salon_id',
         'name',
         'price',
+        'duration_minutes',
         'is_active',
         'is_online_bookable',
     ];
@@ -24,6 +25,7 @@ class Service extends Model
         'price' => 'decimal:2',
         'is_active' => 'boolean',
         'is_online_bookable' => 'boolean',
+        'duration_minutes' => 'integer',
     ];
 
     public function salon()
@@ -46,8 +48,6 @@ class Service extends Model
      */
     public function appointments()
     {
-        // فرض شده است که یک جدول واسط به نام appointment_service وجود دارد.
-        // این رابطه برای شمارش رزروها ضروری است.
         return $this->belongsToMany(Appointment::class, 'appointment_service');
     }
 
