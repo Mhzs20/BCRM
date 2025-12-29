@@ -38,7 +38,7 @@ class OnlineBookingManagementController extends Controller
             if ($status === 'pending') {
                 $query->where('status', 'pending_confirmation');
             } elseif ($status === 'confirmed') {
-                $query->where('status', 'confirmed');
+                $query->whereIn('status', ['confirmed', 'completed']);
             } elseif ($status === 'canceled') {
                 $query->where('status', 'canceled');
             }
@@ -150,5 +150,82 @@ class OnlineBookingManagementController extends Controller
             'message' => 'نوبت رد شد.',
             'data' => $appointment
         ]);
+    }
+
+    /**
+     * Bulk approve multiple online bookings for a salon.
+     * Expects JSON: { "appointment_ids": [1,2,3] }
+     */
+    public function bulkApprove(Request $request, $salonId)
+    {
+        $validated = $request->validate([
+            'appointment_ids' => 'required|array|min:1',
+            'appointment_ids.*' => 'integer'
+        ]);
+
+        $ids = array_values($validated['appointment_ids']);
+
+        // Fetch appointments that belong to this salon and are pending confirmation
+        $appointments = Appointment::where('salon_id', $salonId)
+            ->whereIn('id', $ids)
+            ->where('status', 'pending_confirmation')
+            ->with(['customer', 'salon'])
+            ->get();
+
+        if ($appointments->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'هیچ نوبت معتبری برای تایید یافت نشد.'
+            ], 400);
+        }
+
+        $approvedIds = [];
+        $approvedAppointments = [];
+
+        DB::beginTransaction();
+        try {
+            $toApproveIds = $appointments->pluck('id')->toArray();
+
+            // Bulk update statuses
+            Appointment::where('salon_id', $salonId)
+                ->whereIn('id', $toApproveIds)
+                ->where('status', 'pending_confirmation')
+                ->update(['status' => 'confirmed']);
+
+            DB::commit();
+
+            // Dispatch SMS jobs for each approved appointment
+
+            // Reload updated appointments with relations
+            $updatedAppointments = Appointment::whereIn('id', $toApproveIds)
+                ->with(['customer', 'staff', 'services', 'salon'])
+                ->get();
+
+            foreach ($updatedAppointments as $appointment) {
+                $approvedIds[] = $appointment->id;
+                $approvedAppointments[] = $appointment;
+                $customer = $appointment->customer;
+                $salon = $appointment->salon;
+                SendAppointmentConfirmationSms::dispatch($customer, $appointment, $salon, null);
+            }
+
+            $failed = array_values(array_diff($ids, $approvedIds));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'عملیات تایید دسته‌ای انجام شد.',
+                'approved_count' => count($approvedIds),
+                'approved_ids' => $approvedIds,
+                'approved_appointments' => $approvedAppointments,
+                'failed_ids' => $failed
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'خطا در تایید دسته‌ای: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

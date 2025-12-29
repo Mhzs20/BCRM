@@ -17,6 +17,7 @@ class ServiceResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'duration_minutes' => $this->duration_minutes,
             'pivot' => $this->whenPivotLoaded('appointment_service', function () {
                 return [
                     'appointment_id' => $this->pivot->appointment_id,

@@ -81,7 +81,13 @@ class AppointmentController extends Controller
                     'end_time' => $appointment->end_time,
                     'customer_name' => $appointment->customer->name ?? 'نامشخص',
                     'customer_phone' => $appointment->customer->phone_number ?? '',
-                    'services' => $appointment->services->pluck('name')->toArray(),
+                    'services' => $appointment->services->map(function($s){
+                        return [
+                            'id' => $s->id,
+                            'name' => $s->name,
+                            'duration_minutes' => $s->duration_minutes,
+                        ];
+                    })->toArray(),
                     'status' => $appointment->status,
                     'conflict_reason' => 'تداخل با نوبت موجود',
                 ];
@@ -120,8 +126,14 @@ class AppointmentController extends Controller
                 if (!empty($pendingAppointment->service_ids)) {
                     $services = \App\Models\Service::where('salon_id', $salonId)
                         ->whereIn('id', $pendingAppointment->service_ids)
-                        ->pluck('name')
-                        ->toArray();
+                        ->get(['id','name','duration_minutes'])
+                        ->map(function($s){
+                            return [
+                                'id' => $s->id,
+                                'name' => $s->name,
+                                'duration_minutes' => $s->duration_minutes,
+                            ];
+                        })->toArray();
                 }
 
                 $conflicts[] = [
@@ -150,7 +162,7 @@ class AppointmentController extends Controller
     public function index(Request $request, $salon_id)
     {
         $appointments = Appointment::where('salon_id', $salon_id)
-            ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name']) // Removed duration_minutes
+            ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name,duration_minutes'])
             ->orderBy($request->input('sort_by', 'appointment_date'), $request->input('sort_direction', 'desc'))
             ->orderBy('start_time', $request->input('sort_direction', 'desc'))
             ->paginate($request->input('per_page', 15));
@@ -230,7 +242,7 @@ class AppointmentController extends Controller
                 $validatedData['service_ids'], // service_ids are still needed for pivot data
                 $validatedData['appointment_date'],
                 $validatedData['start_time'],
-                $validatedData['total_duration'], // Add total_duration
+                (int) ($validatedData['total_duration'] ?? 0), // Ensure int
                 $validatedData['notes'] ?? null
             );
             // Fetch settings for the specific salon.
@@ -333,7 +345,7 @@ class AppointmentController extends Controller
         $newStaffId = $validatedData['staff_id'] ?? $oldStaffId;
         $newDate = $validatedData['appointment_date'] ?? $oldDate;
         $newStartTime = $validatedData['start_time'] ?? $oldStartTime;
-        $newTotalDuration = $validatedData['total_duration'] ?? $appointment->total_duration;
+        $newTotalDuration = (int) ($validatedData['total_duration'] ?? $appointment->total_duration ?? 0);
 
         $appointmentModified = (
             $newServiceIds !== $oldServiceIds ||
@@ -453,7 +465,7 @@ class AppointmentController extends Controller
 
         try {
             $query = Appointment::where('salon_id', $salon_id)
-                ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name']);
+                ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name,duration_minutes']);
 
             // فیلتر بازه تاریخی
             if (!empty($validated['start_date']) && !empty($validated['end_date'])) {
@@ -491,7 +503,7 @@ class AppointmentController extends Controller
             $validated = $request->validated();
             try {
                 $query = Appointment::where('salon_id', $salon_id)
-                    ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name']);
+                    ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name,duration_minutes']);
 
                 // فیلتر بازه تاریخی
                 if (!empty($validated['start_date']) && !empty($validated['end_date'])) {
@@ -531,7 +543,7 @@ class AppointmentController extends Controller
         }
         $query = Appointment::where('salon_id', $salon_id)
             ->whereBetween('appointment_date', [$validated['start_date'], $validated['end_date']])
-            ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name']); // Removed duration_minutes
+            ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name,duration_minutes']);
         if (!empty($validated['staff_id'])) {
             $query->where('staff_id', $validated['staff_id']);
         }
@@ -624,7 +636,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
 
             $appointments = Appointment::where('salon_id', $salon_id)
                 ->whereBetween('appointment_date', [$startDate, $endDate])
-                ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name']) // Removed duration_minutes
+                ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name,duration_minutes'])
                 ->orderBy('appointment_date')
                 ->orderBy('start_time')
                 ->paginate($request->input('per_page', 15)); 
@@ -836,7 +848,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
                 $validatedData['service_ids'],
                 $validatedData['appointment_date'],
                 $validatedData['start_time'],
-                $validatedData['total_duration'],
+                (int) ($validatedData['total_duration'] ?? 0),
                 $validatedData['notes'] ?? null
             );
 
@@ -893,7 +905,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
             // Load services for display
             $services = \App\Models\Service::where('salon_id', $salon_id)
                 ->whereIn('id', $validatedData['service_ids'])
-                ->get(['id', 'name', 'price']);
+                ->get(['id', 'name', 'price', 'duration_minutes']);
 
             $staff = \App\Models\Staff::where('salon_id', $salon_id)
                 ->where('id', $validatedData['staff_id'])
@@ -951,6 +963,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
                             'id' => $service->id,
                             'name' => $service->name,
                             'price' => $service->price,
+                            'duration_minutes' => $service->duration_minutes,
                         ];
                     }),
                     'salon' => [
@@ -1145,7 +1158,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
                 $validatedData['service_ids'], // service_ids are still needed for pivot data
                 $validatedData['appointment_date'],
                 $validatedData['start_time'],
-                $validatedData['total_duration'], // Add total_duration
+                (int) ($validatedData['total_duration'] ?? 0), // Ensure int
                 $validatedData['notes'] ?? null
             );
             // Fetch settings for the specific salon.

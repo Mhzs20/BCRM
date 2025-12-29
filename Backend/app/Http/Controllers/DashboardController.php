@@ -136,7 +136,7 @@ class DashboardController extends Controller
                     });
             })
             ->whereIn('status', ['confirmed', 'pending_confirmation'])
-            ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name'])
+            ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name,duration_minutes'])
             ->orderBy('appointment_date', 'asc')
             ->orderBy('start_time', 'asc')
             ->take(5)
@@ -234,7 +234,7 @@ class DashboardController extends Controller
 
         // 3. Start building the query for appointments in those salons
         $query = Appointment::whereIn('salon_id', $salonIds)
-            ->with(['salon:id,name', 'customer:id,name', 'staff:id,full_name', 'services:id,name']);
+            ->with(['salon:id,name', 'customer:id,name', 'staff:id,full_name', 'services:id,name,duration_minutes']);
 
         // 4. (Optional) Add filters based on request parameters
         if ($request->has('status')) {

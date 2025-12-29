@@ -38,7 +38,7 @@ class StaffController extends Controller
         $this->authorize('viewAny', [Staff::class, $salon]);
 
         $query = $salon->staff()
-            ->with(['services:id,name', 'schedules', 'breaks']);
+            ->with(['services:id,name,duration_minutes', 'schedules', 'breaks']);
 
         if ($request->filled('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
@@ -77,7 +77,7 @@ class StaffController extends Controller
         $this->authorize('viewAny', [Staff::class, $salon]);
 
         $query = $salon->staff()
-            ->with(['services:id,name', 'schedules', 'breaks']);
+            ->with(['services:id,name,duration_minutes', 'schedules', 'breaks']);
 
         if ($request->filled('q')) {
             $searchTerm = $request->input('q');
@@ -140,7 +140,7 @@ class StaffController extends Controller
                 if (!empty($validatedData['breaks'])) {
                     $this->syncBreaks($staff, $validatedData['breaks']);
                 }
-            $staff->load(['services:id,name', 'schedules', 'breaks']);
+            $staff->load(['services:id,name,duration_minutes', 'schedules', 'breaks']);
             return response()->json([
                 'success' => true,
                 'message' => 'پرسنل جدید با موفقیت ثبت شد.',
@@ -159,7 +159,7 @@ class StaffController extends Controller
     public function show(Salon $salon, Staff $staff)
     {
         $this->authorize('view', $staff);
-        $staff->load(['services:id,name', 'schedules', 'breaks']);
+        $staff->load(['services:id,name,duration_minutes', 'schedules', 'breaks']);
 
         $staffData = $staff->toArray();
         $staffData['total_income'] = (float) $staff->total_income;
@@ -205,7 +205,7 @@ class StaffController extends Controller
                     $this->syncBreaks($staff, $updateData['breaks']);
                 }
 
-            $staff->refresh()->load(['services:id,name', 'schedules', 'breaks']);
+            $staff->refresh()->load(['services:id,name,duration_minutes', 'schedules', 'breaks']);
             return response()->json([
                 'success' => true,
                 'message' => 'اطلاعات پرسنل با موفقیت به‌روزرسانی شد.',
@@ -289,7 +289,7 @@ class StaffController extends Controller
         $query = \App\Models\Appointment::whereIn('staff_id', $staffIds);
 
         // Eager load related data for better performance
-        $query->with(['client:id,full_name', 'staff:id,full_name', 'services:id,name']);
+        $query->with(['client:id,full_name', 'staff:id,full_name', 'services:id,name,duration_minutes']);
 
         if ($request->has('date')) {
             $query->whereDate('appointment_datetime', $request->date);
