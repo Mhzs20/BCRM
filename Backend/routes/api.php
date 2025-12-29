@@ -137,6 +137,7 @@ Route::middleware('auth:api')->group(function () {
                     Route::get('setting', [\App\Http\Controllers\Api\OnlineBookingSettingController::class, 'show'])->name('setting.show');
                     Route::post('setting', [\App\Http\Controllers\Api\OnlineBookingSettingController::class, 'update'])->name('setting.update');
                     Route::get('/', [\App\Http\Controllers\Api\OnlineBookingManagementController::class, 'index'])->name('index');
+                    Route::post('approve', [\App\Http\Controllers\Api\OnlineBookingManagementController::class, 'bulkApprove'])->name('bulk_approve');
                     Route::post('{appointment}/approve', [\App\Http\Controllers\Api\OnlineBookingManagementController::class, 'approve'])->name('approve');
                     Route::post('{appointment}/reject', [\App\Http\Controllers\Api\OnlineBookingManagementController::class, 'reject'])->name('reject');
                 });

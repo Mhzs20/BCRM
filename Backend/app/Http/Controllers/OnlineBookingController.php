@@ -390,7 +390,13 @@ class OnlineBookingController extends Controller
                     'customer_name' => $customer->name,
                     'appointment_date' => verta($appointment->appointment_date)->format('Y/m/d'),
                     'start_time' => $appointment->start_time,
-                    'services' => $appointment->services->pluck('name')->toArray(),
+                    'services' => $appointment->services->map(function($s){
+                        return [
+                            'id' => $s->id,
+                            'name' => $s->name,
+                            'duration_minutes' => $s->duration_minutes,
+                        ];
+                    })->toArray(),
                     'salon_name' => $salon->name,
                     'salon_id' => $salon->id,
                     'salon_phone' => $salon->mobile ?? null,
