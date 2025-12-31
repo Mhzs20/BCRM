@@ -11,6 +11,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Services\SmsService;
 
 class SalonSmsTemplateController extends Controller
 {
@@ -279,9 +280,26 @@ class SalonSmsTemplateController extends Controller
 
     /**
      * Return available templates for exclusive link sending (system + global custom)
+     * Accepts optional query params to preview/send cost:
+     *  - details_url (string, max 1000)
+     *  - customer_name (string, max 100)
+     *  - salon_name (string, max 100)
      */
-    public function exclusiveTemplates(): JsonResponse
+    public function exclusiveTemplates(Request $request, SmsService $smsService): JsonResponse
     {
+        $validated = $request->validate([
+            'details_url' => 'sometimes|string|max:1000',
+            'customer_name' => 'sometimes|string|max:100',
+            'salon_name' => 'sometimes|string|max:100',
+        ]);
+
+        $customerName = $validated['customer_name'] ?? null;
+        $salonName = $validated['salon_name'] ?? null;
+        $extraVariables = [];
+        if (isset($validated['details_url'])) {
+            $extraVariables['details_url'] = $validated['details_url'];
+        }
+
         $systemTemplate = SalonSmsTemplate::whereNull('salon_id')
             ->where('template_type', 'system_event')
             ->where('event_type', 'exclusive_link')
@@ -293,19 +311,44 @@ class SalonSmsTemplateController extends Controller
             ->where('event_type', 'exclusive_link')
             ->get();
 
+        $costPerPart = $smsService->getSmsCostPerPart();
+
+        // compute limits in chars and convert to SMS parts (details_url assumed EN, names assumed FA)
+        $detailsUrlMaxChars = 1000;
+        $customerNameMaxChars = 100;
+        $salonNameMaxChars = 100;
+
+        $charLimitFa = $smsService->getSmsCharacterLimitFa();
+        $charLimitEn = $smsService->getSmsCharacterLimitEn();
+
+        $limits = [
+            'details_url_max_chars' => $detailsUrlMaxChars,
+            'details_url_max_parts' => (int)ceil($detailsUrlMaxChars / max(1, $charLimitEn)),
+            'customer_name_max_chars' => $customerNameMaxChars,
+            'customer_name_max_parts' => (int)ceil($customerNameMaxChars / max(1, $charLimitFa)),
+            'salon_name_max_chars' => $salonNameMaxChars,
+            'salon_name_max_parts' => (int)ceil($salonNameMaxChars / max(1, $charLimitFa)),
+        ];
+
         return response()->json([
             'data' => [
+                'limits' => $limits,
+                'cost_per_part' => $costPerPart,
                 'system_template' => $systemTemplate ? [
                     'id' => $systemTemplate->id,
                     'template' => $systemTemplate->template,
                     'is_active' => $systemTemplate->is_active,
+                    'estimated_parts' => $systemTemplate->calculateEstimatedParts($customerName, $salonName, $extraVariables),
+                    'estimated_cost' => (int) $systemTemplate->calculateEstimatedCost($customerName, $salonName, $extraVariables),
                 ] : null,
-                'custom_templates' => $customTemplates->map(function($t){
+                'custom_templates' => $customTemplates->map(function($t) use ($customerName, $salonName, $extraVariables) {
                     return [
                         'id' => $t->id,
                         'title' => $t->title,
                         'template' => $t->template,
                         'is_active' => $t->is_active,
+                        'estimated_parts' => $t->calculateEstimatedParts($customerName, $salonName, $extraVariables),
+                        'estimated_cost' => (int) $t->calculateEstimatedCost($customerName, $salonName, $extraVariables),
                     ];
                 })->values(),
             ]
