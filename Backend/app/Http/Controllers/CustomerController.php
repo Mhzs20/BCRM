@@ -280,11 +280,7 @@ class CustomerController extends Controller
             ->orderBy('appointment_date', 'desc')
             ->get();
 
-        // As requested, ensure all relevant fields are returned in the response.
-        // The 'notes' field corresponds to 'internal_notes'.
-        // There is no 'deposit_amount' field, but 'total_price', 'deposit_required', and 'deposit_paid' are available.
-        // Removed the makeVisible call to respect the model's $appends and $hidden properties.
-        return response()->json($appointments);
+        return response()->json(App\Http\Resources\AppointmentResource::collection($appointments));
     }
         /**
          * لیست نوبت‌های مشتری سالن با قابلیت pagination
@@ -299,6 +295,6 @@ class CustomerController extends Controller
                 ->orderBy('appointment_date', 'desc')
                 ->paginate($perPage);
 
-            return response()->json($appointments);
+            return response()->json(App\Http\Resources\AppointmentResource::collection($appointments));
         }
 }
