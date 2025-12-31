@@ -28,6 +28,7 @@ class OnlineBookingManagementController extends Controller
         $perPage = $request->input('per_page', 15);
         $status = $request->input('status'); // pending, confirmed, canceled
         $jalaliDate = $request->input('date'); // YYYY/MM/DD or YYYY-MM-DD
+        $startDate = $request->input('start_date'); // YYYY/MM/DD or YYYY-MM-DD - when provided, return appointments from this date onwards (for pagination)
 
         $query = Appointment::where('salon_id', $salonId)
             ->where('source', 'online_booking')
@@ -35,19 +36,32 @@ class OnlineBookingManagementController extends Controller
 
         // Status Filter
         if ($status) {
-            if ($status === 'pending') {
+            $status = strtolower($status);
+
+            if ($status === 'pending' || $status === 'pending_confirmation') {
                 $query->where('status', 'pending_confirmation');
             } elseif ($status === 'confirmed') {
+                // If client specifically asks for confirmed, include completed too
                 $query->whereIn('status', ['confirmed', 'completed']);
             } elseif ($status === 'canceled') {
                 $query->where('status', 'canceled');
+            } else {
+                // Unknown status supplied -> return a 400 so clients don't get unexpected results
+                return response()->json([
+                    'success' => false,
+                    'message' => 'وضعیت نامعتبر است. وضعیت‌های پذیرفته شده: pending, pending_confirmation, confirmed, canceled.'
+                ], 400);
             }
         } else {
             // Default to pending_confirmation if no status is provided (preserving existing behavior)
             $query->where('status', 'pending_confirmation');
         }
 
-        // Jalali Date Filter
+        // Date Filters: single date vs start_date
+        // If `date` is provided, preserve existing behavior (return only that single day).
+        // If `start_date` is provided (and `date` is not), return appointments from that date onwards
+        // and order results chronologically (ascending) for a sensible pagination experience.
+        $orderedAsc = false;
         if ($jalaliDate) {
             try {
                 // Replace / with - for consistency
@@ -57,11 +71,27 @@ class OnlineBookingManagementController extends Controller
             } catch (\Exception $e) {
                 // Ignore invalid date format
             }
+        } elseif ($startDate) {
+            try {
+                // Replace / with - for consistency
+                $startDate = str_replace('/', '-', $startDate);
+                $start = Jalalian::fromFormat('Y-m-d', $startDate)->toCarbon()->format('Y-m-d');
+                $query->whereDate('appointment_date', '>=', $start);
+                $orderedAsc = true;
+            } catch (\Exception $e) {
+                // Ignore invalid date format
+            }
         }
 
-        $appointments = $query->orderBy('appointment_date', 'desc')
-            ->orderBy('start_time', 'desc')
-            ->paginate($perPage);
+        if ($orderedAsc) {
+            $appointments = $query->orderBy('appointment_date', 'asc')
+                ->orderBy('start_time', 'asc')
+                ->paginate($perPage);
+        } else {
+            $appointments = $query->orderBy('appointment_date', 'desc')
+                ->orderBy('start_time', 'desc')
+                ->paginate($perPage);
+        }
 
         return response()->json([
             'success' => true,
