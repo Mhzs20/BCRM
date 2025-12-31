@@ -908,4 +908,25 @@ class SmsService
     {
         return $this->smsCostPerPart;
     }
+
+    /**
+     * Returns the SMS character limit for Persian (Fa) messages.
+     *
+     * @return int
+     */
+    public function getSmsCharacterLimitFa(): int
+    {
+        return $this->smsCharacterLimitFa;
+    }
+
+    /**
+     * Returns the SMS character limit for English (En) messages.
+     *
+     * @return int
+     */
+    public function getSmsCharacterLimitEn(): int
+    {
+        return $this->smsCharacterLimitEn;
+    }
 }
+
