@@ -64,6 +64,7 @@ class AppointmentResource extends JsonResource
                 'full_name' => optional($this->staff)->full_name,
             ],
             'services' => ServiceResource::collection($this->whenLoaded('services')),
+            'source' => $this->source,
         ];
     }
 
