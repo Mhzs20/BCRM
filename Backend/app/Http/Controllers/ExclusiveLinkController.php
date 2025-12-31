@@ -46,7 +46,7 @@ class ExclusiveLinkController extends Controller
                 return response()->json(['message' => 'Preparation not found or does not belong to this salon'], 422);
             }
             if ($prep->expires_at && $prep->expires_at->isPast()) {
-                return response()->json(['message' => 'Preparation has expired'], 422);
+                return response()->json(['message' => 'مهلت استفاده از این ارسال به پایان رسیده است. لطفاً مجدداً اقدام کنید.'], 422);
             }
 
             $template = $prep->template;
