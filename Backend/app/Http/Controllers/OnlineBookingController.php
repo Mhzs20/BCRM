@@ -53,9 +53,9 @@ class OnlineBookingController extends Controller
 
         if ($appointment) {
             $service = $appointment->services->pluck('name')->implode(', ');
-            $date = verta($appointment->appointment_date)->format('Y/m/d') . ' - ' . $appointment->start_time;
+            $date = toPersianNumbers(verta($appointment->appointment_date)->format('Y/m/d') . ' - ' . $appointment->start_time);
             $operator = $appointment->staff->full_name ?? null;
-            $tracking_code = $appointment->id;
+            $tracking_code = toPersianNumbers($appointment->id);
             $hash = $appointment->hash ?? null;
             $salon = $appointment->salon;
             $salon_id = $salon->id ?? null;
@@ -370,15 +370,6 @@ class OnlineBookingController extends Controller
             // If status is confirmed, send confirmation SMS immediately
             if ($appointment->status === 'confirmed') {
                 SendAppointmentConfirmationSms::dispatch($customer, $appointment, $salon, null);
-            }
-
-            // Generate hash for appointment (if not present) and save
-            try {
-                $hashids = new Hashids(env('HASHIDS_SALT', 'your-default-salt'), 8);
-                $appointment->hash = $hashids->encode($appointment->id);
-                $appointment->save();
-            } catch (\Exception $e) {
-                // ignore hash generation errors
             }
 
             // Return JSON success response expected by AJAX calls

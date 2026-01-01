@@ -40,6 +40,8 @@ class UpdateServiceRequest extends FormRequest
 
                 'price' => ['sometimes', 'filled', 'numeric', 'min:0'],
 
+                'duration_minutes' => ['sometimes', 'nullable', 'integer', 'min:0'],
+
                 // 'boolean' rule can be strict. 'in:true,false,1,0' is more flexible with form data.
                 'is_active' => ['sometimes', 'boolean'],
                 'is_online_bookable' => ['sometimes', 'boolean'],

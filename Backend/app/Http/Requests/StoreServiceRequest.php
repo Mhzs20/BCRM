@@ -25,6 +25,7 @@ class StoreServiceRequest extends FormRequest
             })],
             'description' => ['nullable', 'string', 'max:1000'],
             'price' => ['required', 'numeric', 'min:0'],
+            'duration_minutes' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['boolean'],
             'staff_ids' => ['nullable', 'array'], // Added: Array of staff IDs
             'staff_ids.*' => ['integer', Rule::exists('salon_staff', 'id')->where(function ($query) use ($salonId) {
