@@ -50,6 +50,7 @@ class SendScheduledReminders extends Command
                           ->orWhereNull('reminder_sms_status');
                 })
                 ->whereNotNull('reminder_time')
+                ->where('status', '!=', 'canceled') // Exclude canceled appointments
                 ->whereHas('customer')
                 ->whereHas('salon')
                 // The core logic: check if the current time is past the calculated reminder time.
