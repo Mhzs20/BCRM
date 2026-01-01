@@ -88,7 +88,7 @@ class AppointmentBookingService
         return ['start' => null, 'end' => null, 'active' => false];
     }
 
-    public function prepareAppointmentData(int $salonId, int $customerId, int $staffId, array $serviceIds, string $appointmentDate, string $startTime, int $totalDuration, ?string $notes): array
+    public function prepareAppointmentData(int $salonId, int $customerId, int $staffId, array $serviceIds, string $appointmentDate, string $startTime, int $totalDuration, ?string $notes, ?string $currentStatus = null): array
     {
         $services = Service::where('salon_id', $salonId)->whereIn('id', $serviceIds)->where('is_active', true)->get();
         if ($services->isEmpty()) {
@@ -106,11 +106,15 @@ class AppointmentBookingService
             'appointment_date' => $appointmentDate,
             'start_time' => $carbonStartTime->format('H:i:s'),
             'end_time' => $endTime,
-            'status' => 'notconfirmed',
             'notes' => $notes,
             'total_price' => $totalPrice,
             'total_duration' => $totalDuration,
         ];
+
+        // Only set status if not provided (for new appointments)
+        if ($currentStatus === null) {
+            $appointmentData['status'] = 'notconfirmed';
+        }
 
         $servicePivotData = [];
         foreach ($services as $service) {

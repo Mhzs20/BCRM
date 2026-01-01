@@ -15,7 +15,8 @@ class OnlineBookingSettingController extends Controller
         $defaults = [
             'default_booking_status' => 'pending_confirmation',
             'enabled' => true,
-            'enabled_days' => [0, 1, 2, 3, 4, 5, 6] // 0=Sat, ..., 6=Fri
+            'enabled_days' => [0, 1, 2, 3, 4, 5, 6], // 0=Sat, ..., 6=Fri
+            'allow_holiday_booking' => false // Allow booking on official holidays
         ];
         
         $settings = $salon->online_booking_settings ?? [];
@@ -36,6 +37,7 @@ class OnlineBookingSettingController extends Controller
             'enabled' => 'sometimes|required|boolean',
             'enabled_days' => 'sometimes|required|array',
             'enabled_days.*' => 'integer|min:0|max:6',
+            'allow_holiday_booking' => 'sometimes|required|boolean',
         ]);
 
         $salon = Salon::findOrFail($salonId);
@@ -52,6 +54,10 @@ class OnlineBookingSettingController extends Controller
         
         if ($request->has('enabled_days')) {
             $settings['enabled_days'] = $request->enabled_days;
+        }
+        
+        if ($request->has('allow_holiday_booking')) {
+            $settings['allow_holiday_booking'] = filter_var($request->allow_holiday_booking, FILTER_VALIDATE_BOOLEAN);
         }
         
         $salon->online_booking_settings = $settings;
