@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\PendingAppointment;
 use App\Models\Salon;
 use Illuminate\Http\Request;
 use App\Jobs\SendAppointmentConfirmationSms;
 use Illuminate\Support\Facades\DB;
 use App\Services\SmsService;
 use Morilog\Jalali\Jalalian;
+use Carbon\Carbon;
 
 class OnlineBookingManagementController extends Controller
 {
@@ -93,10 +95,183 @@ class OnlineBookingManagementController extends Controller
                 ->paginate($perPage);
         }
 
+        // Add conflict information to each appointment
+        $appointments->getCollection()->transform(function ($appointment) use ($salonId) {
+            $conflicts = $this->getAppointmentConflicts(
+                $salonId,
+                $appointment->staff_id,
+                $appointment->appointment_date->format('Y-m-d'),
+                $appointment->start_time,
+                $appointment->end_time,
+                $appointment->id
+            );
+
+            $appointment->has_conflicts = count($conflicts) > 0;
+            $appointment->conflicting_appointments = $conflicts;
+
+            return $appointment;
+        });
+
         return response()->json([
             'success' => true,
             'data' => $appointments
         ]);
+    }
+
+    /**
+     * Get conflicts for an appointment (appointments, pending appointments, and staff breaks).
+     */
+    private function getAppointmentConflicts($salonId, $staffId, $appointmentDate, $startTime, $endTime, $excludeAppointmentId = null)
+    {
+        $slotStart = Carbon::parse($appointmentDate . ' ' . $startTime);
+        $slotEnd = Carbon::parse($appointmentDate . ' ' . $endTime);
+
+        $conflicts = [];
+
+        // Check staff break conflicts
+        $staffBreakConflicts = $this->getStaffBreakConflicts($staffId, $appointmentDate, $startTime, $endTime);
+        $conflicts = array_merge($conflicts, $staffBreakConflicts);
+
+        // Check confirmed/completed appointments
+        $query = Appointment::where('salon_id', $salonId)
+            ->where('staff_id', $staffId)
+            ->where('appointment_date', $appointmentDate)
+            ->where('status', '!=', 'canceled')
+            ->with(['customer', 'staff', 'services']);
+
+        if ($excludeAppointmentId) {
+            $query->where('id', '!=', $excludeAppointmentId);
+        }
+
+        $appointments = $query->get();
+
+        foreach ($appointments as $appointment) {
+            $existingStart = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->start_time);
+            $existingEnd = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->end_time);
+
+            if ($slotStart->lt($existingEnd) && $slotEnd->gt($existingStart)) {
+                $conflicts[] = [
+                    'type' => 'appointment',
+                    'id' => $appointment->id,
+                    'appointment_date' => $appointment->appointment_date->format('Y-m-d'),
+                    'start_time' => $appointment->start_time,
+                    'end_time' => $appointment->end_time,
+                    'staff_id' => $appointment->staff_id,
+                    'staff_name' => $appointment->staff->full_name ?? 'نامشخص',
+                    'customer_name' => $appointment->customer->name ?? 'نامشخص',
+                    'customer_phone' => $appointment->customer->phone_number ?? '',
+                    'services' => $appointment->services->map(function($s){
+                        return [
+                            'id' => $s->id,
+                            'name' => $s->name,
+                            'duration_minutes' => $s->duration_minutes,
+                        ];
+                    })->toArray(),
+                    'status' => $appointment->status,
+                    'conflict_reason' => 'تداخل با نوبت موجود',
+                ];
+            }
+        }
+
+        // Check pending appointments
+        $pendingQuery = PendingAppointment::where('salon_id', $salonId)
+            ->where('staff_id', $staffId)
+            ->where('appointment_date', $appointmentDate)
+            ->notExpired()
+            ->with(['customer', 'staff']);
+
+        if ($excludeAppointmentId) {
+            $pendingQuery->where('id', '!=', $excludeAppointmentId);
+        }
+
+        $pendingAppointments = $pendingQuery->get();
+
+        foreach ($pendingAppointments as $pendingAppointment) {
+            $existingStart = Carbon::parse($pendingAppointment->appointment_date->format('Y-m-d') . ' ' . $pendingAppointment->start_time);
+            $existingEnd = Carbon::parse($pendingAppointment->appointment_date->format('Y-m-d') . ' ' . $pendingAppointment->end_time);
+
+            if ($slotStart->lt($existingEnd) && $slotEnd->gt($existingStart)) {
+                $customerName = 'نامشخص';
+                $customerPhone = '';
+                if ($pendingAppointment->customer) {
+                    $customerName = $pendingAppointment->customer->name;
+                    $customerPhone = $pendingAppointment->customer->phone_number;
+                } elseif (isset($pendingAppointment->new_customer_data['name'])) {
+                    $customerName = $pendingAppointment->new_customer_data['name'];
+                    $customerPhone = $pendingAppointment->new_customer_data['phone_number'] ?? '';
+                }
+
+                $services = [];
+                if (!empty($pendingAppointment->service_ids)) {
+                    $services = \App\Models\Service::where('salon_id', $salonId)
+                        ->whereIn('id', $pendingAppointment->service_ids)
+                        ->get(['id','name','duration_minutes'])
+                        ->map(function($s){
+                            return [
+                                'id' => $s->id,
+                                'name' => $s->name,
+                                'duration_minutes' => $s->duration_minutes,
+                            ];
+                        })->toArray();
+                }
+
+                $conflicts[] = [
+                    'type' => 'pending_appointment',
+                    'id' => $pendingAppointment->id,
+                    'appointment_date' => $pendingAppointment->appointment_date->format('Y-m-d'),
+                    'start_time' => $pendingAppointment->start_time,
+                    'end_time' => $pendingAppointment->end_time,
+                    'staff_id' => $pendingAppointment->staff_id,
+                    'staff_name' => $pendingAppointment->staff->full_name ?? 'نامشخص',
+                    'customer_name' => $customerName,
+                    'customer_phone' => $customerPhone,
+                    'services' => $services,
+                    'status' => 'pending',
+                    'conflict_reason' => 'تداخل با نوبت در حال انتظار',
+                ];
+            }
+        }
+
+        return $conflicts;
+    }
+
+    /**
+     * Get staff break conflicts.
+     */
+    private function getStaffBreakConflicts($staffId, $appointmentDate, $startTime, $endTime)
+    {
+        $conflicts = [];
+        $staff = \App\Models\Staff::find($staffId);
+
+        if (!$staff || !$staff->working_hours) {
+            return $conflicts;
+        }
+
+        $slotStart = Carbon::parse($appointmentDate . ' ' . $startTime);
+        $slotEnd = Carbon::parse($appointmentDate . ' ' . $endTime);
+        $dayOfWeek = strtolower(Carbon::parse($appointmentDate)->locale('en')->dayName);
+
+        if (!isset($staff->working_hours[$dayOfWeek]['breaks'])) {
+            return $conflicts;
+        }
+
+        foreach ($staff->working_hours[$dayOfWeek]['breaks'] as $break) {
+            $breakStart = Carbon::parse($appointmentDate . ' ' . $break['start']);
+            $breakEnd = Carbon::parse($appointmentDate . ' ' . $break['end']);
+
+            if ($slotStart->lt($breakEnd) && $slotEnd->gt($breakStart)) {
+                $conflicts[] = [
+                    'type' => 'staff_break',
+                    'staff_id' => $staffId,
+                    'staff_name' => $staff->full_name,
+                    'break_start' => $break['start'],
+                    'break_end' => $break['end'],
+                    'conflict_reason' => 'تداخل با زمان استراحت کارمند',
+                ];
+            }
+        }
+
+        return $conflicts;
     }
 
     /**

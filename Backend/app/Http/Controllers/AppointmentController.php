@@ -58,9 +58,10 @@ class AppointmentController extends Controller
         $conflicts = array_merge($conflicts, $staffBreakConflicts);
 
          $query = Appointment::where('salon_id', $salonId)
+            ->where('staff_id', $staffId)
             ->where('appointment_date', $appointmentDate)
             ->where('status', '!=', 'canceled')
-            ->with(['customer', 'services']);
+            ->with(['customer', 'staff', 'services']);
 
         if ($excludeAppointmentId) {
             $query->where('id', '!=', $excludeAppointmentId);
@@ -79,6 +80,8 @@ class AppointmentController extends Controller
                     'appointment_date' => $appointment->appointment_date->format('Y-m-d'),
                     'start_time' => $appointment->start_time,
                     'end_time' => $appointment->end_time,
+                    'staff_id' => $appointment->staff_id,
+                    'staff_name' => $appointment->staff->full_name ?? 'نامشخص',
                     'customer_name' => $appointment->customer->name ?? 'نامشخص',
                     'customer_phone' => $appointment->customer->phone_number ?? '',
                     'services' => $appointment->services->map(function($s){
@@ -95,9 +98,10 @@ class AppointmentController extends Controller
         }
 
          $pendingQuery = PendingAppointment::where('salon_id', $salonId)
+            ->where('staff_id', $staffId)
             ->where('appointment_date', $appointmentDate)
             ->notExpired()
-            ->with(['customer']); // Load customer relationship
+            ->with(['customer', 'staff']); // Load customer and staff relationships
 
         if ($excludeAppointmentId) {
             $pendingQuery->where('id', '!=', $excludeAppointmentId);
@@ -137,11 +141,13 @@ class AppointmentController extends Controller
                 }
 
                 $conflicts[] = [
-                    'type' => 'appointment',
+                    'type' => 'pending_appointment',
                     'id' => $pendingAppointment->id,
                     'appointment_date' => $pendingAppointment->appointment_date->format('Y-m-d'),
                     'start_time' => $pendingAppointment->start_time,
                     'end_time' => $pendingAppointment->end_time,
+                    'staff_id' => $pendingAppointment->staff_id,
+                    'staff_name' => $pendingAppointment->staff->full_name ?? 'نامشخص',
                     'customer_name' => $customerName,
                     'customer_phone' => $customerPhone,
                     'services' => $services,
@@ -349,6 +355,7 @@ class AppointmentController extends Controller
 
         $appointmentModified = (
             $newServiceIds !== $oldServiceIds ||
+            $newStaffId !== $oldStaffId ||
             $newDate != $oldDate ||
             $newStartTime != $oldStartTime
         );
@@ -369,7 +376,8 @@ class AppointmentController extends Controller
                         $newDate,
                         $newStartTime,
                         $newTotalDuration,
-                        $validatedData['notes'] ?? $appointment->notes
+                        $validatedData['notes'] ?? $appointment->notes,
+                        $appointment->status // Pass current status to preserve it
                     );
 
                     $appointment->update($appointmentDetails['appointment_data']);

@@ -67,7 +67,7 @@
                 <div class="space-y-2 text-sm leading-8 text-neutral-500 font-medium">
                     <p>
                         نوبت <span class="text-orange-500 font-bold text-lg mx-1">{{ $service ?? 'خدمات' }}</span>
-                        در تاریخ <span class="text-orange-400 font-bold text-lg mx-1 dir-ltr inline-block">{{ $date ?? '-' }}</span>
+                        در تاریخ <span class="text-orange-400 font-bold text-lg mx-1">{{ $date ?? '-' }}</span>
                     </p>
                     <p>
                         با اپراتور <span class="text-orange-400 font-bold text-lg mx-1">{{ $operator ?? '-' }}</span>
@@ -80,7 +80,7 @@
             <div class="text-center px-6 mb-8">
                 <p class="text-neutral-400 text-xs mb-3 font-light">جزئیات نوبت نیز به زودی برای شما پیامک خواهد شد</p>
                 <div class="text-neutral-400 font-normal text-sm">
-                    کد پیگیری نوبت : <span class="font-bold text-lg text-neutral-600 mx-1">{{ $tracking_code ?? '-' }}</span>
+                    کد پیگیری نوبت : <span class="font-bold text-lg text-neutral-600 mx-1" dir="rtl">{{ $tracking_code ?? '-' }}</span>
                 </div>
             </div>
 

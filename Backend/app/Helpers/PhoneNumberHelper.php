@@ -52,3 +52,24 @@ if (!function_exists('normalizePhoneNumber')) {
         return $phoneNumber;
     }
 }
+
+if (!function_exists('toPersianNumbers')) {
+    /**
+     * Convert English/Latin numbers to Persian numbers.
+     *
+     * @param string|int|null $value
+     * @return string
+     */
+    function toPersianNumbers($value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+        
+        $value = (string) $value;
+        $english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+        $persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+        
+        return str_replace($english, $persian, $value);
+    }
+}

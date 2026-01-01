@@ -67,7 +67,7 @@
                 <div class="space-y-2 text-sm leading-8 text-neutral-500 font-medium px-2">
                     <p>
                         نوبت <span class="text-orange-500 font-bold text-lg mx-1">{{ $service ?? 'خدمات' }}</span>
-                        در تاریخ <span class="text-orange-400 font-bold text-lg mx-1 dir-ltr inline-block">{{ $date ?? '-' }}</span>
+                        در تاریخ <span class="text-orange-400 font-bold text-lg mx-1">{{ $date ?? '-' }}</span>
                         با اپراتور <span class="text-orange-400 font-bold text-lg mx-1">{{ $operator ?? '-' }}</span>
                         ثبت گردید و در انتظار تائید سالن می باشد.
                     </p>
@@ -80,7 +80,7 @@
             <!-- Footer Info -->
             <div class="text-center px-6 mb-8">
                 <div class="text-neutral-400 font-normal text-sm">
-                    کد پیگیری نوبت : <span class="font-bold text-lg text-neutral-600 mx-1">{{ $tracking_code ?? '-' }}</span>
+                    کد پیگیری نوبت : <span class="font-bold text-lg text-neutral-600 mx-1" dir="rtl">{{ $tracking_code ?? '-' }}</span>
                 </div>
             </div>
 

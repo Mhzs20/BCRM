@@ -13,10 +13,41 @@ class AppointmentObserver
 {
     public function created(Appointment $appointment)
     {
-        // Generate a unique hash after the appointment has been created and has an ID
-        $hashids = new Hashids(env('HASHIDS_SALT', 'your-default-salt'), 8);
-        $appointment->hash = $hashids->encode($appointment->id);
-        $appointment->saveQuietly(); // Use saveQuietly to avoid triggering the updated event
+        // Generate a unique hash only if not already set
+        if (empty($appointment->hash)) {
+            $hashids = new Hashids(env('HASHIDS_SALT', 'your-default-salt'), 8);
+            $maxAttempts = 10;
+            $attempt = 0;
+            
+            do {
+                // Generate hash with additional entropy for uniqueness
+                $hashSeed = $attempt > 0 ? $appointment->id . microtime(true) . $attempt : $appointment->id;
+                $generatedHash = $hashids->encode($hashSeed);
+                
+                // Check if hash already exists
+                $exists = Appointment::where('hash', $generatedHash)
+                    ->where('id', '!=', $appointment->id)
+                    ->exists();
+                
+                if (!$exists) {
+                    $appointment->hash = $generatedHash;
+                    try {
+                        $appointment->saveQuietly(); // Use saveQuietly to avoid triggering the updated event
+                        break; // Successfully saved, exit loop
+                    } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+                        // Hash collision occurred, retry
+                        $attempt++;
+                        if ($attempt >= $maxAttempts) {
+                            \Log::error("Failed to generate unique hash for appointment {$appointment->id} after {$maxAttempts} attempts");
+                            throw $e;
+                        }
+                        usleep(10000); // Small delay before retry (10ms)
+                    }
+                } else {
+                    $attempt++;
+                }
+            } while ($attempt < $maxAttempts);
+        }
 
         // Update staff statistics
         if ($appointment->staff) {
