@@ -40,6 +40,12 @@ class SendAppointmentReminderSms implements ShouldQueue
             return;
         }
 
+        // Check if appointment is canceled
+        if ($appointment->status === 'canceled') {
+            Log::info("Skipping reminder SMS for appointment {$appointment->id}: appointment is canceled.");
+            return;
+        }
+
         // Check if SMS has a final status already
         if (!in_array($appointment->reminder_sms_status, ['not_sent', 'processing', null])) {
             Log::info("Reminder SMS for appointment {$appointment->id} already has a final status '{$appointment->reminder_sms_status}'. Skipping.");
