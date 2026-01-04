@@ -389,6 +389,11 @@ class AppointmentController extends Controller
             $oldStatus = $appointment->status;
             $newStatus = $updateData['status'] ?? $oldStatus;
 
+            // Set completed_at when status changes to completed
+            if ($newStatus === 'completed' && $oldStatus !== 'completed') {
+                $updateData['completed_at'] = now();
+            }
+
             if (!empty($updateData)) {
                 $appointment->update($updateData);
             }

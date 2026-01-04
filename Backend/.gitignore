@@ -1,6 +1,8 @@
 /.phpunit.cache
 /node_modules
 /public/build
+/postman    
+/docs -f
 /public/hot
 /public/storage
 /storage/*.key

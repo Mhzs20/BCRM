@@ -30,10 +30,12 @@ use App\Http\Controllers\Api\AppController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\BannerController as ApiBannerController;
 use App\Http\Controllers\SatisfactionController;
+use App\Http\Controllers\SatisfactionSurveyController;
 use App\Http\Controllers\ExclusiveLinkController;
 use App\Http\Controllers\ContactPickerController;
 use App\Http\Controllers\RenewalReminderController;
 use App\Http\Controllers\ServiceRenewalController;
+use App\Http\Controllers\CustomerFollowUpController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -116,7 +118,7 @@ Route::middleware('auth:api')->group(function () {
             Route::put('renewal-reminders/services/settings', [ServiceRenewalController::class, 'updateMultipleServiceSettings'])->name('renewal_reminders.services.update_multiple_settings');
             // Birthday Reminder Routes - Protected by Feature Package
             Route::prefix('birthday-reminders')->name('birthday_reminders.')
-                ->middleware('feature:پیامک یادآوری ترمیم و تولد')
+                ->middleware('feature:پیامک هوشمند و زمانبندی شده')
                 ->group(function () {
                     Route::get('stats', [BirthdayReminderController::class, 'stats'])->name('stats');
                     Route::get('groups', [BirthdayReminderController::class, 'groups'])->name('groups');
@@ -127,7 +129,40 @@ Route::middleware('auth:api')->group(function () {
                     Route::post('global-toggle', [BirthdayReminderController::class, 'globalToggle'])->name('global_toggle');
                     Route::delete('groups/{groupId}/settings', [BirthdayReminderController::class, 'deleteGroupSettings'])->name('groups.delete_settings');
                     Route::get('groups/{groupId}/settings', [BirthdayReminderController::class, 'groupSettings'])->name('groups.settings');
+                });
 
+            // Satisfaction Survey Routes - Protected by Feature Package
+            Route::prefix('satisfaction-surveys')->name('satisfaction_surveys.')
+                ->middleware('feature:پیامک هوشمند و زمانبندی شده')
+                ->group(function () {
+                    Route::get('stats', [SatisfactionSurveyController::class, 'stats'])->name('stats');
+                    Route::get('groups', [SatisfactionSurveyController::class, 'groups'])->name('groups');
+                    Route::get('templates', [SatisfactionSurveyController::class, 'templates'])->name('templates');
+                    Route::get('settings/summary', [SatisfactionSurveyController::class, 'summary'])->name('settings.summary');
+                    Route::put('groups/settings', [SatisfactionSurveyController::class, 'updateSettings'])->name('groups.update_settings');
+                    Route::post('groups/{groupId}/toggle', [SatisfactionSurveyController::class, 'toggleGroup'])->name('groups.toggle');
+                    Route::post('global-toggle', [SatisfactionSurveyController::class, 'globalToggle'])->name('global_toggle');
+                    Route::delete('groups/{groupId}/settings', [SatisfactionSurveyController::class, 'deleteGroupSettings'])->name('groups.delete_settings');
+                    Route::get('groups/{groupId}/settings', [SatisfactionSurveyController::class, 'groupSettings'])->name('groups.settings');
+                });
+
+            // Customer Follow-up Routes - Protected by Feature Package
+            Route::prefix('customer-followups')->name('customer_followups.')
+                ->middleware('feature:پیامک هوشمند و زمانبندی شده')
+                ->group(function () {
+                    Route::get('stats', [\App\Http\Controllers\CustomerFollowUpController::class, 'stats'])->name('stats');
+                    Route::get('groups', [\App\Http\Controllers\CustomerFollowUpController::class, 'groups'])->name('groups');
+                    Route::get('templates', [\App\Http\Controllers\CustomerFollowUpController::class, 'templates'])->name('templates');
+                    Route::get('settings/summary', [\App\Http\Controllers\CustomerFollowUpController::class, 'summary'])->name('settings.summary');
+                    Route::put('groups/settings', [\App\Http\Controllers\CustomerFollowUpController::class, 'updateSettings'])->name('groups.update_settings');
+                    Route::post('groups/{groupId}/toggle', [\App\Http\Controllers\CustomerFollowUpController::class, 'toggleGroup'])->name('groups.toggle');
+                    Route::post('global-toggle', [\App\Http\Controllers\CustomerFollowUpController::class, 'globalToggle'])->name('global_toggle');
+                    Route::delete('groups/{groupId}/settings', [\App\Http\Controllers\CustomerFollowUpController::class, 'deleteGroupSettings'])->name('groups.delete_settings');
+                    Route::get('groups/{groupId}/settings', [\App\Http\Controllers\CustomerFollowUpController::class, 'groupSettings'])->name('groups.settings');
+                    // Manual Follow-up Routes
+                    Route::post('manual/prepare', [\App\Http\Controllers\CustomerFollowUpController::class, 'prepareManualFollowup'])->name('manual.prepare');
+                    Route::post('manual/send', [\App\Http\Controllers\CustomerFollowUpController::class, 'sendManualFollowup'])->name('manual.send');
+                    Route::get('history', [\App\Http\Controllers\CustomerFollowUpController::class, 'history'])->name('history');
                 });
 
             // Online Booking Management
@@ -168,7 +203,7 @@ Route::middleware('auth:api')->group(function () {
 
             // Renewal Reminder Routes - Protected by Feature Package
             Route::prefix('renewal-reminders')->name('renewal_reminders.')
-                ->middleware('feature:پیامک یادآوری ترمیم و تولد')
+                ->middleware('feature:پیامک هوشمند و زمانبندی شده')
                 ->group(function () {
                     Route::get('templates', [RenewalReminderController::class, 'getTemplates'])->name('templates');
                     Route::get('settings', [RenewalReminderController::class, 'getSettings'])->name('settings');
@@ -215,6 +250,19 @@ Route::middleware('auth:api')->group(function () {
 
             Route::post('appointments/{appointment}/send-reminder', [AppointmentController::class, 'sendReminderSms'])->name('appointments.send_reminder');
             Route::post('appointments/{appointment}/send-modification-sms', [AppointmentController::class, 'sendModificationSms'])->name('appointments.send_modification_sms');
+
+            // Appointment Attachments Routes
+            Route::prefix('appointments/{appointment}/attachments')->name('appointments.attachments.')->group(function () {
+                Route::post('/', [\App\Http\Controllers\AppointmentAttachmentController::class, 'storeOrUpdate'])->name('store');
+                Route::get('/', [\App\Http\Controllers\AppointmentAttachmentController::class, 'show'])->name('show');
+            });
+            Route::delete('attachments/{attachment}', [\App\Http\Controllers\AppointmentAttachmentController::class, 'destroy'])->name('attachments.destroy');
+
+            // Customer Attachments & Gallery Routes
+            Route::prefix('customers/{customer}')->name('customers.')->group(function () {
+                Route::get('attachments/history', [\App\Http\Controllers\AppointmentAttachmentController::class, 'customerHistory'])->name('attachments.history');
+                Route::get('attachments/gallery', [\App\Http\Controllers\AppointmentAttachmentController::class, 'customerGallery'])->name('attachments.gallery');
+            });
 
             Route::apiResource('appointments', AppointmentController::class)->except(['create', 'edit']);
             Route::apiResource('payments', PaymentController::class)->except(['create', 'edit']);
@@ -413,6 +461,47 @@ Route::prefix('booking-wizard')->name('booking_wizard.')
     Route::post('{salonId}/send-otp', [BookingWizardController::class, 'sendOtp'])->name('send_otp');
     Route::post('{salonId}/verify-otp', [BookingWizardController::class, 'verifyOtp'])->name('verify_otp');
 });
+
+// Reports API Routes
+use App\Http\Controllers\ReportController;
+Route::middleware('auth:api')->prefix('reports')->name('reports.')->group(function () {
+    // Overview (Home)
+    Route::get('overview', [ReportController::class, 'overview'])->name('overview');
+    
+    // Customer Reports
+    Route::get('customers/preset', [ReportController::class, 'customersPreset'])->name('customers.preset');
+    Route::post('customers/custom', [ReportController::class, 'customersCustom'])->name('customers.custom');
+    
+    // Reservation Reports
+    Route::get('reservations/preset', [ReportController::class, 'reservationsPreset'])->name('reservations.preset');
+    Route::post('reservations/custom', [ReportController::class, 'reservationsCustom'])->name('reservations.custom');
+    
+    // Finance Reports
+    Route::get('finance/preset', [ReportController::class, 'financePreset'])->name('finance.preset');
+    Route::post('finance/custom', [ReportController::class, 'financeCustom'])->name('finance.custom');
+    
+    // Personnel Reports
+    Route::get('personnel/preset', [ReportController::class, 'personnelPreset'])->name('personnel.preset');
+    Route::post('personnel/custom', [ReportController::class, 'personnelCustom'])->name('personnel.custom');
+    
+    // Satisfaction Reports
+    Route::get('satisfaction/preset', [ReportController::class, 'satisfactionPreset'])->name('satisfaction.preset');
+    Route::post('satisfaction/custom', [ReportController::class, 'satisfactionCustom'])->name('satisfaction.custom');
+    
+    // SMS Reports
+    Route::get('sms/preset', [ReportController::class, 'smsPreset'])->name('sms.preset');
+    Route::post('sms/custom', [ReportController::class, 'smsCustom'])->name('sms.custom');
+    
+    // Share Report
+    Route::post('share', [ReportController::class, 'shareReport'])->name('share');
+    
+    // PDF Download
+    Route::post('{reportType}/pdf', [ReportController::class, 'downloadPdf'])->name('download_pdf');
+});
+
+// Public shared report (no auth required)
+Route::get('reports/shared/{token}', [ReportController::class, 'getSharedReport'])->name('reports.shared');
+Route::get('reports/shared/{token}/pdf', [ReportController::class, 'downloadSharedReportPdf'])->name('reports.shared.pdf');
 
 Route::fallback(function(){
     return response()->json(['message' => 'مسیر API درخواستی یافت نشد یا متد HTTP مجاز نیست.'], 404);

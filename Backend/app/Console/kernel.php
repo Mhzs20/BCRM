@@ -18,15 +18,17 @@ class Kernel extends ConsoleKernel
 		// Cancel past appointments - runs every 5 minutes for optimal user experience
 		$schedule->command('appointments:cancel-past')->everyFiveMinutes();
 
-		// Update reminder SMS status every 5 minutes
-		$schedule->command('sms:update-reminder-status')->everyFiveMinutes();
-
-			   // Send renewal reminders every minute (supports any user-set time)
-			   $schedule->command('renewal:send-reminders')->everyMinute();
+	// Check and update all pending SMS statuses (appointments + manual SMS transactions)
+	// This replaces the old 'sms:update-reminder-status' command with a more comprehensive solution
+	$schedule->job(new \App\Jobs\CheckSmsStatus)->everyFiveMinutes();
 
 			   // Send birthday reminders every minute (supports any user-set time)
 			   $schedule->command('reminders:send-birthday')->everyMinute();
-	}
+
+			   // Process satisfaction surveys every hour
+			   $schedule->command('satisfaction:process')->hourly()->withoutOverlapping();
+		   // Process automatic customer followups every hour
+		   $schedule->command('followup:process-customers')->hourly()->withoutOverlapping();	}
 
 	/**
 	 * Register the commands for the application.

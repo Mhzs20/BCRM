@@ -60,10 +60,23 @@ class Customer extends Model
     {
         return $this->hasMany(Appointment::class);
     }
+    
+    public function groups()
+    {
+        return $this->belongsToMany(CustomerGroup::class, 'customer_customer_group')->withTimestamps();
+    }
 
     public function payments()
     {
         return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * Get all attachments for the customer through appointments.
+     */
+    public function attachments()
+    {
+        return $this->hasMany(AppointmentAttachment::class);
     }
 
     public function howIntroduced()
