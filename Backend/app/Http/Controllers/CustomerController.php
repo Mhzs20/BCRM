@@ -280,7 +280,7 @@ class CustomerController extends Controller
             ->orderBy('appointment_date', 'desc')
             ->get();
 
-        return response()->json(App\Http\Resources\AppointmentResource::collection($appointments));
+        return response()->json(\App\Http\Resources\AppointmentResource::collection($appointments));
     }
         /**
          * لیست نوبت‌های مشتری سالن با قابلیت pagination
@@ -295,6 +295,6 @@ class CustomerController extends Controller
                 ->orderBy('appointment_date', 'desc')
                 ->paginate($perPage);
 
-            return response()->json(App\Http\Resources\AppointmentResource::collection($appointments));
+            return response()->json(\App\Http\Resources\AppointmentResource::collection($appointments));
         }
 }

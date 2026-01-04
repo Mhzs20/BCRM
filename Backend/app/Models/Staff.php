@@ -34,6 +34,9 @@ class Staff extends Model
         'completed_appointments',
         'canceled_appointments',
         'total_income',
+        'commission_type',
+        'commission_value',
+        'total_commission_paid',
     ];
 
     /**
@@ -54,6 +57,8 @@ class Staff extends Model
         'completed_appointments' => 'integer',
         'canceled_appointments' => 'integer',
         'total_income' => 'decimal:2',
+        'commission_value' => 'decimal:2',
+        'total_commission_paid' => 'decimal:2',
     ];
 
     /**
@@ -128,4 +133,39 @@ class Staff extends Model
         {
             return $this->hasMany(StaffBreak::class, 'staff_id');
         }
+
+    /**
+     * Get the payments associated with this staff.
+     */
+    public function payments()
+    {
+        return $this->hasMany(Payment::class, 'staff_id');
+    }
+
+    /**
+     * Get the expenses associated with this staff.
+     */
+    public function expenses()
+    {
+        return $this->hasMany(Expense::class, 'staff_id');
+    }
+
+    /**
+     * Get the feedback for this staff.
+     */
+    public function feedbacks()
+    {
+        return $this->hasMany(CustomerFeedback::class, 'staff_id');
+    }
+
+    /**
+     * Calculate commission for a given amount.
+     */
+    public function calculateCommission($amount)
+    {
+        if ($this->commission_type === 'percentage') {
+            return ($amount * $this->commission_value) / 100;
+        }
+        return $this->commission_value;
+    }
 }

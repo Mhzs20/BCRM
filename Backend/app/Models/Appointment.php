@@ -26,6 +26,7 @@ class Appointment extends Model
         'total_price',
         'total_duration',
         'status',
+        'completed_at',
         'source',
         'notes',
         'internal_note',
@@ -110,6 +111,14 @@ class Appointment extends Model
     public function renewalLogs()
     {
         return $this->hasMany(RenewalReminderLog::class);
+    }
+
+    /**
+     * Get the attachment for the appointment.
+     */
+    public function attachment()
+    {
+        return $this->hasOne(AppointmentAttachment::class);
     }
 
     // Accessors

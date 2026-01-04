@@ -15,9 +15,11 @@ class Payment extends Model
         'salon_id',
         'customer_id',
         'appointment_id',
+        'staff_id',
         'date',
         'amount',
         'description',
+        'payment_method',
     ];
 
     protected $casts = [
@@ -38,5 +40,18 @@ class Payment extends Model
     public function appointment()
     {
         return $this->belongsTo(Appointment::class);
+    }
+
+    public function staff()
+    {
+        return $this->belongsTo(Staff::class);
+    }
+
+    /**
+     * Get the services from the appointment.
+     */
+    public function services()
+    {
+        return $this->appointment ? $this->appointment->services() : collect([]);
     }
 }

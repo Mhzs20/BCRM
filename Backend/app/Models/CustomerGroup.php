@@ -23,11 +23,28 @@ class CustomerGroup extends Model
     {
         return $this->belongsToMany(Customer::class)->withTimestamps();
     }
+    
     // Add relationship to BirthdayReminder
     public function birthdayReminders()
     {
         return $this->belongsToMany(BirthdayReminder::class, 'birthday_reminder_customer_group', 'customer_group_id', 'birthday_reminder_id')
             ->withPivot('is_active', 'send_days_before', 'send_time')
+            ->withTimestamps();
+    }
+    
+    // Add relationship to SatisfactionSurveySetting
+    public function satisfactionSurveySettings()
+    {
+        return $this->belongsToMany(SatisfactionSurveySetting::class, 'satisfaction_survey_group_settings', 'customer_group_id', 'satisfaction_survey_setting_id')
+            ->withPivot('is_active', 'send_hours_after')
+            ->withTimestamps();
+    }
+    
+    // Add relationship to CustomerFollowUpSetting
+    public function customerFollowUpSettings()
+    {
+        return $this->belongsToMany(CustomerFollowUpSetting::class, 'customer_followup_group_settings', 'customer_group_id', 'customer_followup_setting_id')
+            ->withPivot('is_active', 'days_since_last_visit', 'check_frequency_days')
             ->withTimestamps();
     }
 }

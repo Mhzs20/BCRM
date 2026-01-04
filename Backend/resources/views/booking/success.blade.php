@@ -6,9 +6,8 @@
     <title>نوبت شما با موفقیت ثبت شد</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
-        .font-peyda {
-            font-family: 'PeydaWeb', 'Peyda', 'IRANYekan', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+        .font-peyda { font-family: 'Peyda', sans-serif; }
+        .font-iranyekan { font-family: 'IRANYekanMobileFN', sans-serif; }
         
         .dir-ltr {
             direction: ltr;
@@ -44,7 +43,7 @@
                 </div>
                 <!-- Decorative Elements behind image (same as success) -->
                 <div class="absolute top-0 left-0 w-full h-full">
-                    <img src="{{ asset('assets/img/back.png') }}" alt="back" class="w-full drop-shadow-xl">
+                    <img src="{{ asset('/assets/img/back.png') }}" alt="back" class="w-full drop-shadow-xl">
                 </div>
                 <!-- Salon Name -->
                 <h1 class="text-xl font-black text-neutral-800 mb-3">{{ $salon_name ?? 'سالن زیبایی' }}</h1>

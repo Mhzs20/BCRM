@@ -284,35 +284,36 @@ class OnlineBookingController extends Controller
 
             DB::beginTransaction();
 
-            // بررسی یا ایجاد مشتری
-            $customer = Customer::where('salon_id', $salonId)
-                ->where('phone_number', $request->customer_mobile)
-                ->first();
+            // بررسی یا ایجاد مشتری با استفاده از firstOrCreate
+            $customerData = [
+                'salon_id' => $salonId,
+                'phone_number' => $request->customer_mobile
+            ];
 
-            if (!$customer) {
-                $customerData = [
-                    'salon_id' => $salonId,
-                    'name' => $request->customer_name,
-                    'phone_number' => $request->customer_mobile
-                ];
+            $additionalData = [
+                'name' => $request->customer_name
+            ];
 
-                // If referral_source is provided, try to find matching how_introduced
-                if ($request->has('referral_source') && !empty($request->referral_source)) {
-                    $howIntroduced = \App\Models\HowIntroduced::where('salon_id', $salonId)
-                        ->where('name', $request->referral_source)
-                        ->first();
-                    
-                    if ($howIntroduced) {
-                        $customerData['how_introduced_id'] = $howIntroduced->id;
-                    }
+            // If referral_source is provided, try to find matching how_introduced
+            if ($request->has('referral_source') && !empty($request->referral_source)) {
+                $howIntroduced = \App\Models\HowIntroduced::where('salon_id', $salonId)
+                    ->where('name', $request->referral_source)
+                    ->first();
+                
+                if ($howIntroduced) {
+                    $additionalData['how_introduced_id'] = $howIntroduced->id;
                 }
+            }
 
-                $customer = Customer::create($customerData);
-            } else {
-                // به‌روزرسانی نام مشتری در صورت تفاوت
-                if ($customer->name !== $request->customer_name) {
-                    $customer->update(['name' => $request->customer_name]);
-                }
+            // استفاده از firstOrCreate برای جلوگیری از خطای Duplicate Entry
+            $customer = Customer::firstOrCreate(
+                $customerData,
+                $additionalData
+            );
+
+            // به‌روزرسانی نام مشتری در صورت تفاوت
+            if ($customer->name !== $request->customer_name) {
+                $customer->update(['name' => $request->customer_name]);
             }
 
             // بررسی در دسترس بودن تایم انتخابی

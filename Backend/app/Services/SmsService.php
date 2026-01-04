@@ -125,7 +125,7 @@ class SmsService
                 'messageid' => implode(',', $messageIds),
             ];
 
-            $response = Http::get($url, $params);
+            $response = Http::timeout(30)->get($url, $params);
 
             if ($response->successful()) {
                 $responseData = $response->json();
