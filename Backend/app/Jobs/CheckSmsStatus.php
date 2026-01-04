@@ -59,11 +59,28 @@ class CheckSmsStatus implements ShouldQueue
         }
 
         Log::info("Checking status for " . count($messageIds) . " appointment-related SMS messages.");
-        $statuses = $smsService->checkSmsStatus($messageIds);
+        
+        // Process in chunks of 50 to avoid timeout
+        $chunks = array_chunk($messageIds, 50);
+        $allStatuses = [];
+        
+        foreach ($chunks as $index => $chunk) {
+            Log::info("Processing chunk " . ($index + 1) . "/" . count($chunks) . " with " . count($chunk) . " messages.");
+            $statuses = $smsService->checkSmsStatus($chunk);
+            if (!empty($statuses)) {
+                $allStatuses = array_merge($allStatuses, $statuses);
+            }
+            // Small delay between chunks to avoid rate limiting
+            if ($index < count($chunks) - 1) {
+                usleep(500000); // 0.5 second delay
+            }
+        }
 
-        if (empty($statuses)) {
+        if (empty($allStatuses)) {
             return;
         }
+
+        $statuses = $allStatuses;
 
         foreach ($appointments as $appointment) {
             $this->updateAppointmentSmsStatus($appointment, 'reminder', $statuses, $smsService);
