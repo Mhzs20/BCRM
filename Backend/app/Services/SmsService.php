@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\User;
 use App\Models\SmsTransaction;
 use App\Models\Salon;
-use App\Models\SalonSmsBalance; // Ensure SalonSmsBalance is imported
+use App\Models\SalonSmsBalance;
 use App\Models\Appointment;
 use App\Models\Customer;
 use App\Models\Service;
@@ -160,9 +160,9 @@ class SmsService
         switch ($kavenegarStatus) {
             case 1: // در صف ارسال
             case 2: // زمان بندی شده
+                return 'pending';
             case 4: // ارسال شده به مخابرات
             case 5: // ارسال شده به مخابرات
-                return 'pending';
             case 10: // رسیده به گیرنده
                 return 'sent';
             case 6:  // خطا در ارسال پیام
