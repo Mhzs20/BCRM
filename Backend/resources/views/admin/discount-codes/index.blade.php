@@ -176,5 +176,5 @@
 @endsection
 
 @push('scripts')
-<link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+<link href="{{ asset('vendor/remixicon/remixicon.css') }}" rel="stylesheet">
 @endpush

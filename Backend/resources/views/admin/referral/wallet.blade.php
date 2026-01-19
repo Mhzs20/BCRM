@@ -208,7 +208,7 @@
 </div>
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ asset('vendor/chartjs/chart.min.js') }}"></script>
 <script>
 // Daily Transactions Chart
 const dailyCtx = document.getElementById('dailyTransactionsChart').getContext('2d');

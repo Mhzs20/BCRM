@@ -46,10 +46,13 @@ class CheckSmsStatus implements ShouldQueue
             ->orWhere('reminder_sms_status', 'processing')
             ->orWhere('satisfaction_sms_status', 'pending')
             ->orWhere('satisfaction_sms_status', 'processing')
+            ->orWhere('confirmation_sms_status', 'pending')
+            ->orWhere('confirmation_sms_status', 'processing')
             ->get();
 
         $messageIds = $appointments->pluck('reminder_sms_message_id')
             ->merge($appointments->pluck('satisfaction_sms_message_id'))
+            ->merge($appointments->pluck('confirmation_sms_message_id'))
             ->filter()
             ->unique()
             ->toArray();
@@ -85,6 +88,7 @@ class CheckSmsStatus implements ShouldQueue
         foreach ($appointments as $appointment) {
             $this->updateAppointmentSmsStatus($appointment, 'reminder', $statuses, $smsService);
             $this->updateAppointmentSmsStatus($appointment, 'satisfaction', $statuses, $smsService);
+            $this->updateAppointmentSmsStatus($appointment, 'confirmation', $statuses, $smsService);
         }
     }
 

@@ -308,6 +308,9 @@ class SmsService
                         } elseif ($eventType === 'satisfaction_survey') {
                             $appointment->satisfaction_sms_status = $internalStatus;
                             $appointment->satisfaction_sms_message_id = $messageId;
+                        } elseif ($eventType === 'appointment_confirmation') {
+                            $appointment->confirmation_sms_status = $internalStatus;
+                            $appointment->confirmation_sms_message_id = $messageId;
                         } elseif ($eventType === 'appointment_cancellation') { 
                             Log::info("Updating status for cancellation of appointment {$appointmentId} to {$internalStatus}");
                         }
@@ -326,6 +329,8 @@ class SmsService
                             $appointment->reminder_sms_status = 'not_sent';
                         } elseif ($eventType === 'satisfaction_survey') {
                             $appointment->satisfaction_sms_status = 'not_sent';
+                        } elseif ($eventType === 'appointment_confirmation') {
+                            $appointment->confirmation_sms_status = 'not_sent';
                         }
                         $appointment->save();
                     }

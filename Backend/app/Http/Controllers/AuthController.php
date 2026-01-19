@@ -348,15 +348,68 @@ class AuthController extends Controller
             $responseData['active_salon']['sms_balance'] = 0; // Default to 0 if no active salon or no smsBalance
         }
 
+        // Add active package information for active salon
+        if ($user->activeSalon) {
+            $activePackage = \App\Models\UserPackage::with(['package.options'])
+                ->where('salon_id', $user->activeSalon->id)
+                ->where('status', 'active')
+                ->where('expires_at', '>', now())
+                ->first();
+            
+            if ($activePackage) {
+                $responseData['active_salon']['active_package'] = [
+                    'id' => $activePackage->id,
+                    'package_id' => $activePackage->package_id,
+                    'package_name' => $activePackage->package->name,
+                    'package_description' => $activePackage->package->description,
+                    'status' => $activePackage->status,
+                    'expires_at' => $activePackage->expires_at->toDateTimeString(),
+                    'expires_at_jalali' => \Morilog\Jalali\Jalalian::fromDateTime($activePackage->expires_at)->format('Y/m/d'),
+                    'days_remaining' => now()->diffInDays($activePackage->expires_at),
+                    'amount_paid' => (int) $activePackage->amount_paid,
+                    'options' => $activePackage->package->options->map(function ($option) {
+                        return [
+                            'id' => $option->id,
+                            'name' => $option->name,
+                            'details' => $option->details,
+                        ];
+                    })->toArray(),
+                ];
+            } else {
+                $responseData['active_salon']['active_package'] = null;
+            }
+        }
+
         // Add online booking URL to active salon
         if (isset($responseData['active_salon'])) {
             $responseData['active_salon']['online_booking_url'] = route('booking.show', ['salonId' => $responseData['active_salon']['id']]);
         }
 
-        // Add online booking URL to all salons
+        // Add active package information for all salons
         if (isset($responseData['salons'])) {
             foreach ($responseData['salons'] as &$salon) {
                 $salon['online_booking_url'] = route('booking.show', ['salonId' => $salon['id']]);
+                
+                // Add active package for each salon
+                $salonPackage = \App\Models\UserPackage::with(['package.options'])
+                    ->where('salon_id', $salon['id'])
+                    ->where('status', 'active')
+                    ->where('expires_at', '>', now())
+                    ->first();
+                
+                if ($salonPackage) {
+                    $salon['active_package'] = [
+                        'id' => $salonPackage->id,
+                        'package_id' => $salonPackage->package_id,
+                        'package_name' => $salonPackage->package->name,
+                        'status' => $salonPackage->status,
+                        'expires_at' => $salonPackage->expires_at->toDateTimeString(),
+                        'expires_at_jalali' => \Morilog\Jalali\Jalalian::fromDateTime($salonPackage->expires_at)->format('Y/m/d'),
+                        'days_remaining' => now()->diffInDays($salonPackage->expires_at),
+                    ];
+                } else {
+                    $salon['active_package'] = null;
+                }
             }
         }
 
