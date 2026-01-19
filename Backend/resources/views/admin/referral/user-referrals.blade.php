@@ -208,7 +208,7 @@
 
 @if($stats['total_referrals'] > 0)
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ asset('vendor/chartjs/chart.min.js') }}"></script>
 <script>
 const monthlyCtx = document.getElementById('monthlyPerformanceChart').getContext('2d');
 new Chart(monthlyCtx, {

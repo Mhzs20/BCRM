@@ -44,7 +44,6 @@ class FilterSmsCampaignRequest extends FormRequest
             'satisfaction.*' => 'integer|min:1|max:5',
             'gender' => 'nullable|in:male,female',
             'sms_template_id' => 'nullable|integer|exists:salon_sms_templates,id',
-            'message' => 'nullable|string|max:1000',
             'page' => 'nullable|integer|min:1',
             'per_page' => 'nullable|integer|min:1|max:100',
         ];
