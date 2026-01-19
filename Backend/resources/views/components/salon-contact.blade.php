@@ -1,6 +1,38 @@
 @php
     $persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
     $englishDigits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    
+    // Function to convert Persian/Arabic digits to English
+    function convertToEnglishNumbers($string) {
+        $persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+        $arabic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+        $english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+        
+        $string = str_replace($persian, $english, $string);
+        $string = str_replace($arabic, $english, $string);
+        return $string;
+    }
+    
+    // Function to format phone number for WhatsApp
+    function formatWhatsAppNumber($phone) {
+        if (empty($phone)) return '';
+        
+        // Convert to English numbers
+        $phone = convertToEnglishNumbers($phone);
+        
+        // Remove all non-numeric characters
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+        
+        // Remove leading zero if exists
+        $phone = ltrim($phone, '0');
+        
+        // Add Iran country code if not present
+        if (!str_starts_with($phone, '98')) {
+            $phone = '98' . $phone;
+        }
+        
+        return $phone;
+    }
 @endphp
 
 <section class="mt-1 flex flex-col items-center gap-6 w-full">
@@ -19,8 +51,9 @@
     <div class="w-full flex flex-col gap-4">
         <div class="grid grid-cols-3 gap-3">
             @php
+                $whatsappNumber = formatWhatsAppNumber($salon->whatsapp);
                 $socials = [
-                    ['key' => 'whatsapp', 'label' => 'واتس اپ', 'icon' => 'whatsapp.svg', 'url' => 'https://wa.me/+98' . ltrim($salon->whatsapp, '0'), 'val' => $salon->whatsapp],
+                    ['key' => 'whatsapp', 'label' => 'واتس اپ', 'icon' => 'whatsapp.svg', 'url' => 'https://wa.me/' . $whatsappNumber, 'val' => $salon->whatsapp],
                     ['key' => 'telegram', 'label' => 'تلگرام', 'icon' => 'telegram.svg', 'url' => 'https://t.me/' . $salon->telegram, 'val' => $salon->telegram],
                     ['key' => 'instagram', 'label' => 'اینستاگرام', 'icon' => 'instagram.svg', 'url' => 'https://instagram.com/' . $salon->instagram, 'val' => $salon->instagram],
                     ];

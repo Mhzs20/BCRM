@@ -15,12 +15,12 @@
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
     <!-- Scripts -->
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
     <!-- Alpine.js (for sidebar toggle & existing x-data usages) -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="{{ asset('vendor/alpinejs/alpine.min.js') }}"></script>
 
     <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ asset('vendor/chartjs/chart.min.js') }}"></script>
 
     <!-- Styles -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])

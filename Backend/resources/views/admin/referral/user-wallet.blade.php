@@ -277,7 +277,7 @@
 
 @push('scripts')
 @if($stats['total_transactions'] > 0)
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ asset('vendor/chartjs/chart.min.js') }}"></script>
 <script>
 const balanceCtx = document.getElementById('balanceHistoryChart').getContext('2d');
 new Chart(balanceCtx, {
