@@ -130,6 +130,7 @@ class OnlineBookingController extends Controller
                         'id' => $service->id,
                         'name' => $service->name,
                         'price' => $service->price,
+                        'duration_minutes' => $service->duration_minutes ?? 30,
                         'is_online_bookable' => $service->is_online_bookable,
                         'next_available' => $nextAvailable ? [
                             'date' => $nextAvailable['date'],
@@ -305,15 +306,22 @@ class OnlineBookingController extends Controller
                 }
             }
 
-            // استفاده از firstOrCreate برای جلوگیری از خطای Duplicate Entry
-            $customer = Customer::firstOrCreate(
-                $customerData,
-                $additionalData
-            );
+            // بررسی وجود مشتری حتی اگر حذف شده باشد
+            $customer = Customer::withTrashed()
+                ->where('salon_id', $salonId)
+                ->where('phone_number', $request->customer_mobile)
+                ->first();
 
-            // به‌روزرسانی نام مشتری در صورت تفاوت
-            if ($customer->name !== $request->customer_name) {
-                $customer->update(['name' => $request->customer_name]);
+            if ($customer) {
+                // اگر مشتری حذف شده بود، بازیابی کنید
+                if ($customer->trashed()) {
+                    $customer->restore();
+                }
+                // به‌روزرسانی اطلاعات مشتری
+                $customer->update(array_merge(['name' => $request->customer_name], $additionalData));
+            } else {
+                // ایجاد مشتری جدید
+                $customer = Customer::create(array_merge($customerData, $additionalData));
             }
 
             // بررسی در دسترس بودن تایم انتخابی
@@ -327,8 +335,11 @@ class OnlineBookingController extends Controller
                 ], 422);
             }
 
-            // محاسبه مدت زمان کل خدمات (فرض: هر خدمت ۶۰ دقیقه)
-            $totalDuration = count($request->service_ids) * 60;
+            // محاسبه مدت زمان کل خدمات بر اساس duration_minutes واقعی
+            $services = Service::whereIn('id', $request->service_ids)->get();
+            $totalDuration = $services->sum(function($service) {
+                return $service->duration_minutes ?? 30;
+            });
             $endTime = $appointmentDateTime->copy()->addMinutes($totalDuration);
 
             // یافتن اولین کارمند فعال برای تخصیص نوبت
@@ -498,6 +509,15 @@ class OnlineBookingController extends Controller
 
         $operatorName = !empty(trim($operator->full_name)) ? $operator->full_name : 'اپراتور سالن';
         
+        // محاسبه مدت زمان کل سرویس‌های انتخابی
+        $slotDuration = 30; // مقدار پیش‌فرض
+        if (!empty($serviceIds)) {
+            $services = Service::whereIn('id', $serviceIds)->get();
+            $slotDuration = $services->sum(function($service) {
+                return $service->duration_minutes ?? 30;
+            });
+        }
+        
         // دریافت برنامه کاری اپراتور برای روز مورد نظر
         // Carbon returns 0 for Sunday, 1 for Monday, ..., 6 for Saturday
         // We need to convert it to Iranian week: 0 for Saturday, 1 for Sunday, ..., 6 for Friday
@@ -514,12 +534,12 @@ class OnlineBookingController extends Controller
         // دریافت زمان‌های استراحت اپراتور
         $breaks = $operator->breaks()->where('weekday', $dayOfWeek)->get();
         
-        // تولید اسلات‌های زمانی بر اساس ساعت کاری (هر 30 دقیقه)
+        // تولید اسلات‌های زمانی بر اساس ساعت کاری و مدت زمان سرویس
         $startTime = Carbon::parse($schedule->start_time);
         $endTime = Carbon::parse($schedule->end_time);
         $workingHours = [];
         
-        while ($startTime->copy()->addMinutes(30)->lte($endTime)) {
+        while ($startTime->copy()->addMinutes($slotDuration)->lte($endTime)) {
             $timeStr = $startTime->format('H:i');
             
             // چک کردن تداخل با زمان استراحت
@@ -530,7 +550,7 @@ class OnlineBookingController extends Controller
                 
                 // اگر اسلات زمانی با زمان استراحت تداخل دارد
                 // شرط تداخل: زمان شروع اسلات < پایان استراحت AND زمان پایان اسلات > شروع استراحت
-                $slotEnd = $startTime->copy()->addMinutes(30);
+                $slotEnd = $startTime->copy()->addMinutes($slotDuration);
                 
                 // ساده‌تر: اگر زمان شروع اسلات داخل بازه استراحت باشد
                 if ($startTime->gte($breakStart) && $startTime->lt($breakEnd)) {
@@ -543,7 +563,7 @@ class OnlineBookingController extends Controller
                 $workingHours[] = $timeStr;
             }
             
-            $startTime->addMinutes(30);
+            $startTime->addMinutes($slotDuration);
         }
 
         // دریافت نوبت‌های رزرو شده برای آن روز و آن اپراتور
@@ -553,12 +573,6 @@ class OnlineBookingController extends Controller
             ->where('appointment_date', $date->format('Y-m-d'))
             ->whereNotIn('status', ['canceled', 'cancelled', 'rejected'])
             ->get();
-
-        $bookedTimes = $bookedAppointments->pluck('start_time')
-            ->map(function ($time) {
-                return Carbon::parse($time)->format('H:i');
-            })
-            ->toArray();
 
         $availableTimes = [];
         $now = Carbon::now();
@@ -571,8 +585,21 @@ class OnlineBookingController extends Controller
                 continue;
             }
 
-            // بررسی اینکه آیا تایم رزرو شده است یا خیر
-            $isBooked = in_array($time, $bookedTimes);
+            // بررسی تداخل با نوبت‌های رزرو شده (با در نظر گرفتن مدت زمان کامل)
+            $slotEnd = $slotDateTime->copy()->addMinutes($slotDuration);
+            $isBooked = false;
+            
+            foreach ($bookedAppointments as $appointment) {
+                $appointmentStart = Carbon::parse($date->format('Y-m-d') . ' ' . $appointment->start_time);
+                $appointmentEnd = Carbon::parse($date->format('Y-m-d') . ' ' . $appointment->end_time);
+                
+                // چک تداخل: اسلات جدید با نوبت موجود تداخل دارد اگر:
+                // (شروع اسلات < پایان نوبت) AND (پایان اسلات > شروع نوبت)
+                if ($slotDateTime->lt($appointmentEnd) && $slotEnd->gt($appointmentStart)) {
+                    $isBooked = true;
+                    break;
+                }
+            }
             
             $availableTimes[] = [
                 'time' => $time,
@@ -592,10 +619,26 @@ class OnlineBookingController extends Controller
      */
     private function isTimeSlotAvailable($salonId, $dateTime, $serviceIds)
     {
+        // محاسبه مدت زمان کل خدمات
+        $totalDuration = 30; // مقدار پیش‌فرض
+        if (!empty($serviceIds)) {
+            $services = Service::whereIn('id', $serviceIds)->get();
+            $totalDuration = $services->sum(function($service) {
+                return $service->duration_minutes ?? 30;
+            });
+        }
+
+        $slotStartTime = $dateTime;
+        $slotEndTime = $dateTime->copy()->addMinutes($totalDuration);
+
+        // منطق تداخل: (start_time < end_of_new_slot) AND (end_time > start_of_new_slot)
         $conflictingAppointments = Appointment::where('salon_id', $salonId)
             ->where('appointment_date', $dateTime->format('Y-m-d'))
-            ->where('start_time', $dateTime->format('H:i'))
-            ->whereIn('status', ['confirmed', 'pending', 'pending_confirmation'])
+            ->whereNotIn('status', ['canceled', 'cancelled', 'rejected'])
+            ->where(function($query) use ($slotStartTime, $slotEndTime) {
+                $query->where('start_time', '<', $slotEndTime->format('H:i:s'))
+                      ->where('end_time', '>', $slotStartTime->format('H:i:s'));
+            })
             ->exists();
 
         return !$conflictingAppointments;

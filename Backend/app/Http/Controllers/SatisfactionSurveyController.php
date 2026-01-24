@@ -84,6 +84,24 @@ class SatisfactionSurveyController extends Controller
             ->where('is_active', true)
             ->get();
 
+        // محاسبه و اضافه کردن estimated_parts, estimated_cost و variables برای هر قالب
+        $templates = $templates->map(function($template) {
+            // استخراج متغیرها از template
+            preg_match_all('/\{\{?\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}?\}/u', $template->template, $matches);
+            $variables = array_unique($matches[1] ?? []);
+            
+            // محاسبه estimated_parts و estimated_cost
+            $estimatedParts = $template->calculateEstimatedParts();
+            $estimatedCost = (int)$template->calculateEstimatedCost();
+            
+            // اضافه کردن فیلدهای محاسبه شده
+            $template->variables = $variables;
+            $template->estimated_parts = $estimatedParts;
+            $template->estimated_cost = $estimatedCost;
+            
+            return $template;
+        });
+
         return response()->json([
             'message' => 'قالب‌ها با موفقیت دریافت شدند.',
             'templates' => $templates

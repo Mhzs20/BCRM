@@ -43,6 +43,8 @@ class Appointment extends Model
         'satisfaction_sms_status',
         'satisfaction_sms_message_id',
         'send_confirmation_sms',
+        'confirmation_sms_status',
+        'confirmation_sms_message_id',
         'confirmation_sms_template_id',
         'reminder_sms_template_id',
         'deposit_amount',

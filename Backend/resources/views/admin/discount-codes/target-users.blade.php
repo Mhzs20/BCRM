@@ -253,7 +253,7 @@
 @endsection
 
 @push('scripts')
-<link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+<link href="{{ asset('vendor/remixicon/remixicon.css') }}" rel="stylesheet">
 
 <!-- Persian Date Picker CSS and JS -->
 <link rel="stylesheet" href="{{ asset('vendor/persian-datepicker/css/persian-datepicker.min.css') }}">
