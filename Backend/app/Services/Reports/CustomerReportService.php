@@ -54,6 +54,7 @@ class CustomerReportService extends BaseReportService
         $this->dateTo = $filters['date_to'] ?? null;
         $this->timeFrom = $filters['time_from'] ?? null;
         $this->timeTo = $filters['time_to'] ?? null;
+        $this->filters = $filters;
     }
 
     /**
@@ -61,27 +62,51 @@ class CustomerReportService extends BaseReportService
      */
     protected function calculateKPIs(array $filters = [])
     {
+        // Build base query with filters
+        $customerIds = $this->getFilteredCustomerIds($filters);
+        
         $baseQuery = Customer::where('salon_id', $this->salonId);
+        
+        if (!empty($customerIds)) {
+            $baseQuery->whereIn('id', $customerIds);
+        }
         
         if ($this->dateFrom || $this->dateTo) {
             $baseQuery = $this->applyDateTimeFilters($baseQuery, 'created_at');
         }
 
         $totalCustomers = $baseQuery->count();
-        $allCustomers = Customer::where('salon_id', $this->salonId)->get();
+        
+        // Use filtered customers for all calculations
+        $allCustomersQuery = Customer::where('salon_id', $this->salonId);
+        if (!empty($customerIds)) {
+            $allCustomersQuery->whereIn('id', $customerIds);
+        }
+        $allCustomers = $allCustomersQuery->get();
 
         // Active/Inactive customers (customers with appointments in the last 3 months are active)
         $threeMonthsAgo = Carbon::now()->subMonths(3);
-        $activeCustomerIds = Appointment::where('salon_id', $this->salonId)
-            ->where('appointment_date', '>=', $threeMonthsAgo)
-            ->distinct('customer_id')
-            ->pluck('customer_id');
+        $activeCustomerIdsQuery = Appointment::where('salon_id', $this->salonId)
+            ->where('appointment_date', '>=', $threeMonthsAgo);
+            
+        if (!empty($customerIds)) {
+            $activeCustomerIdsQuery->whereIn('customer_id', $customerIds);
+        }
+        
+        $activeCustomerIds = $activeCustomerIdsQuery->distinct('customer_id')->pluck('customer_id');
 
-        $activeCustomers = Customer::where('salon_id', $this->salonId)
-            ->whereIn('id', $activeCustomerIds)
-            ->count();
+        $activeCustomersQuery = Customer::where('salon_id', $this->salonId)
+            ->whereIn('id', $activeCustomerIds);
+        if (!empty($customerIds)) {
+            $activeCustomersQuery->whereIn('id', $customerIds);
+        }
+        $activeCustomers = $activeCustomersQuery->count();
 
-        $inactiveCustomers = Customer::where('salon_id', $this->salonId)->count() - $activeCustomers;
+        $inactiveCustomersQuery = Customer::where('salon_id', $this->salonId);
+        if (!empty($customerIds)) {
+            $inactiveCustomersQuery->whereIn('id', $customerIds);
+        }
+        $inactiveCustomers = $inactiveCustomersQuery->count() - $activeCustomers;
 
         // Average age
         $avgAge = $allCustomers->filter(function ($customer) {
@@ -91,35 +116,47 @@ class CustomerReportService extends BaseReportService
         })->average();
 
         // Repeat visits (customers with more than 1 appointment)
-        $repeatCustomers = Customer::where('salon_id', $this->salonId)
-            ->has('appointments', '>', 1)
-            ->count();
+        $repeatCustomersQuery = Customer::where('salon_id', $this->salonId)
+            ->has('appointments', '>', 1);
+        if (!empty($customerIds)) {
+            $repeatCustomersQuery->whereIn('id', $customerIds);
+        }
+        $repeatCustomers = $repeatCustomersQuery->count();
 
         // Top customer by revenue
-        $topCustomerByRevenue = Payment::where('salon_id', $this->salonId)
+        $topCustomerByRevenueQuery = Payment::where('salon_id', $this->salonId)
             ->select('customer_id', DB::raw('SUM(amount) as total_paid'))
             ->groupBy('customer_id')
             ->orderByDesc('total_paid')
-            ->with('customer')
-            ->first();
+            ->with('customer');
+        if (!empty($customerIds)) {
+            $topCustomerByRevenueQuery->whereIn('customer_id', $customerIds);
+        }
+        $topCustomerByRevenue = $topCustomerByRevenueQuery->first();
 
         // Top job/profession
-        $topJob = Customer::where('salon_id', $this->salonId)
+        $topJobQuery = Customer::where('salon_id', $this->salonId)
             ->whereNotNull('profession_id')
             ->select('profession_id', DB::raw('COUNT(*) as count'))
             ->groupBy('profession_id')
             ->orderByDesc('count')
-            ->with('profession')
-            ->first();
+            ->with('profession');
+        if (!empty($customerIds)) {
+            $topJobQuery->whereIn('id', $customerIds);
+        }
+        $topJob = $topJobQuery->first();
 
         // Top acquisition source
-        $topAcquisitionSource = Customer::where('salon_id', $this->salonId)
+        $topAcquisitionSourceQuery = Customer::where('salon_id', $this->salonId)
             ->whereNotNull('how_introduced_id')
             ->select('how_introduced_id', DB::raw('COUNT(*) as count'))
             ->groupBy('how_introduced_id')
             ->orderByDesc('count')
-            ->with('howIntroduced')
-            ->first();
+            ->with('howIntroduced');
+        if (!empty($customerIds)) {
+            $topAcquisitionSourceQuery->whereIn('id', $customerIds);
+        }
+        $topAcquisitionSource = $topAcquisitionSourceQuery->first();
 
         return [
             'total_customers' => $totalCustomers,
@@ -141,16 +178,100 @@ class CustomerReportService extends BaseReportService
     }
 
     /**
+     * Get filtered customer IDs based on filters.
+     */
+    protected function getFilteredCustomerIds(array $filters = [])
+    {
+        $customerIds = null;
+
+        // Filter by services
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $serviceCustomerIds = Appointment::where('salon_id', $this->salonId)
+                ->whereHas('services', function ($q) use ($filters) {
+                    $q->whereIn('service_id', $filters['service_ids']);
+                })
+                ->distinct()
+                ->pluck('customer_id')
+                ->toArray();
+            
+            $customerIds = $serviceCustomerIds;
+        }
+
+        // Filter by personnel
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $personnelCustomerIds = Appointment::where('salon_id', $this->salonId)
+                ->whereIn('staff_id', $filters['personnel_ids'])
+                ->distinct()
+                ->pluck('customer_id')
+                ->toArray();
+            
+            if ($customerIds === null) {
+                $customerIds = $personnelCustomerIds;
+            } else {
+                $customerIds = array_intersect($customerIds, $personnelCustomerIds);
+            }
+        }
+
+        // Filter by acquisition source
+        if (!empty($filters['acquisition_source_ids']) && !in_array(0, $filters['acquisition_source_ids'])) {
+            $acquisitionCustomerIds = Customer::where('salon_id', $this->salonId)
+                ->whereIn('how_introduced_id', $filters['acquisition_source_ids'])
+                ->pluck('id')
+                ->toArray();
+            
+            if ($customerIds === null) {
+                $customerIds = $acquisitionCustomerIds;
+            } else {
+                $customerIds = array_intersect($customerIds, $acquisitionCustomerIds);
+            }
+        }
+
+        // Filter by paid amount range
+        if (isset($filters['min_paid_amount']) || isset($filters['max_paid_amount'])) {
+            $paymentQuery = Payment::where('salon_id', $this->salonId)
+                ->select('customer_id', DB::raw('SUM(amount) as total_paid'))
+                ->groupBy('customer_id');
+            
+            if (isset($filters['min_paid_amount'])) {
+                $paymentQuery->havingRaw('SUM(amount) >= ?', [$filters['min_paid_amount']]);
+            }
+            
+            if (isset($filters['max_paid_amount'])) {
+                $paymentQuery->havingRaw('SUM(amount) <= ?', [$filters['max_paid_amount']]);
+            }
+            
+            $paymentCustomerIds = $paymentQuery->pluck('customer_id')->toArray();
+            
+            if ($customerIds === null) {
+                $customerIds = $paymentCustomerIds;
+            } else {
+                $customerIds = array_intersect($customerIds, $paymentCustomerIds);
+            }
+        }
+
+        return $customerIds;
+    }
+
+    /**
      * Generate charts data.
      */
     protected function generateCharts(array $filters = [])
     {
+        // Get filtered customer IDs
+        $customerIds = $this->getFilteredCustomerIds($filters);
+        
         // Get appropriate grouping based on period
         $grouping = $this->getChartGrouping($filters['period'] ?? null);
         
         $sqlGroup = str_replace('{{column}}', 'created_at', $grouping['sql']);
         
-        $newCustomers = Customer::where('salon_id', $this->salonId)
+        $newCustomersQuery = Customer::where('salon_id', $this->salonId);
+        
+        if (!empty($customerIds)) {
+            $newCustomersQuery->whereIn('id', $customerIds);
+        }
+        
+        $newCustomers = $newCustomersQuery
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('created_at', '>=', $this->dateFrom);
             })
@@ -201,24 +322,31 @@ class CustomerReportService extends BaseReportService
      */
     protected function generateSections(array $filters = [])
     {
+        $customerIds = $this->getFilteredCustomerIds($filters);
+        
         return [
-            'age_distribution' => $this->getAgeDistribution(),
-            'payment_distribution' => $this->getPaymentDistribution(),
-            'profession_distribution' => $this->getProfessionDistribution(),
-            'group_distribution' => $this->getGroupDistribution(),
-            'acquisition_source_distribution' => $this->getAcquisitionSourceDistribution(),
-            'repeat_visits_detail' => $this->getRepeatVisitsDetail(),
+            'age_distribution' => $this->getAgeDistribution($customerIds),
+            'payment_distribution' => $this->getPaymentDistribution($customerIds),
+            'profession_distribution' => $this->getProfessionDistribution($customerIds),
+            'group_distribution' => $this->getGroupDistribution($customerIds),
+            'acquisition_source_distribution' => $this->getAcquisitionSourceDistribution($customerIds),
+            'repeat_visits_detail' => $this->getRepeatVisitsDetail($customerIds),
         ];
     }
 
     /**
      * Get age distribution.
      */
-    protected function getAgeDistribution()
+    protected function getAgeDistribution($customerIds = null)
     {
-        $customers = Customer::where('salon_id', $this->salonId)
-            ->whereNotNull('birth_date')
-            ->get();
+        $customersQuery = Customer::where('salon_id', $this->salonId)
+            ->whereNotNull('birth_date');
+            
+        if (!empty($customerIds)) {
+            $customersQuery->whereIn('id', $customerIds);
+        }
+        
+        $customers = $customersQuery->get();
 
         $ageRanges = [
             '18-25' => 0,
@@ -249,15 +377,20 @@ class CustomerReportService extends BaseReportService
     /**
      * Get payment distribution by customer.
      */
-    protected function getPaymentDistribution()
+    protected function getPaymentDistribution($customerIds = null)
     {
-        return Payment::where('salon_id', $this->salonId)
+        $paymentQuery = Payment::where('salon_id', $this->salonId)
             ->select('customer_id', DB::raw('SUM(amount) as total_paid'))
             ->groupBy('customer_id')
             ->orderByDesc('total_paid')
             ->with('customer')
-            ->limit(10)
-            ->get()
+            ->limit(10);
+            
+        if (!empty($customerIds)) {
+            $paymentQuery->whereIn('customer_id', $customerIds);
+        }
+        
+        return $paymentQuery->get()
             ->map(function ($payment) {
                 return [
                     'customer_name' => $payment->customer->name ?? 'نامشخص',
@@ -269,15 +402,20 @@ class CustomerReportService extends BaseReportService
     /**
      * Get profession distribution.
      */
-    protected function getProfessionDistribution()
+    protected function getProfessionDistribution($customerIds = null)
     {
-        return Customer::where('salon_id', $this->salonId)
+        $professionQuery = Customer::where('salon_id', $this->salonId)
             ->whereNotNull('profession_id')
             ->select('profession_id', DB::raw('COUNT(*) as count'))
             ->groupBy('profession_id')
             ->orderByDesc('count')
-            ->with('profession')
-            ->get()
+            ->with('profession');
+            
+        if (!empty($customerIds)) {
+            $professionQuery->whereIn('id', $customerIds);
+        }
+        
+        return $professionQuery->get()
             ->map(function ($item) {
                 return [
                     'profession' => $item->profession->name ?? 'نامشخص',
@@ -289,16 +427,21 @@ class CustomerReportService extends BaseReportService
     /**
      * Get group distribution.
      */
-    protected function getGroupDistribution()
+    protected function getGroupDistribution($customerIds = null)
     {
-        return DB::table('customer_customer_group')
+        $groupQuery = DB::table('customer_customer_group')
             ->join('customers', 'customer_customer_group.customer_id', '=', 'customers.id')
             ->join('customer_groups', 'customer_customer_group.customer_group_id', '=', 'customer_groups.id')
             ->where('customers.salon_id', $this->salonId)
             ->select('customer_groups.name', DB::raw('COUNT(*) as count'))
             ->groupBy('customer_groups.id', 'customer_groups.name')
-            ->orderByDesc('count')
-            ->get()
+            ->orderByDesc('count');
+            
+        if (!empty($customerIds)) {
+            $groupQuery->whereIn('customer_customer_group.customer_id', $customerIds);
+        }
+        
+        return $groupQuery->get()
             ->map(function ($item) {
                 return [
                     'group' => $item->name,
@@ -310,15 +453,20 @@ class CustomerReportService extends BaseReportService
     /**
      * Get acquisition source distribution.
      */
-    protected function getAcquisitionSourceDistribution()
+    protected function getAcquisitionSourceDistribution($customerIds = null)
     {
-        return Customer::where('salon_id', $this->salonId)
+        $acquisitionQuery = Customer::where('salon_id', $this->salonId)
             ->whereNotNull('how_introduced_id')
             ->select('how_introduced_id', DB::raw('COUNT(*) as count'))
             ->groupBy('how_introduced_id')
             ->orderByDesc('count')
-            ->with('howIntroduced')
-            ->get()
+            ->with('howIntroduced');
+            
+        if (!empty($customerIds)) {
+            $acquisitionQuery->whereIn('id', $customerIds);
+        }
+        
+        return $acquisitionQuery->get()
             ->map(function ($item) {
                 return [
                     'source' => $item->howIntroduced->name ?? 'نامشخص',
@@ -330,19 +478,73 @@ class CustomerReportService extends BaseReportService
     /**
      * Get repeat visits detail.
      */
-    protected function getRepeatVisitsDetail()
+    protected function getRepeatVisitsDetail($customerIds = null)
     {
-        return Customer::where('salon_id', $this->salonId)
+        $repeatVisitsQuery = Customer::where('salon_id', $this->salonId)
             ->withCount('appointments')
             ->having('appointments_count', '>', 1)
             ->orderByDesc('appointments_count')
-            ->limit(10)
-            ->get()
+            ->limit(10);
+            
+        if (!empty($customerIds)) {
+            $repeatVisitsQuery->whereIn('id', $customerIds);
+        }
+        
+        return $repeatVisitsQuery->get()
             ->map(function ($customer) {
                 return [
                     'customer_name' => $customer->name,
                     'visit_count' => $customer->appointments_count,
                 ];
             });
+    }
+
+    /**
+     * Build filters summary for display (override).
+     */
+    protected function buildFiltersSummary($filters)
+    {
+        $summary = parent::buildFiltersSummary($filters);
+
+        // Add service filter
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $serviceNames = \App\Models\Service::whereIn('id', $filters['service_ids'])
+                ->pluck('name')
+                ->implode('، ');
+            $summary[] = ['label' => 'خدمات', 'value' => $serviceNames ?: 'نامشخص'];
+        } elseif (isset($filters['service_ids']) && in_array(0, $filters['service_ids'])) {
+            $summary[] = ['label' => 'خدمات', 'value' => 'همه موارد'];
+        }
+
+        // Add personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $personnelNames = \App\Models\Staff::whereIn('id', $filters['personnel_ids'])
+                ->pluck('full_name')
+                ->implode('، ');
+            $summary[] = ['label' => 'پرسنل', 'value' => $personnelNames ?: 'نامشخص'];
+        } elseif (isset($filters['personnel_ids']) && in_array(0, $filters['personnel_ids'])) {
+            $summary[] = ['label' => 'پرسنل', 'value' => 'همه موارد'];
+        }
+
+        // Add acquisition source filter
+        if (!empty($filters['acquisition_source_ids']) && !in_array(0, $filters['acquisition_source_ids'])) {
+            $sourceNames = \App\Models\HowIntroduced::whereIn('id', $filters['acquisition_source_ids'])
+                ->pluck('name')
+                ->implode('، ');
+            $summary[] = ['label' => 'نحوه آشنایی', 'value' => $sourceNames ?: 'نامشخص'];
+        } elseif (isset($filters['acquisition_source_ids']) && in_array(0, $filters['acquisition_source_ids'])) {
+            $summary[] = ['label' => 'نحوه آشنایی', 'value' => 'همه موارد'];
+        }
+
+        // Add payment amount filters
+        if (isset($filters['min_paid_amount'])) {
+            $summary[] = ['label' => 'حداقل مبلغ پرداختی', 'value' => number_format($filters['min_paid_amount']) . ' تومان'];
+        }
+
+        if (isset($filters['max_paid_amount'])) {
+            $summary[] = ['label' => 'حداکثر مبلغ پرداختی', 'value' => number_format($filters['max_paid_amount']) . ' تومان'];
+        }
+
+        return $summary;
     }
 }

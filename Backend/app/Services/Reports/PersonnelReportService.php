@@ -55,6 +55,7 @@ class PersonnelReportService extends BaseReportService
         $this->dateTo = $filters['date_to'] ?? null;
         $this->timeFrom = $filters['time_from'] ?? null;
         $this->timeTo = $filters['time_to'] ?? null;
+        $this->filters = $filters;
     }
 
     /**
@@ -64,28 +65,55 @@ class PersonnelReportService extends BaseReportService
     {
         $this->applyFilters($filters);
         
-        $totalStaff = Staff::where('salon_id', $this->salonId)->count();
+        $staffQuery = Staff::where('salon_id', $this->salonId);
+        
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $staffQuery->whereIn('id', $filters['personnel_ids']);
+        }
+        
+        $totalStaff = $staffQuery->count();
 
         // Total completed appointments
-        $totalCompleted = Appointment::where('salon_id', $this->salonId)
+        $totalCompletedQuery = Appointment::where('salon_id', $this->salonId)
             ->where('status', 'completed')
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('appointment_date', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('appointment_date', '<=', $this->dateTo);
-            })
-            ->count();
+            });
+            
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $totalCompletedQuery->whereIn('staff_id', $filters['personnel_ids']);
+        }
+        
+        // Apply service filter
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $totalCompletedQuery->whereHas('services', function ($q) use ($filters) {
+                $q->whereIn('service_id', $filters['service_ids']);
+            });
+        }
+        
+        $totalCompleted = $totalCompletedQuery->count();
 
         // Top personnel by income
-        $topByIncome = Payment::where('salon_id', $this->salonId)
+        $topByIncomeQuery = Payment::where('salon_id', $this->salonId)
             ->whereNotNull('staff_id')
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('date', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('date', '<=', $this->dateTo);
-            })
+            });
+            
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $topByIncomeQuery->whereIn('staff_id', $filters['personnel_ids']);
+        }
+        
+        $topByIncome = $topByIncomeQuery
             ->select('staff_id', DB::raw('SUM(amount) as total_income'))
             ->groupBy('staff_id')
             ->orderByDesc('total_income')
@@ -93,7 +121,7 @@ class PersonnelReportService extends BaseReportService
             ->first();
 
         // Total commission
-        $totalCommission = DB::table('expenses')
+        $totalCommissionQuery = DB::table('expenses')
             ->where('salon_id', $this->salonId)
             ->where('expense_type', 'commission')
             ->when($this->dateFrom, function ($q) {
@@ -101,17 +129,37 @@ class PersonnelReportService extends BaseReportService
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('date', '<=', $this->dateTo);
-            })
-            ->sum('amount');
+            });
+            
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $totalCommissionQuery->whereIn('staff_id', $filters['personnel_ids']);
+        }
+        
+        $totalCommission = $totalCommissionQuery->sum('amount');
 
         // Most customers personnel
-        $mostCustomers = Appointment::where('salon_id', $this->salonId)
+        $mostCustomersQuery = Appointment::where('salon_id', $this->salonId)
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('appointment_date', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('appointment_date', '<=', $this->dateTo);
-            })
+            });
+            
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $mostCustomersQuery->whereIn('staff_id', $filters['personnel_ids']);
+        }
+        
+        // Apply service filter
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $mostCustomersQuery->whereHas('services', function ($q) use ($filters) {
+                $q->whereIn('service_id', $filters['service_ids']);
+            });
+        }
+        
+        $mostCustomers = $mostCustomersQuery
             ->select('staff_id', DB::raw('COUNT(DISTINCT customer_id) as unique_customers'))
             ->groupBy('staff_id')
             ->orderByDesc('unique_customers')
@@ -119,7 +167,7 @@ class PersonnelReportService extends BaseReportService
             ->first();
 
         // Best personnel by satisfaction
-        $bestBySatisfaction = CustomerFeedback::whereHas('appointment', function ($q) {
+        $bestBySatisfactionQuery = CustomerFeedback::whereHas('appointment', function ($q) {
                 $q->where('salon_id', $this->salonId);
             })
             ->whereNotNull('staff_id')
@@ -132,7 +180,19 @@ class PersonnelReportService extends BaseReportService
                 $q->whereHas('appointment', function ($query) {
                     $query->whereDate('appointment_date', '<=', $this->dateTo);
                 });
-            })
+            });
+            
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $bestBySatisfactionQuery->whereIn('staff_id', $filters['personnel_ids']);
+        }
+        
+        // Apply service filter
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $bestBySatisfactionQuery->whereIn('service_id', $filters['service_ids']);
+        }
+        
+        $bestBySatisfaction = $bestBySatisfactionQuery
             ->select('staff_id', DB::raw('AVG(rating) as avg_rating'))
             ->groupBy('staff_id')
             ->orderByDesc('avg_rating')
@@ -361,5 +421,35 @@ class PersonnelReportService extends BaseReportService
                     'total_visits' => $item->total_visits,
                 ];
             });
+    }
+    
+    /**
+     * Build filters summary for display (override).
+     */
+    protected function buildFiltersSummary($filters)
+    {
+        $summary = parent::buildFiltersSummary($filters);
+
+        // Add personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $personnelNames = \App\Models\Staff::whereIn('id', $filters['personnel_ids'])
+                ->pluck('full_name')
+                ->implode('، ');
+            $summary[] = ['label' => 'پرسنل', 'value' => $personnelNames ?: 'نامشخص'];
+        } elseif (isset($filters['personnel_ids']) && in_array(0, $filters['personnel_ids'])) {
+            $summary[] = ['label' => 'پرسنل', 'value' => 'همه موارد'];
+        }
+
+        // Add service filter
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $serviceNames = \App\Models\Service::whereIn('id', $filters['service_ids'])
+                ->pluck('name')
+                ->implode('، ');
+            $summary[] = ['label' => 'خدمات', 'value' => $serviceNames ?: 'نامشخص'];
+        } elseif (isset($filters['service_ids']) && in_array(0, $filters['service_ids'])) {
+            $summary[] = ['label' => 'خدمات', 'value' => 'همه موارد'];
+        }
+
+        return $summary;
     }
 }

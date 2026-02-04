@@ -305,6 +305,34 @@ class AuthService
 
     public function login(string $mobile, string $password): array
     {
+        // First, try to find SalonAdmin
+        $salonAdmin = \App\Models\SalonAdmin::where('mobile', $mobile)
+            ->active()
+            ->first();
+
+        if ($salonAdmin && Hash::check($password, $salonAdmin->password)) {
+            // Check if salon is active
+            if (!$salonAdmin->salon || !$salonAdmin->salon->is_active) {
+                throw new \Exception('حساب سالن غیرفعال است.');
+            }
+
+            // Update last login
+            $salonAdmin->updateLastLogin();
+
+            // Login as salon admin
+            $token = auth('salon_admin')->login($salonAdmin);
+            $salonAdmin->load(['permissions', 'salon', 'creator']);
+
+            return [
+                'type' => 'salon_admin',
+                'user' => $salonAdmin,
+                'token' => $token,
+                'salon' => $salonAdmin->salon,
+                'permissions' => $salonAdmin->permissions
+            ];
+        }
+
+        // If not salon admin, try regular user
         $user = User::where('mobile', $mobile)->first();
 
         if (!$user || !$user->password) {
@@ -319,6 +347,7 @@ class AuthService
         $user->load(['salons', 'activeSalon.businessCategory', 'activeSalon.city.province']);
 
         return [
+            'type' => 'salon_owner',
             'user' => $user,
             'token' => $token,
             'salons' => $user->salons,

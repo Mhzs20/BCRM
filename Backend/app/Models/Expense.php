@@ -18,6 +18,7 @@ class Expense extends Model
         'expense_type',
         'staff_id',
         'related_payment_id',
+        'cashbox_id',
     ];
 
     protected $casts = [
@@ -38,5 +39,15 @@ class Expense extends Model
     public function relatedPayment()
     {
         return $this->belongsTo(Payment::class, 'related_payment_id');
+    }
+
+    public function cashbox()
+    {
+        return $this->belongsTo(Cashbox::class);
+    }
+
+    public function cashboxTransaction()
+    {
+        return $this->hasOne(CashboxTransaction::class, 'expense_id');
     }
 }

@@ -18,10 +18,16 @@ class CustomerFollowUpHistory extends Model
         'message',
         'sent_at',
         'type', // 'manual' or 'automatic'
+        'customer_group_ids',
+        'service_ids',
+        'total_customers',
+        'sms_count',
     ];
 
     protected $casts = [
         'sent_at' => 'datetime',
+        'customer_group_ids' => 'array',
+        'service_ids' => 'array',
     ];
 
     /**

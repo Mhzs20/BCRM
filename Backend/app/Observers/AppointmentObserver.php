@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\Appointment;
 use App\Jobs\SendAppointmentModificationSms;
 use App\Jobs\SendSatisfactionSurveySms;
+use App\Jobs\ProcessAppointmentCommission;
 use App\Models\ActivityLog;
 use Hashids\Hashids;
 use Illuminate\Support\Facades\Auth;
@@ -102,6 +103,13 @@ class AppointmentObserver
                         'loggable_id' => $appointment->id,
                         'loggable_type' => Appointment::class,
                     ]);
+                }
+
+                // Process commission when appointment status changes to completed
+                $oldStatus = $appointment->getOriginal('status');
+                $newStatus = $appointment->status;
+                if ($newStatus === 'completed' && $oldStatus !== 'completed') {
+                    ProcessAppointmentCommission::dispatch($appointment);
                 }
             }
         }

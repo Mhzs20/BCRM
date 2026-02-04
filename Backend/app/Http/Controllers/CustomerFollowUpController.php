@@ -8,6 +8,7 @@ use App\Models\CustomerGroup;
 use App\Models\Customer;
 use App\Models\Appointment;
 use App\Models\Salon;
+use App\Models\ManualFollowupPreparation;
 use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -121,54 +122,63 @@ class CustomerFollowUpController extends Controller
     // 5. Update Customer Follow-up Settings (برای Automated)
     public function updateSettings(Request $request, $salonId)
     {
-        $data = $request->all();
+        $data = $request->validate([
+            'template_id' => 'required|exists:salon_sms_templates,id',
+            'group_ids' => 'required|array',
+            'group_ids.*' => 'exists:customer_groups,id',
+            'is_active' => 'required|boolean',
+            'days_since_last_visit' => 'required|integer|min:1|max:365',
+            'check_frequency_days' => 'required|integer|min:1|max:90',
+        ]);
         
         $setting = CustomerFollowUpSetting::firstOrCreate([
             'salon_id' => $salonId
         ], [
-            'template_id' => $data['template_id'] ?? null,
+            'template_id' => $data['template_id'],
             'is_global_active' => true,
         ]);
 
         // Ensure global active is true when updating settings
         $setting->is_global_active = true;
-        $setting->template_id = $data['template_id'] ?? $setting->template_id;
+        $setting->template_id = $data['template_id'];
         $setting->save();
 
         $result = [];
         
-        if (isset($data['customer_group_ids'])) {
-            foreach ($data['customer_group_ids'] as $groupId => $settings) {
-                $groupSetting = CustomerFollowUpGroupSetting::updateOrCreate([
-                    'customer_followup_setting_id' => $setting->id,
-                    'customer_group_id' => $groupId
-                ], [
-                    'is_active' => $settings['is_active'] ?? true,
-                    'days_since_last_visit' => $settings['days_since_last_visit'] ?? 15,
-                    'check_frequency_days' => $settings['check_frequency_days'] ?? 7,
-                ]);
-                
-                $result[$groupId] = [
-                    'success' => true,
-                    'followup_setting' => [
-                        'salon_id' => $salonId,
-                        'customer_group_id' => $groupId,
-                        'is_active' => $groupSetting->is_active,
-                        'days_since_last_visit' => $groupSetting->days_since_last_visit,
-                        'check_frequency_days' => $groupSetting->check_frequency_days,
-                        'template_id' => $setting->template_id,
-                        'updated_at' => $groupSetting->updated_at,
-                        'created_at' => $groupSetting->created_at,
-                        'id' => $groupSetting->id
-                    ]
-                ];
-            }
+        // Apply the same settings to all selected groups
+        foreach ($data['group_ids'] as $groupId) {
+            $groupSetting = CustomerFollowUpGroupSetting::updateOrCreate([
+                'customer_followup_setting_id' => $setting->id,
+                'customer_group_id' => $groupId
+            ], [
+                'is_active' => $data['is_active'],
+                'days_since_last_visit' => $data['days_since_last_visit'],
+                'check_frequency_days' => $data['check_frequency_days'],
+            ]);
+            
+            $result[] = [
+                'group_id' => $groupId,
+                'success' => true,
+                'settings' => [
+                    'id' => $groupSetting->id,
+                    'is_active' => $groupSetting->is_active,
+                    'days_since_last_visit' => $groupSetting->days_since_last_visit,
+                    'check_frequency_days' => $groupSetting->check_frequency_days,
+                    'updated_at' => $groupSetting->updated_at,
+                ]
+            ];
         }
         
         $response = [
             'success' => true,
-            'template_id' => $setting->template_id,
-            'customer_group_ids' => $result
+            'message' => 'تنظیمات پیگیری مشتری با موفقیت به‌روزرسانی شد.',
+            'setting' => [
+                'template_id' => $setting->template_id,
+                'is_active' => $data['is_active'],
+                'days_since_last_visit' => $data['days_since_last_visit'],
+                'check_frequency_days' => $data['check_frequency_days'],
+            ],
+            'groups' => $result
         ];
         
         return response()->json($response);
@@ -238,6 +248,7 @@ class CustomerFollowUpController extends Controller
             ]);
 
             $salon = Salon::findOrFail($salonId);
+            $template = \App\Models\SalonSmsTemplate::findOrFail($data['template_id']);
 
             // فیلتر مشتریان بر اساس شرایط
             $query = Customer::where('salon_id', $salonId);
@@ -275,24 +286,35 @@ class CustomerFollowUpController extends Controller
             });
 
             $customerCount = $eligibleCustomers->count();
+            $customerIds = $eligibleCustomers->pluck('id')->toArray();
 
-            // دریافت تمپلیت برای محاسبه هزینه
-            $template = \App\Models\SalonSmsTemplate::findOrFail($data['template_id']);
-            
-            // محاسبه طول تقریبی پیام
+            // محاسبه هزینه بر اساس تمپلیت واقعی
             $sampleMessage = $this->generateSampleMessage($template->template, $salon);
             $partsPerMessage = $this->smsService->calculateSmsParts($sampleMessage);
-            $costPerPart = 250; // هزینه هر پارت (تومان)
-            $totalCost = $customerCount * $partsPerMessage * $costPerPart;
+            $totalSmsCount = $customerCount * $partsPerMessage; // تعداد کل پیامک‌ها (شارژ کسر شده)
+
+            // ذخیره preparation برای استفاده در مرحله ارسال
+            $preparation = ManualFollowupPreparation::create([
+                'salon_id' => $salonId,
+                'customer_group_ids' => $data['customer_group_ids'] ?? null,
+                'service_ids' => $data['service_ids'] ?? null,
+                'days_since_last_visit' => $data['days_since_last_visit'],
+                'customer_ids' => $customerIds,
+                'customer_count' => $customerCount,
+                'message_parts' => $partsPerMessage,
+                'cost_per_message' => $partsPerMessage,
+                'total_cost' => $totalSmsCount,
+                'sample_message' => $sampleMessage,
+                'expires_at' => Carbon::now()->addHours(24), // انقضا بعد از 24 ساعت
+            ]);
 
             return response()->json([
                 'success' => true,
+                'prepare_id' => $preparation->id,
                 'customer_count' => $customerCount,
-                'message_parts' => $partsPerMessage,
-                'cost_per_message' => $partsPerMessage * $costPerPart,
-                'total_cost' => $totalCost,
+                'sms_per_customer' => $partsPerMessage,
+                'total_sms_count' => $totalSmsCount,
                 'sample_message' => $sampleMessage,
-                'customer_ids' => $eligibleCustomers->pluck('id')->toArray(),
             ]);
 
         } catch (\Exception $e) {
@@ -309,18 +331,37 @@ class CustomerFollowUpController extends Controller
     {
         try {
             $data = $request->validate([
-                'customer_ids' => 'required|array',
-                'customer_ids.*' => 'exists:customers,id',
+                'prepare_id' => 'required|exists:manual_followup_preparations,id',
                 'template_id' => 'required|exists:salon_sms_templates,id',
             ]);
+
+            // دریافت preparation
+            $preparation = ManualFollowupPreparation::findOrFail($data['prepare_id']);
+
+            // بررسی انقضا
+            if ($preparation->isExpired()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'این آماده‌سازی منقضی شده است. لطفاً مجدداً آماده‌سازی کنید.'
+                ], 400);
+            }
+
+            // بررسی salon_id
+            if ($preparation->salon_id != $salonId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'دسترسی غیرمجاز به این آماده‌سازی.'
+                ], 403);
+            }
 
             $salon = Salon::findOrFail($salonId);
             $template = \App\Models\SalonSmsTemplate::findOrFail($data['template_id']);
 
             $sentCount = 0;
             $failedCount = 0;
+            $totalSmsCount = 0;
 
-            foreach ($data['customer_ids'] as $customerId) {
+            foreach ($preparation->customer_ids as $customerId) {
                 $customer = Customer::find($customerId);
                 
                 if (!$customer || $customer->salon_id != $salonId) {
@@ -352,6 +393,8 @@ class CustomerFollowUpController extends Controller
 
                     if (isset($result['status']) && $result['status'] === 'success') {
                         $sentCount++;
+                        $smsUsed = $this->smsService->calculateSmsParts($message);
+                        $totalSmsCount += $smsUsed;
                         
                         // ثبت در تاریخچه
                         CustomerFollowUpHistory::create([
@@ -361,6 +404,10 @@ class CustomerFollowUpController extends Controller
                             'message' => $message,
                             'sent_at' => Carbon::now(),
                             'type' => 'manual',
+                            'customer_group_ids' => $preparation->customer_group_ids,
+                            'service_ids' => $preparation->service_ids,
+                            'total_customers' => $preparation->customer_count,
+                            'sms_count' => $smsUsed,
                         ]);
                     } else {
                         $failedCount++;
@@ -379,6 +426,7 @@ class CustomerFollowUpController extends Controller
                 'message' => 'پیامک‌های پیگیری ارسال شدند.',
                 'sent_count' => $sentCount,
                 'failed_count' => $failedCount,
+                'total_sms_used' => $totalSmsCount,
             ]);
 
         } catch (\Exception $e) {
@@ -415,6 +463,29 @@ class CustomerFollowUpController extends Controller
         }
 
         $history = $query->paginate($perPage);
+
+        // اضافه کردن اطلاعات گروه‌ها و خدمات به هر رکورد
+        $history->getCollection()->transform(function ($item) {
+            $groups = [];
+            $services = [];
+
+            if ($item->customer_group_ids) {
+                $groups = CustomerGroup::whereIn('id', $item->customer_group_ids)
+                    ->select('id', 'name')
+                    ->get();
+            }
+
+            if ($item->service_ids) {
+                $services = \App\Models\Service::whereIn('id', $item->service_ids)
+                    ->select('id', 'name')
+                    ->get();
+            }
+
+            $item->customer_groups = $groups;
+            $item->services = $services;
+
+            return $item;
+        });
 
         return response()->json($history);
     }

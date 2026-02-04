@@ -53,6 +53,7 @@ class SatisfactionReportService extends BaseReportService
         $this->dateTo = $filters['date_to'] ?? null;
         $this->timeFrom = $filters['time_from'] ?? null;
         $this->timeTo = $filters['time_to'] ?? null;
+        $this->filters = $filters;
     }
 
     /**
@@ -61,7 +62,7 @@ class SatisfactionReportService extends BaseReportService
     protected function calculateKPIs(array $filters = [])
     {
         // Average satisfaction
-        $avgSatisfaction = CustomerFeedback::whereHas('appointment', function ($q) {
+        $avgSatisfactionQuery = CustomerFeedback::whereHas('appointment', function ($q) {
                 $q->where('salon_id', $this->salonId);
             })
             ->where('is_submitted', true)
@@ -74,11 +75,22 @@ class SatisfactionReportService extends BaseReportService
                         $query->whereDate('appointment_date', '<=', $this->dateTo);
                     }
                 });
-            })
-            ->avg('rating');
+            });
+            
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $avgSatisfactionQuery->whereIn('staff_id', $filters['personnel_ids']);
+        }
+        
+        // Apply service filter
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $avgSatisfactionQuery->whereIn('service_id', $filters['service_ids']);
+        }
+        
+        $avgSatisfaction = $avgSatisfactionQuery->avg('rating');
 
         // Total respondents
-        $respondents = CustomerFeedback::whereHas('appointment', function ($q) {
+        $respondentsQuery = CustomerFeedback::whereHas('appointment', function ($q) {
                 $q->where('salon_id', $this->salonId);
             })
             ->where('is_submitted', true)
@@ -91,8 +103,19 @@ class SatisfactionReportService extends BaseReportService
                         $query->whereDate('appointment_date', '<=', $this->dateTo);
                     }
                 });
-            })
-            ->count();
+            });
+            
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $respondentsQuery->whereIn('staff_id', $filters['personnel_ids']);
+        }
+        
+        // Apply service filter
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $respondentsQuery->whereIn('service_id', $filters['service_ids']);
+        }
+        
+        $respondents = $respondentsQuery->count();
 
         // Total survey links sent (appointments with survey_sms_sent_at)
         $surveyLinksSent = Appointment::where('salon_id', $this->salonId)
@@ -115,7 +138,7 @@ class SatisfactionReportService extends BaseReportService
         $topWeakness = $this->getTopWeakness();
 
         // Best personnel
-        $bestPersonnel = CustomerFeedback::whereHas('appointment', function ($q) {
+        $bestPersonnelQuery = CustomerFeedback::whereHas('appointment', function ($q) {
                 $q->where('salon_id', $this->salonId);
             })
             ->whereNotNull('staff_id')
@@ -129,7 +152,19 @@ class SatisfactionReportService extends BaseReportService
                         $query->whereDate('appointment_date', '<=', $this->dateTo);
                     }
                 });
-            })
+            });
+            
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $bestPersonnelQuery->whereIn('staff_id', $filters['personnel_ids']);
+        }
+        
+        // Apply service filter
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $bestPersonnelQuery->whereIn('service_id', $filters['service_ids']);
+        }
+        
+        $bestPersonnel = $bestPersonnelQuery
             ->select('staff_id', DB::raw('AVG(rating) as avg_rating'))
             ->groupBy('staff_id')
             ->orderByDesc('avg_rating')
@@ -137,7 +172,7 @@ class SatisfactionReportService extends BaseReportService
             ->first();
 
         // Best service
-        $bestService = CustomerFeedback::whereHas('appointment', function ($q) {
+        $bestServiceQuery = CustomerFeedback::whereHas('appointment', function ($q) {
                 $q->where('salon_id', $this->salonId);
             })
             ->whereNotNull('service_id')
@@ -151,7 +186,19 @@ class SatisfactionReportService extends BaseReportService
                         $query->whereDate('appointment_date', '<=', $this->dateTo);
                     }
                 });
-            })
+            });
+            
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $bestServiceQuery->whereIn('staff_id', $filters['personnel_ids']);
+        }
+        
+        // Apply service filter
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $bestServiceQuery->whereIn('service_id', $filters['service_ids']);
+        }
+        
+        $bestService = $bestServiceQuery
             ->select('service_id', DB::raw('AVG(rating) as avg_rating'))
             ->groupBy('service_id')
             ->orderByDesc('avg_rating')
@@ -464,5 +511,35 @@ class SatisfactionReportService extends BaseReportService
             ->mapWithKeys(function ($item) {
                 return [$item->rating . ' ستاره' => $item->count];
             });
+    }
+    
+    /**
+     * Build filters summary for display (override).
+     */
+    protected function buildFiltersSummary($filters)
+    {
+        $summary = parent::buildFiltersSummary($filters);
+
+        // Add personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $personnelNames = \App\Models\Staff::whereIn('id', $filters['personnel_ids'])
+                ->pluck('full_name')
+                ->implode('، ');
+            $summary[] = ['label' => 'پرسنل', 'value' => $personnelNames ?: 'نامشخص'];
+        } elseif (isset($filters['personnel_ids']) && in_array(0, $filters['personnel_ids'])) {
+            $summary[] = ['label' => 'پرسنل', 'value' => 'همه موارد'];
+        }
+
+        // Add service filter
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $serviceNames = \App\Models\Service::whereIn('id', $filters['service_ids'])
+                ->pluck('name')
+                ->implode('، ');
+            $summary[] = ['label' => 'خدمات', 'value' => $serviceNames ?: 'نامشخص'];
+        } elseif (isset($filters['service_ids']) && in_array(0, $filters['service_ids'])) {
+            $summary[] = ['label' => 'خدمات', 'value' => 'همه موارد'];
+        }
+
+        return $summary;
     }
 }
