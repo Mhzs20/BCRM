@@ -59,8 +59,10 @@ class SendSmsCampaign implements ShouldQueue
                         $response = $smsService->sendSms($message->phone_number, $message->message, null, $message->id);
                         
                         if ($response && !empty($response[0]['messageid'])) {
+                            // Set status as 'pending' because it's queued in Kavenegar
+                            // CheckSmsStatus job will update it to 'sent' or 'not_sent' later
                             $message->update([
-                                'status' => 'sent',
+                                'status' => 'pending',
                                 'message_id' => $response[0]['messageid'],
                                 'sent_at' => now(),
                             ]);

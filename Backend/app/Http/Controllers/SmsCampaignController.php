@@ -60,6 +60,13 @@ class SmsCampaignController extends Controller
     {
         Gate::authorize('manageResources', $salon);
 
+        // Reject if 'message' is provided in the request (message should only come from template or be set later)
+        if ($request->has('message')) {
+            return response()->json([
+                'message' => 'ارسال پیام در این مرحله مجاز نیست. پیام باید از طریق قالب انتخاب شود یا در مرحله ارسال تعیین گردد.',
+            ], 422);
+        }
+
          if ($request->filled('part_of_name')) {
             $namePart = $request->input('part_of_name');
             $customers = $salon->customers()->where('sms_opt_out', false)->where('name', 'like', "%{$namePart}%")->get();
