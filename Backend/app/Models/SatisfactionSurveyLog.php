@@ -13,6 +13,7 @@ class SatisfactionSurveyLog extends Model
         'sent_at',
         'status',
         'error_message',
+        'message_id',
     ];
 
     protected $casts = [

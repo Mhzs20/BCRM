@@ -131,9 +131,16 @@ class SendBulkSmsJob implements ShouldQueue
 
                 try {
                     $response = $smsService->sendSms($salon->owner->mobile, $this->message);
-                    $status = $response ? 'delivered' : 'failed';
-
-                    if (!$response) {
+                    
+                    if ($response && is_array($response) && count($response) > 0) {
+                        // Map Kavenegar status to internal status
+                        $entry = $response[0];
+                        $kavenegarStatus = $entry['status'] ?? null;
+                        $status = $kavenegarStatus !== null 
+                            ? $smsService->mapKavenegarStatusToInternal($kavenegarStatus) 
+                            : 'pending';
+                    } else {
+                        $status = 'failed';
                         Log::warning('Bulk SMS send returned falsy response', [
                             'salon_id' => $salon->id,
                             'mobile' => $salon->owner->mobile,
@@ -156,7 +163,7 @@ class SendBulkSmsJob implements ShouldQueue
                     'receptor' => $salon->owner->mobile,
                     'content' => $this->message,
                     'status' => $status,
-                    'sent_at' => $status === 'delivered' ? now() : null,
+                    'sent_at' => !in_array($status, ['failed', 'not_sent']) ? now() : null,
                     'batch_id' => $this->batchId,
                 ]);
 

@@ -95,8 +95,14 @@ class SendRenewalReminderSms implements ShouldQueue
 
             if ($result && is_array($result) && count($result) > 0) {
                 $entry = $result[0];
+                // Map Kavenegar status to internal status (pending/sent/not_sent)
+                $kavenegarStatus = $entry['status'] ?? null;
+                $internalStatus = $kavenegarStatus !== null 
+                    ? $smsService->mapKavenegarStatusToInternal($kavenegarStatus) 
+                    : 'pending';
+                
                 $reminderLog->update([
-                    'status' => 'sent',
+                    'status' => $internalStatus,
                     'sms_message_id' => $entry['messageid'] ?? null,
                     'sent_at' => now()
                 ]);

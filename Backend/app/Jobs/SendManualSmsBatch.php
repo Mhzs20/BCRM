@@ -103,8 +103,8 @@ class SendManualSmsBatch implements ShouldQueue
                     $status = $smsService->mapKavenegarStatusToInternal($entry['status'] ?? null);
                     $updateData['status'] = $status;
                     $updateData['external_response'] = json_encode($entry);
-                    // Only update sent_at if it's actually sent, otherwise keep existing or null
-                    if ($status === 'sent') {
+                    // Update sent_at when message is queued or sent (not failed)
+                    if (!in_array($status, ['failed', 'not_sent'])) {
                         $updateData['sent_at'] = now();
                     }
                 } else {
