@@ -20,6 +20,7 @@ class Payment extends Model
         'amount',
         'description',
         'payment_method',
+        'cashbox_id',
     ];
 
     protected $casts = [
@@ -45,6 +46,16 @@ class Payment extends Model
     public function staff()
     {
         return $this->belongsTo(Staff::class);
+    }
+
+    public function cashbox()
+    {
+        return $this->belongsTo(Cashbox::class);
+    }
+
+    public function cashboxTransaction()
+    {
+        return $this->hasOne(CashboxTransaction::class, 'payment_id');
     }
 
     /**

@@ -265,11 +265,12 @@ class DashboardController extends Controller
         return response()->json(['message' => 'No active salon found.'], 404);
     }
 
+    $perPage = $request->input('per_page', 20);
+
     $logs = ActivityLog::where('salon_id', $activeSalon->id)
-        ->with(['loggable', 'user', 'salon'])
+        ->with(['loggable.customer', 'loggable.staff', 'user', 'salon'])
         ->orderBy('created_at', 'desc')
-        ->take(20)
-        ->get();
+        ->paginate($perPage);
 
     $formattedLogs = $logs->map(function ($log) {
         if (!$log->loggable) {
@@ -280,10 +281,12 @@ class DashboardController extends Controller
         $details = "فعالیت نامشخص";
         $userName = optional($log->user)->name ?: 'کاربر سیستم';
         $customerName = '';
+        $staffName = null;
 
         switch ($loggableType) {
             case 'Appointment':
                 $customerName = optional($log->loggable->customer)->name;
+                $staffName = optional($log->loggable->staff)->name;
                 $appointmentDate = Jalalian::fromCarbon($log->loggable->appointment_date)->format('Y/m/d');
                 switch ($log->activity_type) {
                     case 'created':
@@ -314,13 +317,24 @@ class DashboardController extends Controller
         return [
             'id' => $log->id,
             'user' => $userName,
+            'staff' => $staffName,
             'activity' => $details,
             'salon' => optional($log->salon)->name,
             'time' => Jalalian::fromCarbon($log->created_at)->format('Y/m/d H:i'),
         ];
     })->filter()->values();
 
-    return response()->json($formattedLogs);
+    return response()->json([
+        'data' => $formattedLogs,
+        'pagination' => [
+            'current_page' => $logs->currentPage(),
+            'per_page' => $logs->perPage(),
+            'total' => $logs->total(),
+            'last_page' => $logs->lastPage(),
+            'from' => $logs->firstItem(),
+            'to' => $logs->lastItem(),
+        ]
+    ]);
 }
 
     public function importCustomers(Request $request, $salon_id)

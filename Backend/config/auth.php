@@ -16,12 +16,22 @@ return [
             'driver' => 'jwt',
             'provider' => 'users',
         ],
+
+        'salon_admin' => [
+            'driver' => 'jwt',
+            'provider' => 'salon_admins',
+        ],
     ],
 
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
             'model' => App\Models\User::class,
+        ],
+
+        'salon_admins' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\SalonAdmin::class,
         ],
     ],
 

@@ -67,14 +67,14 @@ class ReservationReportService extends BaseReportService
         }
 
         // Apply service filter
-        if (!empty($filters['service_ids'])) {
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
             $baseQuery->whereHas('services', function ($q) use ($filters) {
                 $q->whereIn('services.id', $filters['service_ids']);
             });
         }
 
         // Apply personnel filter
-        if (!empty($filters['personnel_ids'])) {
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
             $baseQuery->whereIn('staff_id', $filters['personnel_ids']);
         }
 

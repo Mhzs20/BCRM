@@ -594,9 +594,16 @@ class SmsTransactionController extends Controller
             $query->where('user_id', $user->id);
         }
 
-        // Filter by status if provided
+        // Filter by order status if provided
         if ($request->filled('status')) {
             $query->where('status', $request->status);
+        }
+
+        // Filter by payment status (transaction status)
+        if ($request->filled('payment_status')) {
+            $query->whereHas('transactions', function($q) use ($request) {
+                $q->where('status', $request->payment_status);
+            });
         }
 
         // Filter by date range if provided
@@ -671,6 +678,24 @@ class SmsTransactionController extends Controller
             $summaryQuery->where('salon_id', $salon->id);
         } else {
             $summaryQuery->where('user_id', $user->id);
+        }
+
+        // Apply filters to summary
+        if ($request->filled('status')) {
+            $summaryQuery->where('status', $request->status);
+        }
+
+        if ($request->filled('payment_status')) {
+            $summaryQuery->whereHas('transactions', function($q) use ($request) {
+                $q->where('status', $request->payment_status);
+            });
+        }
+
+        if ($request->filled('from_date')) {
+            $summaryQuery->whereDate('created_at', '>=', $request->from_date);
+        }
+        if ($request->filled('to_date')) {
+            $summaryQuery->whereDate('created_at', '<=', $request->to_date);
         }
 
         $summary = [

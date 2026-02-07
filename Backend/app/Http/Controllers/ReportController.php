@@ -100,9 +100,9 @@ class ReportController extends Controller
             'min_paid_amount' => 'nullable|numeric|min:0',
             'max_paid_amount' => 'nullable|numeric|min:0',
             'service_ids' => 'nullable|array',
-            'service_ids.*' => 'exists:services,id',
+            'service_ids.*' => 'integer|min:0',
             'personnel_ids' => 'nullable|array',
-            'personnel_ids.*' => 'exists:salon_staff,id',
+            'personnel_ids.*' => 'integer|min:0',
             'acquisition_source_ids' => 'nullable|array',
         ]);
 
@@ -164,9 +164,9 @@ class ReportController extends Controller
             'time_from' => 'nullable|date_format:H:i',
             'time_to' => 'nullable|date_format:H:i',
             'service_ids' => 'nullable|array',
-            'service_ids.*' => 'exists:services,id',
+            'service_ids.*' => 'integer|min:0',
             'personnel_ids' => 'nullable|array',
-            'personnel_ids.*' => 'exists:salon_staff,id',
+            'personnel_ids.*' => 'integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -273,9 +273,9 @@ class ReportController extends Controller
             'min_income' => 'nullable|numeric|min:0',
             'max_income' => 'nullable|numeric|min:0',
             'personnel_ids' => 'nullable|array',
-            'personnel_ids.*' => 'exists:salon_staff,id',
+            'personnel_ids.*' => 'integer|min:0',
             'service_ids' => 'nullable|array',
-            'service_ids.*' => 'exists:services,id',
+            'service_ids.*' => 'integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -335,9 +335,9 @@ class ReportController extends Controller
             'time_from' => 'nullable|date_format:H:i',
             'time_to' => 'nullable|date_format:H:i',
             'personnel_ids' => 'nullable|array',
-            'personnel_ids.*' => 'exists:salon_staff,id',
+            'personnel_ids.*' => 'integer|min:0',
             'service_ids' => 'nullable|array',
-            'service_ids.*' => 'exists:services,id',
+            'service_ids.*' => 'integer|min:0',
         ]);
 
         if ($validator->fails()) {
