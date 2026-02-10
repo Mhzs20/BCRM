@@ -155,6 +155,7 @@ Route::middleware('auth:api')->group(function () {
                 ->group(function () {
                     Route::get('stats', [\App\Http\Controllers\CustomerFollowUpController::class, 'stats'])->name('stats');
                     Route::get('groups', [\App\Http\Controllers\CustomerFollowUpController::class, 'groups'])->name('groups');
+                    Route::get('services', [\App\Http\Controllers\CustomerFollowUpController::class, 'services'])->name('services');
                     Route::get('templates', [\App\Http\Controllers\CustomerFollowUpController::class, 'templates'])->name('templates');
                     Route::get('settings/summary', [\App\Http\Controllers\CustomerFollowUpController::class, 'summary'])->name('settings.summary');
                     Route::put('groups/settings', [\App\Http\Controllers\CustomerFollowUpController::class, 'updateSettings'])->name('groups.update_settings');

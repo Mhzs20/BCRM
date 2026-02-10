@@ -37,6 +37,34 @@ class SalonSmsTemplate extends Model
     }
 
     /**
+     * Accessor برای محاسبه خودکار estimated_parts
+     */
+    public function getEstimatedPartsAttribute($value): int
+    {
+        // اگر مقدار در دیتابیس ذخیره شده باشد، از آن استفاده کن
+        if (!is_null($value)) {
+            return (int)$value;
+        }
+        
+        // در غیر این صورت محاسبه کن
+        return $this->calculateEstimatedParts();
+    }
+
+    /**
+     * Accessor برای محاسبه خودکار estimated_cost
+     */
+    public function getEstimatedCostAttribute($value): int
+    {
+        // اگر مقدار در دیتابیس ذخیره شده باشد، از آن استفاده کن
+        if (!is_null($value)) {
+            return (int)$value;
+        }
+        
+        // در غیر این صورت محاسبه کن
+        return (int)$this->calculateEstimatedCost();
+    }
+
+    /**
      * محاسبه تعداد پارت‌های پیامک با جایگزینی متغیرها
      * 
      * @param string|null $customerName نام مشتری برای جایگزینی (پیش‌فرض: نام نمونه 10 کاراکتری)

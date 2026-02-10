@@ -44,4 +44,22 @@ class CustomerFollowUpSetting extends Model
     {
         return $this->hasMany(CustomerFollowUpGroupSetting::class, 'customer_followup_setting_id');
     }
+
+    /**
+     * تنظیمات خدمات
+     */
+    public function serviceSettings()
+    {
+        return $this->hasMany(CustomerFollowUpServiceSetting::class, 'customer_followup_setting_id');
+    }
+
+    /**
+     * خدمات انتخاب شده
+     */
+    public function services()
+    {
+        return $this->belongsToMany(Service::class, 'customer_followup_service_settings', 'customer_followup_setting_id', 'service_id')
+            ->withPivot('is_active')
+            ->withTimestamps();
+    }
 }
