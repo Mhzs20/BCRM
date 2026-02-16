@@ -50,8 +50,8 @@ class CustomerReportService extends BaseReportService
      */
     protected function applyFilters(array $filters)
     {
-        $this->dateFrom = $filters['date_from'] ?? null;
-        $this->dateTo = $filters['date_to'] ?? null;
+        $this->dateFrom = isset($filters['date_from']) ? \Carbon\Carbon::parse($filters['date_from']) : null;
+        $this->dateTo = isset($filters['date_to']) ? \Carbon\Carbon::parse($filters['date_to']) : null;
         $this->timeFrom = $filters['time_from'] ?? null;
         $this->timeTo = $filters['time_to'] ?? null;
         $this->filters = $filters;
@@ -184,6 +184,21 @@ class CustomerReportService extends BaseReportService
     {
         $customerIds = null;
 
+        // Start with date filter on customer creation if specified
+        if ($this->dateFrom || $this->dateTo) {
+            $dateQuery = Customer::where('salon_id', $this->salonId);
+            
+            if ($this->dateFrom) {
+                $dateQuery->whereDate('created_at', '>=', $this->dateFrom);
+            }
+            
+            if ($this->dateTo) {
+                $dateQuery->whereDate('created_at', '<=', $this->dateTo);
+            }
+            
+            $customerIds = $dateQuery->pluck('id')->toArray();
+        }
+
         // Filter by services
         if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
             $serviceCustomerIds = Appointment::where('salon_id', $this->salonId)
@@ -194,7 +209,11 @@ class CustomerReportService extends BaseReportService
                 ->pluck('customer_id')
                 ->toArray();
             
-            $customerIds = $serviceCustomerIds;
+            if ($customerIds === null) {
+                $customerIds = $serviceCustomerIds;
+            } else {
+                $customerIds = array_intersect($customerIds, $serviceCustomerIds);
+            }
         }
 
         // Filter by personnel
@@ -505,6 +524,17 @@ class CustomerReportService extends BaseReportService
     protected function buildFiltersSummary($filters)
     {
         $summary = parent::buildFiltersSummary($filters);
+
+        // Add period filter
+        if (!empty($filters['period'])) {
+            $periodLabels = [
+                'daily' => 'روزانه',
+                'weekly' => 'هفتگی',
+                'monthly' => 'ماهانه',
+                'yearly' => 'سالانه',
+            ];
+            $summary[] = ['label' => 'بازه زمانی', 'value' => $periodLabels[$filters['period']] ?? $filters['period']];
+        }
 
         // Add service filter
         if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {

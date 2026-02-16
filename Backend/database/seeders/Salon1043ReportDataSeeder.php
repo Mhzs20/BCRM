@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use App\Models\Salon;
 use App\Models\User;
 use App\Models\Staff;
@@ -12,6 +13,7 @@ use App\Models\Appointment;
 use App\Models\Payment;
 use App\Models\Expense;
 use App\Models\SharedReport;
+use App\Models\CustomerFeedback;
 use Carbon\Carbon;
 
 class Salon1043ReportDataSeeder extends Seeder
@@ -21,6 +23,7 @@ class Salon1043ReportDataSeeder extends Seeder
     private $staff = [];
     private $customers = [];
     private $services = [];
+    private $completedAppointments = [];
 
     /**
      * Run the database seeds.
@@ -34,10 +37,14 @@ class Salon1043ReportDataSeeder extends Seeder
             $this->createSalon();
         }
 
+        // Clean up existing data for this salon before seeding
+        $this->cleanupExistingData();
+
         $this->createStaff();
         $this->createServices();
         $this->createCustomers();
         $this->createAppointmentsWithPayments();
+        $this->createCustomerFeedbacks();
         $this->createExpenses();
         $this->createSharedReports();
 
@@ -45,6 +52,42 @@ class Salon1043ReportDataSeeder extends Seeder
         $this->command->info("📊 تعداد پرسنل: " . count($this->staff));
         $this->command->info("👥 تعداد مشتریان: " . count($this->customers));
         $this->command->info("💇 تعداد سرویس‌ها: " . count($this->services));
+    }
+
+    private function cleanupExistingData(): void
+    {
+        $this->command->info("🗑️  پاک کردن داده‌های قبلی سالن 1043...");
+        
+        // Temporarily disable foreign key checks for cleanup
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        
+        // Delete in order to respect dependencies
+        // Use forceDelete for soft-deletable models
+        CustomerFeedback::whereHas('appointment', function($q) {
+            $q->where('salon_id', $this->salonId);
+        })->forceDelete();
+        
+        Payment::where('salon_id', $this->salonId)->forceDelete();
+        
+        // Delete appointment_service pivot records
+        DB::table('appointment_service')
+            ->whereIn('appointment_id', function($query) {
+                $query->select('id')
+                    ->from('appointments')
+                    ->where('salon_id', $this->salonId);
+            })->delete();
+        
+        Appointment::where('salon_id', $this->salonId)->forceDelete();
+        Expense::where('salon_id', $this->salonId)->forceDelete();
+        SharedReport::where('salon_id', $this->salonId)->forceDelete();
+        Customer::where('salon_id', $this->salonId)->forceDelete();
+        Service::where('salon_id', $this->salonId)->forceDelete();
+        Staff::where('salon_id', $this->salonId)->forceDelete();
+        
+        // Re-enable foreign key checks
+        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        
+        $this->command->info("✅ داده‌های قبلی پاک شد");
     }
 
     private function createSalon(): void
@@ -282,6 +325,13 @@ class Salon1043ReportDataSeeder extends Seeder
                         'description' => 'پرداخت نوبت شماره ' . $appointment->id,
                     ]);
                     $paymentCount++;
+                    
+                    // Store completed appointments for feedback creation later
+                    $this->completedAppointments[] = [
+                        'appointment' => $appointment,
+                        'services' => $selectedServices,
+                        'date' => $appointmentDate,
+                    ];
                 }
                 
                 $appointmentCount++;
@@ -290,6 +340,99 @@ class Salon1043ReportDataSeeder extends Seeder
 
         $this->command->info("✅ تعداد $appointmentCount نوبت ایجاد شد");
         $this->command->info("✅ تعداد $paymentCount پرداخت ایجاد شد");
+    }
+
+    private function createCustomerFeedbacks(): void
+    {
+        // Default strength and weakness tags matching satisfaction form
+        $strengthOptions = [
+            ['key' => md5('خدمات بی نقص'), 'label' => 'خدمات بی نقص'],
+            ['key' => md5('برخورد حرفه ای پرسنل'), 'label' => 'برخورد حرفه ای پرسنل'],
+            ['key' => md5('محیط آرام و منظم'), 'label' => 'محیط آرام و منظم'],
+            ['key' => md5('پرسنل با دقت و با حوصله'), 'label' => 'پرسنل با دقت و با حوصله'],
+            ['key' => md5('نوبت دهی آسان'), 'label' => 'نوبت دهی آسان'],
+            ['key' => md5('قیمت منصفانه'), 'label' => 'قیمت منصفانه'],
+            ['key' => md5('مواد مصرفی با کیفیت'), 'label' => 'مواد مصرفی با کیفیت'],
+            ['key' => md5('رعایت بهداشت و نظافت'), 'label' => 'رعایت بهداشت و نظافت'],
+            ['key' => md5('انرژی مثبت پرسنل و سالن'), 'label' => 'انرژی مثبت پرسنل و سالن'],
+        ];
+
+        $weaknessOptions = [
+            ['key' => md5('معطلی زیاد'), 'label' => 'معطلی زیاد'],
+            ['key' => md5('رفتار نامناسب پرسنل'), 'label' => 'رفتار نامناسب پرسنل'],
+            ['key' => md5('محیط شلوغ و بی نظم'), 'label' => 'محیط شلوغ و بی نظم'],
+            ['key' => md5('کیفیت پایین خدمات'), 'label' => 'کیفیت پایین خدمات'],
+            ['key' => md5('عدم راهنمایی مناسب'), 'label' => 'عدم راهنمایی مناسب'],
+            ['key' => md5('قیمت بالا'), 'label' => 'قیمت بالا'],
+            ['key' => md5('مواد مصرفی نامرغوب'), 'label' => 'مواد مصرفی نامرغوب'],
+            ['key' => md5('عدم رعایت بهداشت و نظافت'), 'label' => 'عدم رعایت بهداشت و نظافت'],
+        ];
+
+        $feedbackCount = 0;
+
+        // Create feedback for 60-70% of completed appointments
+        foreach ($this->completedAppointments as $item) {
+            // 60-70% chance of having feedback
+            if (rand(1, 10) <= 7) {
+                $appointment = $item['appointment'];
+                $services = $item['services'];
+                $appointmentDate = $item['date'];
+
+                // Random rating between 3-5 (mostly positive feedback)
+                $rating = rand(3, 5);
+
+                // Select 2-4 random strengths
+                $selectedStrengths = [];
+                $strengthCount = rand(2, 4);
+                $shuffledStrengths = $strengthOptions;
+                shuffle($shuffledStrengths);
+                for ($i = 0; $i < $strengthCount && $i < count($shuffledStrengths); $i++) {
+                    $selectedStrengths[] = $shuffledStrengths[$i];
+                }
+
+                // Select 0-2 weaknesses (fewer weaknesses)
+                $selectedWeaknesses = [];
+                if ($rating < 5) {
+                    $weaknessCount = rand(0, 2);
+                    $shuffledWeaknesses = $weaknessOptions;
+                    shuffle($shuffledWeaknesses);
+                    for ($i = 0; $i < $weaknessCount && $i < count($shuffledWeaknesses); $i++) {
+                        $selectedWeaknesses[] = $shuffledWeaknesses[$i];
+                    }
+                }
+
+                // Build text feedback
+                $textFeedback = "";
+                if (count($selectedStrengths) > 0) {
+                    $textFeedback .= "نقاط قوت: " . implode('، ', array_column($selectedStrengths, 'label')) . "\n";
+                }
+                if (count($selectedWeaknesses) > 0) {
+                    $textFeedback .= "نقاط ضعف: " . implode('، ', array_column($selectedWeaknesses, 'label'));
+                }
+
+                // Select first service for service_id
+                $selectedService = $services[0] ?? null;
+
+                // Feedback submitted 1-3 days after appointment
+                $submittedAt = $appointmentDate->copy()->addDays(rand(1, 3))->addHours(rand(10, 20));
+
+                CustomerFeedback::create([
+                    'appointment_id' => $appointment->id,
+                    'staff_id' => $appointment->staff_id,
+                    'service_id' => $selectedService ? $selectedService->id : null,
+                    'rating' => $rating,
+                    'text_feedback' => $textFeedback,
+                    'strengths_selected' => $selectedStrengths,
+                    'weaknesses_selected' => $selectedWeaknesses,
+                    'is_submitted' => true,
+                    'submitted_at' => $submittedAt,
+                ]);
+
+                $feedbackCount++;
+            }
+        }
+
+        $this->command->info("✅ تعداد $feedbackCount بازخورد رضایت‌سنجی ایجاد شد");
     }
 
     private function createExpenses(): void

@@ -61,7 +61,8 @@ class CommissionController extends Controller
         $month = $request->input('month');
         $paymentStatus = $request->input('payment_status'); // pending, paid, all
 
-        $query = Staff::where('salon_id', $salon->id);
+        $query = Staff::where('salon_id', $salon->id)
+            ->with('services:id,name,duration_minutes,price');
 
         if ($request->filled('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
@@ -85,6 +86,7 @@ class CommissionController extends Controller
                 'monthly_commission_cap' => $staff->monthly_commission_cap ? (float) $staff->monthly_commission_cap : null,
                 'apply_discount_to_commission' => $staff->apply_discount_to_commission,
                 'total_commission_paid' => (float) $staff->total_commission_paid,
+                'services' => $staff->services,
                 ...$summary
             ];
         });
