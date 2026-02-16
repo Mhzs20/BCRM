@@ -30,6 +30,8 @@ class StaffCommissionTransaction extends Model
         'amount',
         'payment_status',
         'paid_at',
+        'for_month',
+        'for_year',
         'description',
         'created_by',
     ];

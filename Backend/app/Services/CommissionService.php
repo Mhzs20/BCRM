@@ -255,22 +255,66 @@ class CommissionService
         string $description,
         ?int $createdBy = null,
         bool $createExpense = true,
-        ?int $cashboxId = null
+        ?int $cashboxId = null,
+        ?string $paymentDate = null,
+        ?string $paymentTime = null,
+        ?int $forMonth = null,
+        ?int $forYear = null
     ): array {
         DB::beginTransaction();
 
         try {
+            // تعیین تاریخ و زمان پرداخت
+            $paidAtDateTime = now();
+            if ($paymentDate) {
+                try {
+                    // تلاش برای تبدیل تاریخ شمسی به میلادی
+                    if (preg_match('/^\d{4}-\d{1,2}-\d{1,2}$/', $paymentDate)) {
+                        // اگر تاریخ شمسی است، تبدیل به میلادی
+                        $dateParts = explode('-', $paymentDate);
+                        if (count($dateParts) === 3 && (int)$dateParts[0] >= 1300) {
+                            $jalalian = Jalalian::fromFormat('Y-m-d', $paymentDate);
+                            $paidAtDateTime = $jalalian->toCarbon();
+                        } else {
+                            // تاریخ میلادی است
+                            $paidAtDateTime = \Carbon\Carbon::parse($paymentDate);
+                        }
+                    } else {
+                        $paidAtDateTime = \Carbon\Carbon::parse($paymentDate);
+                    }
+                    
+                    if ($paymentTime) {
+                        $timeParts = explode(':', $paymentTime);
+                        if (count($timeParts) >= 2) {
+                            $paidAtDateTime->setTime((int)$timeParts[0], (int)$timeParts[1], $timeParts[2] ?? 0);
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // در صورت خطا از زمان فعلی استفاده می‌شود
+                    Log::warning('Error parsing payment date: ' . $e->getMessage());
+                    $paidAtDateTime = now();
+                }
+            }
+
             // ایجاد تراکنش پرداخت (با مقدار منفی)
-            $paymentTransaction = StaffCommissionTransaction::create([
+            $transactionData = [
                 'salon_id' => $salonId,
                 'staff_id' => $staffId,
                 'transaction_type' => StaffCommissionTransaction::TYPE_PAYMENT,
                 'amount' => -abs($amount), // پرداخت همیشه منفی
                 'payment_status' => StaffCommissionTransaction::STATUS_PAID,
-                'paid_at' => now(),
+                'paid_at' => $paidAtDateTime,
                 'description' => $description,
                 'created_by' => $createdBy,
-            ]);
+            ];
+
+            // اضافه کردن ماه و سال در صورت وجود
+            if ($forMonth !== null && $forYear !== null) {
+                $transactionData['for_month'] = $forMonth;
+                $transactionData['for_year'] = $forYear;
+            }
+
+            $paymentTransaction = StaffCommissionTransaction::create($transactionData);
 
             // به‌روزرسانی مجموع پورسانت پرداخت شده کارکن
             $staff = Staff::find($staffId);
@@ -281,9 +325,11 @@ class CommissionService
             // ایجاد هزینه در ماژول مالی
             $expense = null;
             if ($createExpense) {
+                $expenseDate = $paymentDate ? \Carbon\Carbon::parse($paymentDate)->toDateString() : now()->toDateString();
+                
                 $expense = Expense::create([
                     'salon_id' => $salonId,
-                    'date' => now()->toDateString(),
+                    'date' => $expenseDate,
                     'description' => 'پرداخت پورسانت: ' . $description,
                     'amount' => abs($amount),
                     'category' => 'حقوق و دستمزد',
@@ -295,6 +341,9 @@ class CommissionService
                 // اگر صندوق مشخص شده، تراکنش صندوق هم ثبت می‌شود
                 if ($cashboxId) {
                     $cashboxService = app(CashboxService::class);
+                    $transactionDate = $paymentDate ? \Carbon\Carbon::parse($paymentDate)->toDateString() : now()->toDateString();
+                    $transactionTime = $paymentTime ?: now()->format('H:i:s');
+                    
                     $cashboxService->recordExpense([
                         'cashbox_id' => $cashboxId,
                         'amount' => abs($amount),
@@ -302,7 +351,8 @@ class CommissionService
                         'category' => 'حقوق و دستمزد',
                         'expense_id' => $expense->id,
                         'commission_transaction_id' => $paymentTransaction->id,
-                        'transaction_date' => now()->toDateString(),
+                        'transaction_date' => $transactionDate,
+                        'transaction_time' => $transactionTime,
                         'created_by' => $createdBy,
                     ]);
                 }
