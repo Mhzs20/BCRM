@@ -194,6 +194,8 @@ class CommissionController extends Controller
             'staff_default' => [
                 'commission_type' => $staff->commission_type,
                 'commission_value' => (float) $staff->commission_value,
+                'monthly_commission_cap' => $staff->monthly_commission_cap ? (float) $staff->monthly_commission_cap : null,
+                'apply_discount_to_commission' => (bool) $staff->apply_discount_to_commission,
             ]
         ]);
     }
@@ -215,6 +217,8 @@ class CommissionController extends Controller
             'settings.*.commission_value' => 'required|numeric|min:0',
             'settings.*.is_active' => 'boolean',
             'settings.*.use_default' => 'boolean',
+            'monthly_commission_cap' => 'nullable|numeric|min:0',
+            'apply_discount_to_commission' => 'sometimes|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -252,6 +256,19 @@ class CommissionController extends Controller
                         ]
                     );
                 }
+            }
+
+            // به‌روزرسانی تنظیمات عمومی پورسانت کارکن
+            $staffUpdateData = [];
+            if ($request->has('monthly_commission_cap')) {
+                $staffUpdateData['monthly_commission_cap'] = $request->input('monthly_commission_cap');
+            }
+            if ($request->has('apply_discount_to_commission')) {
+                $staffUpdateData['apply_discount_to_commission'] = $request->input('apply_discount_to_commission');
+            }
+            
+            if (!empty($staffUpdateData)) {
+                $staff->update($staffUpdateData);
             }
 
             DB::commit();
@@ -386,10 +403,19 @@ class CommissionController extends Controller
             'description' => 'nullable|string|max:500',
             'cashbox_id' => 'nullable|exists:cashboxes,id',
             'create_expense' => 'boolean',
+            'payment_date' => 'nullable|date',
+            'payment_time' => 'nullable|string',
+            'for_month' => 'nullable|integer|min:1|max:12',
+            'for_year' => 'nullable|integer|min:1300|max:1500',
         ], [
             'amount.required' => 'مبلغ الزامی است',
             'amount.min' => 'مبلغ باید بیشتر از صفر باشد',
             'cashbox_id.exists' => 'صندوق انتخابی یافت نشد',
+            'payment_date.date' => 'فرمت تاریخ پرداخت نامعتبر است',
+            'for_month.min' => 'ماه باید بین 1 تا 12 باشد',
+            'for_month.max' => 'ماه باید بین 1 تا 12 باشد',
+            'for_year.min' => 'سال باید بین 1300 تا 1500 باشد',
+            'for_year.max' => 'سال باید بین 1300 تا 1500 باشد',
         ]);
 
         if ($validator->fails()) {
@@ -407,7 +433,11 @@ class CommissionController extends Controller
             $request->input('description', 'پرداخت پورسانت'),
             auth()->id(),
             $request->input('create_expense', true),
-            $request->input('cashbox_id')
+            $request->input('cashbox_id'),
+            $request->input('payment_date'),
+            $request->input('payment_time'),
+            $request->input('for_month'),
+            $request->input('for_year')
         );
 
         return response()->json($result, $result['success'] ? 200 : 500);
