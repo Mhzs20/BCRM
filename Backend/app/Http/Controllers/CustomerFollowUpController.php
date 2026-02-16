@@ -210,6 +210,17 @@ class CustomerFollowUpController extends Controller
         $groupResults = [];
         $serviceResults = [];
         
+        // Delete existing group settings that are not in the new list
+        if (!empty($data['group_ids'])) {
+            CustomerFollowUpGroupSetting::where('customer_followup_setting_id', $setting->id)
+                ->whereNotIn('customer_group_id', $data['group_ids'])
+                ->delete();
+        } else {
+            // If no groups selected, delete all group settings
+            CustomerFollowUpGroupSetting::where('customer_followup_setting_id', $setting->id)
+                ->delete();
+        }
+        
         // Apply the same settings to all selected groups
         if (!empty($data['group_ids'])) {
             foreach ($data['group_ids'] as $groupId) {
@@ -234,6 +245,17 @@ class CustomerFollowUpController extends Controller
                     ]
                 ];
             }
+        }
+        
+        // Delete existing service settings that are not in the new list
+        if (!empty($data['service_ids'])) {
+            CustomerFollowUpServiceSetting::where('customer_followup_setting_id', $setting->id)
+                ->whereNotIn('service_id', $data['service_ids'])
+                ->delete();
+        } else {
+            // If no services selected, delete all service settings
+            CustomerFollowUpServiceSetting::where('customer_followup_setting_id', $setting->id)
+                ->delete();
         }
         
         // Apply the same settings to all selected services
@@ -489,12 +511,14 @@ class CustomerFollowUpController extends Controller
                             'salon_id' => $salonId,
                             'amount' => $smsUsed,
                             'type' => 'debit',
-                            'description' => 'پیگیری مشتری - ' . $customer->phone_number,
+                            'sms_type' => 'customer_followup',
+                            'description' => 'پیگیری دستی مشتری - ' . $customer->phone_number,
                             'balance_after' => $salonBalance->balance,
+                            'sent_at' => Carbon::now(),
                         ]);
                         
                         // ثبت در تاریخچه
-                        CustomerFollowUpHistory::create([
+                        $historyRecord = CustomerFollowUpHistory::create([
                             'salon_id' => $salonId,
                             'customer_id' => $customerId,
                             'template_id' => $template->id,
@@ -505,6 +529,13 @@ class CustomerFollowUpController extends Controller
                             'service_ids' => $preparation->service_ids,
                             'total_customers' => $preparation->customer_count,
                             'sms_count' => $smsUsed,
+                        ]);
+                        
+                        Log::info('Manual followup history created', [
+                            'history_id' => $historyRecord->id,
+                            'salon_id' => $salonId,
+                            'customer_id' => $customerId,
+                            'sent_at' => $historyRecord->sent_at,
                         ]);
                     } else {
                         $failedCount++;
@@ -552,12 +583,22 @@ class CustomerFollowUpController extends Controller
         }
 
         if ($startDate) {
-            $query->whereDate('sent_at', '>=', Carbon::parse($startDate));
+            $query->where('sent_at', '>=', Carbon::parse($startDate)->startOfDay());
         }
 
         if ($endDate) {
-            $query->whereDate('sent_at', '<=', Carbon::parse($endDate));
+            $query->where('sent_at', '<=', Carbon::parse($endDate)->endOfDay());
         }
+
+        // Log query details for debugging
+        Log::info('Customer follow-up history query', [
+            'salon_id' => $salonId,
+            'type' => $type,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'total_count' => CustomerFollowUpHistory::where('salon_id', $salonId)->count(),
+            'filtered_count' => $query->count(),
+        ]);
 
         $history = $query->paginate($perPage);
 

@@ -181,6 +181,10 @@ class AppointmentReportController extends Controller
 
         $jalaliStartDate = $request->input('start_date');
         $startDate = Jalalian::fromFormat('Y-m-d', $jalaliStartDate)->toCarbon();
+        $endDate = Carbon::now();
+        
+        // Calculate number of days in the range
+        $numberOfDays = $startDate->diffInDays($endDate) + 1;
 
         $baseQuery = Appointment::where('salon_id', $salon->id)->where('start_time', '>=', $startDate);
 
@@ -189,15 +193,10 @@ class AppointmentReportController extends Controller
         $completedAppointments = (clone $baseQuery)->where('status', 'completed')->count();
         $cancellationPercentage = $totalAppointments > 0 ? ($cancelledAppointments / $totalAppointments) * 100 : 0;
 
-        $dailyAverage = (clone $baseQuery)
-            ->select(DB::raw('DATE(start_time) as date'), DB::raw('count(*) as count'))
-            ->groupBy('date')
-            ->get()->avg('count');
-
-        $dailyAverageCompleted = (clone $baseQuery)->where('status', 'completed')
-            ->select(DB::raw('DATE(start_time) as date'), DB::raw('count(*) as count'))
-            ->groupBy('date')
-            ->get()->avg('count');
+        // Calculate daily averages based on total days in range
+        $dailyAverage = $numberOfDays > 0 ? $totalAppointments / $numberOfDays : 0;
+        $dailyAverageCompleted = $numberOfDays > 0 ? $completedAppointments / $numberOfDays : 0;
+        $dailyAverageCancelled = $numberOfDays > 0 ? $cancelledAppointments / $numberOfDays : 0;
 
         $peakTimes = (clone $baseQuery)
             ->select(DB::raw('HOUR(start_time) as hour'), DB::raw('count(*) as count'))
@@ -230,6 +229,7 @@ class AppointmentReportController extends Controller
             'cancellation_percentage' => round($cancellationPercentage, 2),
             'daily_average_appointments' => round($dailyAverage, 2),
             'daily_average_completed_appointments' => round($dailyAverageCompleted, 2),
+            'daily_average_cancelled_appointments' => round($dailyAverageCancelled, 2),
             'peak_time_hour' => $peakTimes ? $peakTimes->hour : null,
             'off_peak_time_hour' => $offPeakTimes ? $offPeakTimes->hour : null,
             'most_requested_service' => $serviceName,

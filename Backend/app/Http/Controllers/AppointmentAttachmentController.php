@@ -29,7 +29,7 @@ class AppointmentAttachmentController extends Controller
     public function storeOrUpdate(Request $request, $salonId, $appointmentId)
     {
         // Verify salon ownership
-        if (Auth::user()->salon_id !== (int) $salonId) {
+        if (auth('api')->user()->active_salon_id !== (int) $salonId) {
             return response()->json(['message' => 'دسترسی غیرمجاز'], 403);
         }
 
@@ -114,7 +114,7 @@ class AppointmentAttachmentController extends Controller
     public function show($salonId, $appointmentId)
     {
         // Verify salon ownership
-        if (Auth::user()->salon_id !== (int) $salonId) {
+        if (auth('api')->user()->active_salon_id !== (int) $salonId) {
             return response()->json(['message' => 'دسترسی غیرمجاز'], 403);
         }
 
@@ -161,7 +161,7 @@ class AppointmentAttachmentController extends Controller
     public function destroy($salonId, $attachmentId)
     {
         // Verify salon ownership
-        if (Auth::user()->salon_id !== (int) $salonId) {
+        if (auth('api')->user()->active_salon_id !== (int) $salonId) {
             return response()->json(['message' => 'دسترسی غیرمجاز'], 403);
         }
 
@@ -185,7 +185,7 @@ class AppointmentAttachmentController extends Controller
     public function customerHistory(Request $request, $salonId, $customerId)
     {
         // Verify salon ownership
-        if (Auth::user()->salon_id !== (int) $salonId) {
+        if (auth('api')->user()->active_salon_id !== (int) $salonId) {
             return response()->json(['message' => 'دسترسی غیرمجاز'], 403);
         }
 
@@ -237,7 +237,7 @@ class AppointmentAttachmentController extends Controller
     public function customerGallery(Request $request, $salonId, $customerId)
     {
         // Verify salon ownership
-        if (Auth::user()->salon_id !== (int) $salonId) {
+        if (auth('api')->user()->active_salon_id !== (int) $salonId) {
             return response()->json(['message' => 'دسترسی غیرمجاز'], 403);
         }
 

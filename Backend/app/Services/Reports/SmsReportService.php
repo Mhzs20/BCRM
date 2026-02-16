@@ -60,18 +60,27 @@ class SmsReportService extends BaseReportService
      */
     protected function calculateKPIs(array $filters = [])
     {
-        // Total SMS sent
-        $totalSms = SmsTransaction::where('salon_id', $this->salonId)
+        // Base query for sent/consumed SMS (excluding purchase transactions)
+        $baseQuery = SmsTransaction::where('salon_id', $this->salonId)
+            ->where(function ($q) {
+                $q->where('type', '!=', 'purchase')
+                  ->orWhereNull('type');
+            })
+            ->where('sms_type', '!=', 'purchase');
+
+        // Total SMS consumed (sent)
+        $totalSms = (clone $baseQuery)
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('sent_at', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('sent_at', '<=', $this->dateTo);
             })
+            ->whereNotNull('sent_at')
             ->sum('sms_count');
 
         // Manual (promotional) SMS
-        $manualSms = SmsTransaction::where('salon_id', $this->salonId)
+        $manualSms = (clone $baseQuery)
             ->where('sms_type', 'manual')
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('sent_at', '>=', $this->dateFrom);
@@ -79,10 +88,11 @@ class SmsReportService extends BaseReportService
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('sent_at', '<=', $this->dateTo);
             })
+            ->whereNotNull('sent_at')
             ->sum('sms_count');
 
         // System SMS (reservation, cancellation, reminders)
-        $systemSms = SmsTransaction::where('salon_id', $this->salonId)
+        $systemSms = (clone $baseQuery)
             ->whereIn('sms_type', ['reservation', 'reminder', 'cancellation', 'confirmation', 'satisfaction'])
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('sent_at', '>=', $this->dateFrom);
@@ -90,20 +100,14 @@ class SmsReportService extends BaseReportService
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('sent_at', '<=', $this->dateTo);
             })
+            ->whereNotNull('sent_at')
             ->sum('sms_count');
 
-        // Total cost (assuming each SMS has an amount field or we calculate from balance deductions)
-        $totalCost = SmsTransaction::where('salon_id', $this->salonId)
-            ->when($this->dateFrom, function ($q) {
-                $q->whereDate('sent_at', '>=', $this->dateFrom);
-            })
-            ->when($this->dateTo, function ($q) {
-                $q->whereDate('sent_at', '<=', $this->dateTo);
-            })
-            ->sum('amount');
+        // Total consumed SMS (same as total_sms, but for clarity)
+        $totalConsumedSms = $totalSms;
 
         // Approved SMS
-        $approvedSms = SmsTransaction::where('salon_id', $this->salonId)
+        $approvedSms = (clone $baseQuery)
             ->where('approval_status', 'approved')
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('sent_at', '>=', $this->dateFrom);
@@ -111,10 +115,11 @@ class SmsReportService extends BaseReportService
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('sent_at', '<=', $this->dateTo);
             })
+            ->whereNotNull('sent_at')
             ->sum('sms_count');
 
         // Rejected SMS
-        $rejectedSms = SmsTransaction::where('salon_id', $this->salonId)
+        $rejectedSms = (clone $baseQuery)
             ->where('approval_status', 'rejected')
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('sent_at', '>=', $this->dateFrom);
@@ -122,6 +127,7 @@ class SmsReportService extends BaseReportService
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('sent_at', '<=', $this->dateTo);
             })
+            ->whereNotNull('sent_at')
             ->sum('sms_count');
 
         // Average daily consumption
@@ -130,14 +136,14 @@ class SmsReportService extends BaseReportService
             : 30;
         $avgDailyConsumption = $totalSms / max($daysCount, 1);
 
-        // Current balance
+        // Current balance (remaining SMS in account)
         $currentBalance = SalonSmsBalance::where('salon_id', $this->salonId)->first();
 
         return [
             'total_sms' => $totalSms,
             'manual_sms' => $manualSms,
             'system_sms' => $systemSms,
-            'total_cost' => round($totalCost, 2),
+            'total_cost' => $totalConsumedSms, // تعداد پیامک مصرف شده (نه مبلغ)
             'approved_sms' => $approvedSms,
             'rejected_sms' => $rejectedSms,
             'avg_daily_consumption' => round($avgDailyConsumption, 1),
@@ -150,8 +156,14 @@ class SmsReportService extends BaseReportService
      */
     protected function generateCharts(array $filters = [])
     {
-        // SMS sent by day
+        // SMS sent by day (excluding purchase transactions)
         $smsByDay = SmsTransaction::where('salon_id', $this->salonId)
+            ->where(function ($q) {
+                $q->where('type', '!=', 'purchase')
+                  ->orWhereNull('type');
+            })
+            ->where('sms_type', '!=', 'purchase')
+            ->whereNotNull('sent_at')
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('sent_at', '>=', $this->dateFrom);
             })
@@ -171,10 +183,47 @@ class SmsReportService extends BaseReportService
             $counts[] = $item->count;
         }
 
+        // SMS packages purchased over time
+        $packagesPurchased = SmsTransaction::where('salon_id', $this->salonId)
+            ->where('sms_type', 'purchase')
+            ->when($this->dateFrom, function ($q) {
+                $q->whereDate('created_at', '>=', $this->dateFrom);
+            })
+            ->when($this->dateTo, function ($q) {
+                $q->whereDate('created_at', '<=', $this->dateTo);
+            })
+            ->select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(sms_count) as total_sms'), DB::raw('COUNT(*) as package_count'))
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
+
+        $packageDates = [];
+        $packageSmsCount = [];
+        $packageCount = [];
+
+        foreach ($packagesPurchased as $item) {
+            $packageDates[] = $item->date;
+            $packageSmsCount[] = $item->total_sms;
+            $packageCount[] = $item->package_count;
+        }
+
         return [
             'sms_by_day' => [
                 'labels' => $dates,
                 'data' => $counts,
+            ],
+            'packages_purchased' => [
+                'labels' => $packageDates,
+                'datasets' => [
+                    [
+                        'label' => 'تعداد پیامک',
+                        'data' => $packageSmsCount,
+                    ],
+                    [
+                        'label' => 'تعداد بسته',
+                        'data' => $packageCount,
+                    ],
+                ],
             ],
         ];
     }
@@ -189,22 +238,29 @@ class SmsReportService extends BaseReportService
             'sms_by_status' => $this->getSmsByStatus(),
             'sms_by_template' => $this->getSmsByTemplate(),
             'daily_consumption' => $this->getDailyConsumption(),
+            'purchased_packages' => $this->getPurchasedPackages(),
         ];
     }
 
     /**
-     * Get SMS by type.
+     * Get SMS by type (excluding purchase transactions).
      */
     protected function getSmsByType()
     {
         return SmsTransaction::where('salon_id', $this->salonId)
+            ->where(function ($q) {
+                $q->where('type', '!=', 'purchase')
+                  ->orWhereNull('type');
+            })
+            ->where('sms_type', '!=', 'purchase')
+            ->whereNotNull('sent_at')
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('sent_at', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('sent_at', '<=', $this->dateTo);
             })
-            ->select('sms_type', DB::raw('SUM(sms_count) as count'), DB::raw('SUM(amount) as total_cost'))
+            ->select('sms_type', DB::raw('SUM(sms_count) as count'))
             ->groupBy('sms_type')
             ->orderByDesc('count')
             ->get()
@@ -212,17 +268,22 @@ class SmsReportService extends BaseReportService
                 return [
                     'type' => $item->sms_type ?? 'نامشخص',
                     'count' => $item->count,
-                    'total_cost' => $item->total_cost,
                 ];
             });
     }
 
     /**
-     * Get SMS by status.
+     * Get SMS by status (excluding purchase transactions).
      */
     protected function getSmsByStatus()
     {
         return SmsTransaction::where('salon_id', $this->salonId)
+            ->where(function ($q) {
+                $q->where('type', '!=', 'purchase')
+                  ->orWhereNull('type');
+            })
+            ->where('sms_type', '!=', 'purchase')
+            ->whereNotNull('sent_at')
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('sent_at', '>=', $this->dateFrom);
             })
@@ -242,12 +303,18 @@ class SmsReportService extends BaseReportService
     }
 
     /**
-     * Get SMS by template.
+     * Get SMS by template (excluding purchase transactions).
      */
     protected function getSmsByTemplate()
     {
         return SmsTransaction::where('salon_id', $this->salonId)
+            ->where(function ($q) {
+                $q->where('type', '!=', 'purchase')
+                  ->orWhereNull('type');
+            })
+            ->where('sms_type', '!=', 'purchase')
             ->whereNotNull('template_id')
+            ->whereNotNull('sent_at')
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('sent_at', '>=', $this->dateFrom);
             })
@@ -268,18 +335,24 @@ class SmsReportService extends BaseReportService
     }
 
     /**
-     * Get daily consumption.
+     * Get daily consumption (excluding purchase transactions).
      */
     protected function getDailyConsumption()
     {
         return SmsTransaction::where('salon_id', $this->salonId)
+            ->where(function ($q) {
+                $q->where('type', '!=', 'purchase')
+                  ->orWhereNull('type');
+            })
+            ->where('sms_type', '!=', 'purchase')
+            ->whereNotNull('sent_at')
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('sent_at', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('sent_at', '<=', $this->dateTo);
             })
-            ->select(DB::raw('DATE(sent_at) as date'), DB::raw('SUM(sms_count) as count'), DB::raw('SUM(amount) as cost'))
+            ->select(DB::raw('DATE(sent_at) as date'), DB::raw('SUM(sms_count) as count'))
             ->groupBy('date')
             ->orderBy('date')
             ->get()
@@ -287,7 +360,33 @@ class SmsReportService extends BaseReportService
                 return [
                     'date' => $item->date,
                     'count' => $item->count,
-                    'cost' => $item->cost,
+                ];
+            });
+    }
+
+    /**
+     * Get purchased packages details.
+     */
+    protected function getPurchasedPackages()
+    {
+        return SmsTransaction::where('salon_id', $this->salonId)
+            ->where('sms_type', 'purchase')
+            ->when($this->dateFrom, function ($q) {
+                $q->whereDate('created_at', '>=', $this->dateFrom);
+            })
+            ->when($this->dateTo, function ($q) {
+                $q->whereDate('created_at', '<=', $this->dateTo);
+            })
+            ->with('smsPackage:id,name,sms_count,price')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'date' => $item->created_at->format('Y-m-d'),
+                    'package_name' => $item->smsPackage->name ?? 'نامشخص',
+                    'sms_count' => $item->sms_count,
+                    'amount' => $item->amount,
+                    'description' => $item->description,
                 ];
             });
     }
