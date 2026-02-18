@@ -8,6 +8,7 @@ use App\Services\Reports\FinanceReportService;
 use App\Services\Reports\PersonnelReportService;
 use App\Services\Reports\SatisfactionReportService;
 use App\Services\Reports\SmsReportService;
+use App\Services\Reports\AppointmentReportService;
 use App\Services\Reports\ReportPdfService;
 use App\Models\SharedReport;
 use App\Traits\ConvertsPersianDates;
@@ -25,6 +26,7 @@ class ReportController extends Controller
     protected $personnelReportService;
     protected $satisfactionReportService;
     protected $smsReportService;
+    protected $appointmentReportService;
     protected $pdfService;
 
     public function __construct(
@@ -34,6 +36,7 @@ class ReportController extends Controller
         PersonnelReportService $personnelReportService,
         SatisfactionReportService $satisfactionReportService,
         SmsReportService $smsReportService,
+        AppointmentReportService $appointmentReportService,
         ReportPdfService $pdfService
     ) {
         $this->customerReportService = $customerReportService;
@@ -42,6 +45,7 @@ class ReportController extends Controller
         $this->personnelReportService = $personnelReportService;
         $this->satisfactionReportService = $satisfactionReportService;
         $this->smsReportService = $smsReportService;
+        $this->appointmentReportService = $appointmentReportService;
         $this->pdfService = $pdfService;
     }
 
@@ -192,6 +196,72 @@ class ReportController extends Controller
         $filters = $this->convertPersianDates($filters);
 
         $report = $this->reservationReportService->generateCustomReport($salonId, $filters);
+
+        return response()->json([
+            'success' => true,
+            'data' => $report,
+        ]);
+    }
+
+    /**
+     * Get preset appointment report.
+     */
+    public function appointmentsPreset(Request $request)
+    {
+        $salonId = $request->user()->active_salon_id;
+        $period = $request->input('period', 'weekly');
+
+        $report = $this->appointmentReportService->generatePresetReport($salonId, $period);
+
+        return response()->json([
+            'success' => true,
+            'data' => $report,
+        ]);
+    }
+
+    /**
+     * Get custom appointment report.
+     */
+    public function appointmentsCustom(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date|after_or_equal:date_from',
+            'time_from' => 'nullable|date_format:H:i',
+            'time_to' => 'nullable|date_format:H:i',
+            'status' => 'nullable|array',
+            'status.*' => 'string|in:pending,confirmed,completed,canceled,cancelled,no_show,all',
+            'service_ids' => 'nullable|array',
+            'service_ids.*' => 'integer|min:0',
+            'personnel_ids' => 'nullable|array',
+            'personnel_ids.*' => 'integer|min:0',
+            'customer_ids' => 'nullable|array',
+            'customer_ids.*' => 'integer|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $salonId = $request->user()->active_salon_id;
+        $filters = $request->only([
+            'date_from',
+            'date_to',
+            'time_from',
+            'time_to',
+            'status',
+            'service_ids',
+            'personnel_ids',
+            'customer_ids',
+        ]);
+        
+        // Convert Persian dates to Gregorian if needed
+        $filters = $this->convertPersianDates($filters);
+
+        $report = $this->appointmentReportService->generateCustomReport($salonId, $filters);
 
         return response()->json([
             'success' => true,

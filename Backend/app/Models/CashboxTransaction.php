@@ -19,6 +19,8 @@ class CashboxTransaction extends Model
         'to_cashbox_id',
         'amount',
         'description',
+        'category_id',
+        'subcategory_id',
         'category',
         'subcategory',
         'payment_id',
@@ -75,6 +77,16 @@ class CashboxTransaction extends Model
     public function commissionTransaction()
     {
         return $this->belongsTo(StaffCommissionTransaction::class, 'commission_transaction_id');
+    }
+
+    public function transactionCategory()
+    {
+        return $this->belongsTo(TransactionCategory::class, 'category_id');
+    }
+
+    public function transactionSubcategory()
+    {
+        return $this->belongsTo(TransactionSubcategory::class, 'subcategory_id');
     }
 
     public function creator()

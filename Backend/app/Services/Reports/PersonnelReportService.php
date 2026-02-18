@@ -51,10 +51,19 @@ class PersonnelReportService extends BaseReportService
      */
     protected function applyFilters(array $filters)
     {
-        $this->dateFrom = $filters['date_from'] ?? null;
-        $this->dateTo = $filters['date_to'] ?? null;
-        $this->timeFrom = $filters['time_from'] ?? null;
-        $this->timeTo = $filters['time_to'] ?? null;
+        // Only override date/time if explicitly provided in filters
+        if (isset($filters['date_from'])) {
+            $this->dateFrom = $filters['date_from'];
+        }
+        if (isset($filters['date_to'])) {
+            $this->dateTo = $filters['date_to'];
+        }
+        if (isset($filters['time_from'])) {
+            $this->timeFrom = $filters['time_from'];
+        }
+        if (isset($filters['time_to'])) {
+            $this->timeTo = $filters['time_to'];
+        }
         $this->filters = $filters;
     }
 

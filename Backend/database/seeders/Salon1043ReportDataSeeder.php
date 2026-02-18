@@ -35,6 +35,9 @@ class Salon1043ReportDataSeeder extends Seeder
         
         if (!$this->salon) {
             $this->createSalon();
+        } else {
+            // Salon exists, but make sure it has an owner
+            $this->ensureSalonHasOwner();
         }
 
         // Clean up existing data for this salon before seeding
@@ -97,15 +100,14 @@ class Salon1043ReportDataSeeder extends Seeder
             ['email' => 'salon1043@test.com'],
             [
                 'name' => 'مدیر سالن 1043',
+                'mobile' => '09121234043',
                 'password' => bcrypt('password'),
-                'phone_number' => '09121234043',
-                'role' => 'salon_owner',
             ]
         );
 
         $this->salon = Salon::create([
             'id' => $this->salonId,
-            'owner_id' => $owner->id,
+            'user_id' => $owner->id,
             'name' => 'سالن زیبایی شماره 1043',
             'business_category_id' => 1,
             'address' => 'تهران، خیابان ولیعصر، پلاک 1043',
@@ -130,6 +132,30 @@ class Salon1043ReportDataSeeder extends Seeder
         $owner->update(['active_salon_id' => $this->salonId]);
 
         $this->command->info("✅ سالن 1043 ایجاد شد");
+    }
+
+    private function ensureSalonHasOwner(): void
+    {
+        // Check if salon has an owner
+        if (!$this->salon->user_id) {
+            // Find or create owner user
+            $owner = User::firstOrCreate(
+                ['email' => 'salon1043@test.com'],
+                [
+                    'name' => 'مدیر سالن 1043',
+                    'mobile' => '09121234043',
+                    'password' => bcrypt('password'),
+                ]
+            );
+
+            // Update salon with owner
+            $this->salon->update(['user_id' => $owner->id]);
+            $owner->update(['active_salon_id' => $this->salonId]);
+
+            $this->command->info("✅ مالک سالن 1043 ایجاد و به سالن اختصاص داده شد");
+        } else {
+            $this->command->info("✅ سالن 1043 از قبل موجود است و مالک دارد");
+        }
     }
 
     private function createStaff(): void

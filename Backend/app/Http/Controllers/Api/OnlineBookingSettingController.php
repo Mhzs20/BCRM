@@ -8,9 +8,8 @@ use Illuminate\Http\Request;
 
 class OnlineBookingSettingController extends Controller
 {
-    public function show($salonId)
+    public function show(Salon $salon)
     {
-        $salon = Salon::findOrFail($salonId);
         
         $defaults = [
             'default_booking_status' => 'pending_confirmation',
@@ -30,7 +29,7 @@ class OnlineBookingSettingController extends Controller
         ]);
     }
 
-    public function update(Request $request, $salonId)
+    public function update(Request $request, Salon $salon)
     {
         $request->validate([
             'default_booking_status' => 'sometimes|required|in:pending_confirmation,confirmed',
@@ -39,8 +38,6 @@ class OnlineBookingSettingController extends Controller
             'enabled_days.*' => 'integer|min:0|max:6',
             'allow_holiday_booking' => 'sometimes|required|boolean',
         ]);
-
-        $salon = Salon::findOrFail($salonId);
         
         $settings = $salon->online_booking_settings ?? [];
         
