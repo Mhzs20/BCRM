@@ -314,6 +314,23 @@ Route::middleware('auth:api')->group(function () {
                 Route::post('{cashbox}/recalculate', [\App\Http\Controllers\CashboxController::class, 'recalculateBalance'])->name('recalculate');
             });
 
+            // Transaction Categories Management Routes - مدیریت دسته‌بندی و زیردسته‌بندی تراکنش‌ها
+            Route::prefix('transaction-categories')->name('transaction_categories.')->group(function () {
+                // دسته‌بندی‌ها
+                Route::get('/', [\App\Http\Controllers\TransactionCategoryController::class, 'index'])->name('index');
+                Route::post('/', [\App\Http\Controllers\TransactionCategoryController::class, 'store'])->name('store');
+                Route::get('{category}', [\App\Http\Controllers\TransactionCategoryController::class, 'show'])->name('show');
+                Route::put('{category}', [\App\Http\Controllers\TransactionCategoryController::class, 'update'])->name('update');
+                Route::delete('{category}', [\App\Http\Controllers\TransactionCategoryController::class, 'destroy'])->name('destroy');
+                
+                // زیردسته‌ها
+                Route::get('{category}/subcategories', [\App\Http\Controllers\TransactionCategoryController::class, 'subcategories'])->name('subcategories.index');
+                Route::post('{category}/subcategories', [\App\Http\Controllers\TransactionCategoryController::class, 'storeSubcategory'])->name('subcategories.store');
+                Route::get('{category}/subcategories/{subcategory}', [\App\Http\Controllers\TransactionCategoryController::class, 'showSubcategory'])->name('subcategories.show');
+                Route::put('{category}/subcategories/{subcategory}', [\App\Http\Controllers\TransactionCategoryController::class, 'updateSubcategory'])->name('subcategories.update');
+                Route::delete('{category}/subcategories/{subcategory}', [\App\Http\Controllers\TransactionCategoryController::class, 'destroySubcategory'])->name('subcategories.destroy');
+            });
+
             Route::get('overview/stats', [DashboardController::class, 'getSalonStats'])->name('overview.stats');
 
             Route::prefix('settings')->name('settings.')->group(function () {
@@ -518,6 +535,10 @@ Route::middleware('auth:api')->prefix('reports')->name('reports.')->group(functi
     // Reservation Reports
     Route::get('reservations/preset', [ReportController::class, 'reservationsPreset'])->name('reservations.preset');
     Route::post('reservations/custom', [ReportController::class, 'reservationsCustom'])->name('reservations.custom');
+    
+    // Appointment Reports (Custom)
+    Route::get('appointments/preset', [ReportController::class, 'appointmentsPreset'])->name('appointments.preset');
+    Route::post('appointments/custom', [ReportController::class, 'appointmentsCustom'])->name('appointments.custom');
     
     // Finance Reports
     Route::get('finance/preset', [ReportController::class, 'financePreset'])->name('finance.preset');

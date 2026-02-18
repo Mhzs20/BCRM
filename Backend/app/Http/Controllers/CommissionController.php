@@ -107,6 +107,13 @@ class CommissionController extends Controller
     /**
      * دریافت تراکنش‌های پورسانت یک کارکن
      * GET /salons/{salon}/commissions/staff/{staff}/transactions
+     * 
+     * Query Parameters:
+     * - payment_status: pending|paid (فیلتر بر اساس وضعیت پرداخت)
+     * - transaction_type: commission|adjustment|payment (فیلتر بر اساس نوع تراکنش)
+     * - year, month: فیلتر بر اساس تاریخ ثبت تراکنش (شمسی)
+     * - payment_period_year, payment_period_month: فیلتر بر اساس دوره پرداخت (برای پرداخت‌ها)
+     * - per_page: تعداد در هر صفحه (پیش‌فرض: 20)
      */
     public function staffTransactions(Request $request, Salon $salon, Staff $staff)
     {
@@ -127,9 +134,17 @@ class CommissionController extends Controller
             $query->where('transaction_type', $request->input('transaction_type'));
         }
 
-        // فیلتر بر اساس ماه و سال شمسی
+        // فیلتر بر اساس ماه و سال شمسی (تاریخ ثبت)
         if ($request->filled('year') && $request->filled('month')) {
             $query->inJalaliMonth((int) $request->input('year'), (int) $request->input('month'));
+        }
+
+        // فیلتر بر اساس دوره پرداخت (برای پرداخت‌ها)
+        if ($request->filled('payment_period_year') && $request->filled('payment_period_month')) {
+            $query->forPaymentPeriod(
+                (int) $request->input('payment_period_year'), 
+                (int) $request->input('payment_period_month')
+            );
         }
 
         $transactions = $query->orderBy('created_at', 'desc')

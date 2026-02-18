@@ -43,9 +43,11 @@ class StaffCommissionTransaction extends Model
         'commission_rate' => 'decimal:2',
         'amount' => 'decimal:2',
         'paid_at' => 'datetime',
+        'for_month' => 'integer',
+        'for_year' => 'integer',
     ];
 
-    protected $appends = ['jalali_created_at', 'jalali_paid_at'];
+    protected $appends = ['jalali_created_at', 'jalali_paid_at', 'payment_period_display'];
 
     // ثابت‌های نوع تراکنش
     const TYPE_COMMISSION = 'commission';
@@ -119,6 +121,24 @@ class StaffCommissionTransaction extends Model
     }
 
     /**
+     * نمایش دوره پرداخت (ماه و سال شمسی)
+     */
+    public function getPaymentPeriodDisplayAttribute(): ?string
+    {
+        if ($this->for_month && $this->for_year) {
+            $monthNames = [
+                1 => 'فروردین', 2 => 'اردیبهشت', 3 => 'خرداد',
+                4 => 'تیر', 5 => 'مرداد', 6 => 'شهریور',
+                7 => 'مهر', 8 => 'آبان', 9 => 'آذر',
+                10 => 'دی', 11 => 'بهمن', 12 => 'اسفند'
+            ];
+            $monthName = $monthNames[$this->for_month] ?? $this->for_month;
+            return $monthName . ' ' . $this->for_year;
+        }
+        return null;
+    }
+
+    /**
      * اسکوپ برای فیلتر بر اساس وضعیت پرداخت
      */
     public function scopePending($query)
@@ -171,6 +191,14 @@ class StaffCommissionTransaction extends Model
         $endDate = $endJalali->toCarbon()->endOfDay();
 
         return $query->whereBetween('created_at', [$startDate, $endDate]);
+    }
+
+    /**
+     * اسکوپ برای فیلتر بر اساس دوره پرداخت (for_month و for_year)
+     */
+    public function scopeForPaymentPeriod($query, int $year, int $month)
+    {
+        return $query->where('for_year', $year)->where('for_month', $month);
     }
 
     /**

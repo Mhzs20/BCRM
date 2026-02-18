@@ -163,6 +163,8 @@ class CashboxController extends Controller
             'cashbox_id' => 'required|exists:cashboxes,id',
             'amount' => 'required|numeric|min:0.01',
             'description' => 'nullable|string',
+            'category_id' => 'nullable|exists:transaction_categories,id',
+            'subcategory_id' => 'nullable|exists:transaction_subcategories,id',
             'category' => 'nullable|string',
             'subcategory' => 'nullable|string',
             'transaction_date' => 'nullable|date',
@@ -172,6 +174,8 @@ class CashboxController extends Controller
             'cashbox_id.exists' => 'صندوق انتخابی یافت نشد',
             'amount.required' => 'مبلغ الزامی است',
             'amount.min' => 'مبلغ باید بیشتر از صفر باشد',
+            'category_id.exists' => 'دسته‌بندی انتخابی یافت نشد',
+            'subcategory_id.exists' => 'زیردسته انتخابی یافت نشد',
         ]);
 
         if ($validator->fails()) {
@@ -198,6 +202,8 @@ class CashboxController extends Controller
             'cashbox_id' => 'required|exists:cashboxes,id',
             'amount' => 'required|numeric|min:0.01',
             'description' => 'nullable|string',
+            'category_id' => 'nullable|exists:transaction_categories,id',
+            'subcategory_id' => 'nullable|exists:transaction_subcategories,id',
             'category' => 'nullable|string',
             'subcategory' => 'nullable|string',
             'transaction_date' => 'nullable|date',
@@ -207,6 +213,8 @@ class CashboxController extends Controller
             'cashbox_id.exists' => 'صندوق انتخابی یافت نشد',
             'amount.required' => 'مبلغ الزامی است',
             'amount.min' => 'مبلغ باید بیشتر از صفر باشد',
+            'category_id.exists' => 'دسته‌بندی انتخابی یافت نشد',
+            'subcategory_id.exists' => 'زیردسته انتخابی یافت نشد',
         ]);
 
         if ($validator->fails()) {

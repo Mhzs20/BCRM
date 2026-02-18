@@ -6,6 +6,7 @@ use App\Models\Salon;
 use App\Models\Profession;
 use App\Models\HowIntroduced;
 use App\Models\CustomerGroup;
+use Database\Seeders\TransactionCategorySeeder;
 
 class SalonObserver
 {
@@ -40,5 +41,8 @@ class SalonObserver
                 ['name' => $customerGroup->name]
             );
         }
+
+        // ایجاد دسته پیش‌فرض "خدمات" برای تراکنش‌های مالی
+        TransactionCategorySeeder::createServicesCategory($salon);
     }
 }

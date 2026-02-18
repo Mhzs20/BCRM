@@ -35,6 +35,18 @@ class CashboxService
         try {
             $cashbox = Cashbox::findOrFail($data['cashbox_id']);
 
+            // اگر category_id ارسال شده، نام رو از دیتابیس بگیر
+            if (!empty($data['category_id']) && empty($data['category'])) {
+                $category = \App\Models\TransactionCategory::find($data['category_id']);
+                $data['category'] = $category ? $category->name : null;
+            }
+
+            // اگر subcategory_id ارسال شده، نام رو از دیتابیس بگیر
+            if (!empty($data['subcategory_id']) && empty($data['subcategory'])) {
+                $subcategory = \App\Models\TransactionSubcategory::find($data['subcategory_id']);
+                $data['subcategory'] = $subcategory ? $subcategory->name : null;
+            }
+
             // ایجاد تراکنش صندوق
             $transaction = CashboxTransaction::create([
                 'salon_id' => $cashbox->salon_id,
@@ -42,6 +54,8 @@ class CashboxService
                 'cashbox_id' => $cashbox->id,
                 'amount' => $data['amount'],
                 'description' => $data['description'] ?? null,
+                'category_id' => $data['category_id'] ?? null,
+                'subcategory_id' => $data['subcategory_id'] ?? null,
                 'category' => $data['category'] ?? null,
                 'subcategory' => $data['subcategory'] ?? null,
                 'transaction_date' => $data['transaction_date'] ?? now()->toDateString(),
@@ -97,6 +111,18 @@ class CashboxService
                 ];
             }
 
+            // اگر category_id ارسال شده، نام رو از دیتابیس بگیر
+            if (!empty($data['category_id']) && empty($data['category'])) {
+                $category = \App\Models\TransactionCategory::find($data['category_id']);
+                $data['category'] = $category ? $category->name : null;
+            }
+
+            // اگر subcategory_id ارسال شده، نام رو از دیتابیس بگیر
+            if (!empty($data['subcategory_id']) && empty($data['subcategory'])) {
+                $subcategory = \App\Models\TransactionSubcategory::find($data['subcategory_id']);
+                $data['subcategory'] = $subcategory ? $subcategory->name : null;
+            }
+
             // ایجاد تراکنش صندوق
             $transaction = CashboxTransaction::create([
                 'salon_id' => $cashbox->salon_id,
@@ -104,6 +130,8 @@ class CashboxService
                 'cashbox_id' => $cashbox->id,
                 'amount' => $data['amount'],
                 'description' => $data['description'] ?? null,
+                'category_id' => $data['category_id'] ?? null,
+                'subcategory_id' => $data['subcategory_id'] ?? null,
                 'category' => $data['category'] ?? null,
                 'subcategory' => $data['subcategory'] ?? null,
                 'transaction_date' => $data['transaction_date'] ?? now()->toDateString(),
