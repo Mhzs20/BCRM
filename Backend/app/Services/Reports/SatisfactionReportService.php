@@ -325,11 +325,88 @@ class SatisfactionReportService extends BaseReportService
             $ratings[] = round($item->avg_rating, 1);
         }
 
+        // Participation chart data
+        $participationChart = $this->getParticipationChartData($filters);
+
         return [
             'satisfaction_by_service' => [
                 'labels' => $serviceNames,
                 'data' => $ratings,
             ],
+            'participation' => $participationChart,
+        ];
+    }
+
+    /**
+     * Get participation chart data for pie chart.
+     */
+    protected function getParticipationChartData(array $filters = [])
+    {
+        // Total survey links sent
+        $surveyLinksSentQuery = Appointment::where('salon_id', $this->salonId)
+            ->whereNotNull('survey_sms_sent_at')
+            ->when($this->dateFrom, function ($q) {
+                $q->whereDate('appointment_date', '>=', $this->dateFrom);
+            })
+            ->when($this->dateTo, function ($q) {
+                $q->whereDate('appointment_date', '<=', $this->dateTo);
+            });
+
+        // Apply personnel filter for appointments
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $surveyLinksSentQuery->whereIn('staff_id', $filters['personnel_ids']);
+        }
+
+        // Apply service filter for appointments
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $surveyLinksSentQuery->whereHas('services', function ($q) use ($filters) {
+                $q->whereIn('services.id', $filters['service_ids']);
+            });
+        }
+
+        $totalSent = $surveyLinksSentQuery->count();
+
+        // Total respondents (submitted feedbacks)
+        $respondentsQuery = CustomerFeedback::whereHas('appointment', function ($q) {
+                $q->where('salon_id', $this->salonId);
+            })
+            ->where('is_submitted', true)
+            ->when($this->dateFrom || $this->dateTo, function ($q) {
+                $q->whereHas('appointment', function ($query) {
+                    if ($this->dateFrom) {
+                        $query->whereDate('appointment_date', '>=', $this->dateFrom);
+                    }
+                    if ($this->dateTo) {
+                        $query->whereDate('appointment_date', '<=', $this->dateTo);
+                    }
+                });
+            });
+
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $respondentsQuery->whereIn('staff_id', $filters['personnel_ids']);
+        }
+
+        // Apply service filter
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $respondentsQuery->whereIn('service_id', $filters['service_ids']);
+        }
+
+        $participated = $respondentsQuery->count();
+        $notParticipated = max(0, $totalSent - $participated);
+
+        $participationPercentage = $totalSent > 0 ? round(($participated / $totalSent) * 100, 1) : 0;
+        $nonParticipationPercentage = $totalSent > 0 ? round(($notParticipated / $totalSent) * 100, 1) : 0;
+
+        return [
+            'total_sent' => $totalSent,
+            'participated' => $participated,
+            'not_participated' => $notParticipated,
+            'participation_percentage' => $participationPercentage,
+            'non_participation_percentage' => $nonParticipationPercentage,
+            'labels' => ['شرکت کنندگان', 'عدم مشارکت'],
+            'data' => [$participated, $notParticipated],
+            'percentages' => [$participationPercentage, $nonParticipationPercentage],
         ];
     }
 

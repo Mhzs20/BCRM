@@ -57,15 +57,19 @@ class AppointmentObserver
 
         // Only create activity log if we have an authenticated user
         if (Auth::id()) {
-            $customerName = optional($appointment->customer)->name ?? 'N/A';
-            ActivityLog::create([
-                'user_id' => Auth::id(),
-                'salon_id' => $appointment->salon_id,
-                'activity_type' => 'created',
-                'description' => "New appointment created for customer: {$customerName}",
-                'loggable_id' => $appointment->id,
-                'loggable_type' => Appointment::class,
-            ]);
+            try {
+                $customerName = optional($appointment->customer)->name ?? 'N/A';
+                ActivityLog::create([
+                    'user_id' => Auth::id(),
+                    'salon_id' => $appointment->salon_id,
+                    'activity_type' => 'created',
+                    'description' => "New appointment created for customer: {$customerName}",
+                    'loggable_id' => $appointment->id,
+                    'loggable_type' => Appointment::class,
+                ]);
+            } catch (\Exception $e) {
+                \Log::warning('Failed to create activity log for appointment creation: ' . $e->getMessage());
+            }
         }
     }
 
@@ -95,14 +99,18 @@ class AppointmentObserver
 
                 // Only create activity log if we have an authenticated user
                 if (Auth::id()) {
-                    ActivityLog::create([
-                        'user_id' => Auth::id(),
-                        'salon_id' => $appointment->salon_id,
-                        'activity_type' => $activityType,
-                        'description' => $description,
-                        'loggable_id' => $appointment->id,
-                        'loggable_type' => Appointment::class,
-                    ]);
+                    try {
+                        ActivityLog::create([
+                            'user_id' => Auth::id(),
+                            'salon_id' => $appointment->salon_id,
+                            'activity_type' => $activityType,
+                            'description' => $description,
+                            'loggable_id' => $appointment->id,
+                            'loggable_type' => Appointment::class,
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to create activity log for appointment update: ' . $e->getMessage());
+                    }
                 }
 
                 // Process commission when appointment status changes to completed
@@ -129,15 +137,19 @@ class AppointmentObserver
 
         // Only create activity log if we have an authenticated user
         if (Auth::id()) {
-            $customerName = optional($appointment->customer)->name ?? 'N/A';
-            ActivityLog::create([
-                'user_id' => Auth::id(),
-                'salon_id' => $appointment->salon_id,
-                'activity_type' => 'deleted',
-                'description' => "Appointment for customer {$customerName} was deleted.",
-                'loggable_id' => $appointment->id,
-                'loggable_type' => Appointment::class,
-            ]);
+            try {
+                $customerName = optional($appointment->customer)->name ?? 'N/A';
+                ActivityLog::create([
+                    'user_id' => Auth::id(),
+                    'salon_id' => $appointment->salon_id,
+                    'activity_type' => 'deleted',
+                    'description' => "Appointment for customer {$customerName} was deleted.",
+                    'loggable_id' => $appointment->id,
+                    'loggable_type' => Appointment::class,
+                ]);
+            } catch (\Exception $e) {
+                \Log::warning('Failed to create activity log for appointment deletion: ' . $e->getMessage());
+            }
         }
     }
 

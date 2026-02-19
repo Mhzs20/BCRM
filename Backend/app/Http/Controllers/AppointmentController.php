@@ -967,6 +967,9 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
      */
     public function prepareAppointment(PrepareAppointmentRequest $request, $salon_id)
     {
+        // Handle Route Model Binding - salon_id might be a Salon object or an integer
+        $salon_id = is_object($salon_id) ? $salon_id->id : $salon_id;
+        
         $validatedData = $request->validated();
         
         // Convert Jalali date to Gregorian
@@ -1097,7 +1100,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
 
             $staff = \App\Models\Staff::where('salon_id', $salon_id)
                 ->where('id', $validatedData['staff_id'])
-                ->first(['id', 'full_name']);
+                ->first(['id', 'full_name', 'phone_number', 'specialty', 'profile_image']);
 
             // Load salon with relationships for complete response
             $salon = Salon::with(['businessCategory', 'businessSubcategories', 'province', 'city', 'user'])
@@ -1357,6 +1360,9 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
      */
     public function submitAppointment(SubmitAppointmentRequest $request, $salon_id)
     {
+        // Handle Route Model Binding - salon_id might be a Salon object or an integer
+        $salon_id = is_object($salon_id) ? $salon_id->id : $salon_id;
+        
         $validatedData = $request->validated();
         
         // Check if this is an update or create
@@ -1378,6 +1384,9 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
      */
     private function submitCreate($validatedData, $salon_id)
     {
+        // Ensure salon_id is an integer
+        $salon_id = is_object($salon_id) ? $salon_id->id : $salon_id;
+        
         $pendingAppointment = PendingAppointment::notExpired()
             ->where('salon_id', $salon_id)
             ->findOrFail($validatedData['pending_appointment_id']);
@@ -1409,7 +1418,8 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
                   $appointmentData['conflicting_appointments'], $appointmentData['expires_at'], 
                   $appointmentData['created_at'], $appointmentData['updated_at']);
             
-            // Ensure appointment_date is correctly set
+            // Ensure critical fields are correctly set
+            $appointmentData['salon_id'] = $salon_id;
             $appointmentData['appointment_date'] = $pendingAppointment->appointment_date->format('Y-m-d');
             $appointmentData['customer_id'] = $customer->id;
             $appointmentData['status'] = $pendingAppointment->status;
@@ -1465,6 +1475,9 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
      */
     private function submitUpdate($validatedData, $salon_id)
     {
+        // Ensure salon_id is an integer
+        $salon_id = is_object($salon_id) ? $salon_id->id : $salon_id;
+        
         // Check if pending_appointment_id is provided (new flow with 1-minute expiry)
         if (isset($validatedData['pending_appointment_id'])) {
             $pendingAppointment = PendingAppointment::notExpired()
@@ -1815,6 +1828,9 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
      */
     public function prepareUpdateAppointment(PrepareUpdateAppointmentRequest $request, $salon_id)
     {
+        // Handle Route Model Binding - salon_id might be a Salon object or an integer
+        $salon_id = is_object($salon_id) ? $salon_id->id : $salon_id;
+        
         $validatedData = $request->validated();
         
         $appointment = Appointment::where('salon_id', $salon_id)
