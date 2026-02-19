@@ -23,10 +23,10 @@ class SubmitAppointmentRequest extends FormRequest
             'pending_appointment_id' => [
                 'required_without:appointment_id', 
                 'integer', 
-                function ($attribute, $value, $fail) {
+                function ($attribute, $value, $fail) use ($salonId) {
                     if (!$value) return;
                     $exists = \App\Models\PendingAppointment::where('id', $value)
-                        ->where('salon_id', $this->route('salon'))
+                        ->where('salon_id', $salonId)
                         ->where('expires_at', '>', now())
                         ->exists();
                     if (!$exists) {

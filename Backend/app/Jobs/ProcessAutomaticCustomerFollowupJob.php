@@ -15,6 +15,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ProcessAutomaticCustomerFollowupJob implements ShouldQueue
@@ -164,7 +165,8 @@ class ProcessAutomaticCustomerFollowupJob implements ShouldQueue
                 );
 
                 if (isset($result['status']) && $result['status'] === 'success') {
-                    // ثبت در تاریخچه
+                    // ثبت در تاریخچه (غیرفعال کردن FK checks به دلیل MyISAM بودن salon_sms_templates)
+                    DB::statement('SET FOREIGN_KEY_CHECKS=0');
                     CustomerFollowUpHistory::create([
                         'salon_id' => $salon->id,
                         'customer_id' => $customer->id,
@@ -173,6 +175,7 @@ class ProcessAutomaticCustomerFollowupJob implements ShouldQueue
                         'sent_at' => Carbon::now(),
                         'type' => 'automatic',
                     ]);
+                    DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
                     $sentCount++;
                     Log::info("Followup SMS sent to customer {$customer->id} in salon {$salon->id}");
@@ -256,7 +259,8 @@ class ProcessAutomaticCustomerFollowupJob implements ShouldQueue
                 );
 
                 if (isset($result['status']) && $result['status'] === 'success') {
-                    // ثبت در تاریخچه
+                    // ثبت در تاریخچه (غیرفعال کردن FK checks به دلیل MyISAM بودن salon_sms_templates)
+                    DB::statement('SET FOREIGN_KEY_CHECKS=0');
                     CustomerFollowUpHistory::create([
                         'salon_id' => $salon->id,
                         'customer_id' => $customer->id,
@@ -265,6 +269,7 @@ class ProcessAutomaticCustomerFollowupJob implements ShouldQueue
                         'sent_at' => Carbon::now(),
                         'type' => 'automatic',
                     ]);
+                    DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
                     $sentCount++;
                     Log::info("Followup SMS sent to customer {$customer->id} in salon {$salon->id}");

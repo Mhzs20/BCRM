@@ -29,8 +29,9 @@ class CustomerFollowUpController extends Controller
     }
 
     // 1. Get Customer Follow-up Statistics
-    public function stats($salonId)
+    public function stats(Salon $salon)
     {
+        $salonId = $salon->id;
         $totalGroups = CustomerGroup::where('salon_id', $salonId)->count();
         
         $activeGroups = CustomerFollowUpGroupSetting::whereHas('customerFollowUpSetting', function($q) use ($salonId) {
@@ -59,8 +60,9 @@ class CustomerFollowUpController extends Controller
     }
 
     // 2. Get All Customer Groups with Follow-up Settings
-    public function groups(Request $request, $salonId)
+    public function groups(Request $request, Salon $salon)
     {
+        $salonId = $salon->id;
         $search = $request->get('search');
         $reminder_status = $request->get('reminder_status');
         $sort_by = $request->get('sort_by', 'name');
@@ -99,8 +101,9 @@ class CustomerFollowUpController extends Controller
     }
 
     // 2.1. Get All Services for Customer Follow-up
-    public function services(Request $request, $salonId)
+    public function services(Request $request, Salon $salon)
     {
+        $salonId = $salon->id;
         $search = $request->get('search');
         $sort_by = $request->get('sort_by', 'name');
         
@@ -161,8 +164,9 @@ class CustomerFollowUpController extends Controller
     }
 
     // 4. Get Summary of Customer Follow-up Settings
-    public function summary($salonId)
+    public function summary(Salon $salon)
     {
+        $salonId = $salon->id;
         $setting = CustomerFollowUpSetting::where('salon_id', $salonId)
             ->with([
                 'groupSettings.customerGroup',
@@ -174,18 +178,41 @@ class CustomerFollowUpController extends Controller
     }
 
     // 5. Update Customer Follow-up Settings (برای Automated)
-    public function updateSettings(Request $request, $salonId)
+    public function updateSettings(Request $request, Salon $salon)
     {
+        $salonId = $salon->id;
+
         $data = $request->validate([
             'template_id' => 'required|exists:salon_sms_templates,id',
             'group_ids' => 'nullable|array',
-            'group_ids.*' => 'exists:customer_groups,id',
+            'group_ids.*' => 'integer|min:0',
+            'customer_group_ids' => 'nullable|array',
+            'customer_group_ids.*' => 'integer|min:0',
             'service_ids' => 'nullable|array',
-            'service_ids.*' => 'exists:services,id',
+            'service_ids.*' => 'integer|min:0',
             'is_active' => 'required|boolean',
             'days_since_last_visit' => 'required|integer|min:1|max:365',
             'check_frequency_days' => 'required|integer|min:1|max:90',
         ]);
+
+        // پشتیبانی از هر دو نام فیلد: group_ids و customer_group_ids
+        if (!isset($data['group_ids']) && isset($data['customer_group_ids'])) {
+            $data['group_ids'] = $data['customer_group_ids'];
+        }
+
+        // فیلتر کردن ID صفر (یعنی همه) - اگر 0 باشد، بدون فیلتر خاص عمل می‌کند
+        $allGroups = isset($data['group_ids']) && in_array(0, $data['group_ids']);
+        $allServices = isset($data['service_ids']) && in_array(0, $data['service_ids']);
+        $data['group_ids'] = isset($data['group_ids']) ? array_values(array_filter($data['group_ids'], fn($id) => $id != 0)) : [];
+        $data['service_ids'] = isset($data['service_ids']) ? array_values(array_filter($data['service_ids'], fn($id) => $id != 0)) : [];
+
+        // اگر ID 0 (همه) انتخاب شده، همه گروه‌ها/خدمات سالن رو بگیر
+        if ($allGroups && empty($data['group_ids'])) {
+            $data['group_ids'] = CustomerGroup::where('salon_id', $salonId)->pluck('id')->toArray();
+        }
+        if ($allServices && empty($data['service_ids'])) {
+            $data['service_ids'] = Service::where('salon_id', $salonId)->where('is_active', true)->pluck('id')->toArray();
+        }
         
         // حداقل یکی از group_ids یا service_ids باید موجود باشد
         if (empty($data['group_ids']) && empty($data['service_ids'])) {
@@ -195,6 +222,9 @@ class CustomerFollowUpController extends Controller
             ], 422);
         }
         
+        // غیرفعال کردن موقت FK checks (به دلیل تفاوت engine جداول MyISAM/InnoDB)
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
         $setting = CustomerFollowUpSetting::firstOrCreate([
             'salon_id' => $salonId
         ], [
@@ -206,6 +236,8 @@ class CustomerFollowUpController extends Controller
         $setting->is_global_active = true;
         $setting->template_id = $data['template_id'];
         $setting->save();
+
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
         $groupResults = [];
         $serviceResults = [];
@@ -297,8 +329,9 @@ class CustomerFollowUpController extends Controller
     }
 
     // 6. Toggle Individual Group Customer Follow-up
-    public function toggleGroup(Request $request, $salonId, $groupId)
+    public function toggleGroup(Request $request, Salon $salon, $groupId)
     {
+        $salonId = $salon->id;
         $setting = CustomerFollowUpSetting::where('salon_id', $salonId)->firstOrFail();
         
         $groupSetting = CustomerFollowUpGroupSetting::where('customer_followup_setting_id', $setting->id)
@@ -312,8 +345,9 @@ class CustomerFollowUpController extends Controller
     }
 
     // 7. Enable/Disable Global Customer Follow-up System
-    public function globalToggle(Request $request, $salonId)
+    public function globalToggle(Request $request, Salon $salon)
     {
+        $salonId = $salon->id;
         $setting = CustomerFollowUpSetting::where('salon_id', $salonId)->firstOrFail();
         
         $setting->is_global_active = $request->input('is_active');
@@ -323,8 +357,9 @@ class CustomerFollowUpController extends Controller
     }
 
     // 8. Delete Customer Follow-up Settings for a Group
-    public function deleteGroupSettings($salonId, $groupId)
+    public function deleteGroupSettings(Salon $salon, $groupId)
     {
+        $salonId = $salon->id;
         $setting = CustomerFollowUpSetting::where('salon_id', $salonId)->firstOrFail();
         
         CustomerFollowUpGroupSetting::where('customer_followup_setting_id', $setting->id)
@@ -335,8 +370,9 @@ class CustomerFollowUpController extends Controller
     }
 
     // 9. Get Specific Group Settings
-    public function groupSettings($salonId, $groupId)
+    public function groupSettings(Salon $salon, $groupId)
     {
+        $salonId = $salon->id;
         $setting = CustomerFollowUpSetting::where('salon_id', $salonId)->firstOrFail();
         
         $groupSetting = CustomerFollowUpGroupSetting::where('customer_followup_setting_id', $setting->id)
@@ -347,9 +383,11 @@ class CustomerFollowUpController extends Controller
     }
 
     // 10. Prepare Manual Follow-up (فیلتر مشتریان)
-    public function prepareManualFollowup(Request $request, $salonId)
+    public function prepareManualFollowup(Request $request, Salon $salon)
     {
         try {
+            $salonId = $salon->id;
+
             $data = $request->validate([
                 'customer_group_ids' => 'nullable|array',
                 'customer_group_ids.*' => 'integer',
@@ -357,8 +395,6 @@ class CustomerFollowUpController extends Controller
                 'service_ids.*' => 'integer',
                 'days_since_last_visit' => 'required|integer|min:1|max:365',
             ]);
-
-            $salon = Salon::findOrFail($salonId);
 
             // فیلتر مشتریان بر اساس شرایط
             $query = Customer::where('salon_id', $salonId);
@@ -416,7 +452,12 @@ class CustomerFollowUpController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error in CustomerFollowUpController@prepareManualFollowup:', ['error' => $e->getMessage()]);
+            Log::error('Error in CustomerFollowUpController@prepareManualFollowup:', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'خطا در آماده‌سازی پیگیری: ' . $e->getMessage()
@@ -425,9 +466,11 @@ class CustomerFollowUpController extends Controller
     }
 
     // 11. Send Manual Follow-up SMS
-    public function sendManualFollowup(Request $request, $salonId)
+    public function sendManualFollowup(Request $request, Salon $salon)
     {
         try {
+            $salonId = $salon->id;
+
             $data = $request->validate([
                 'prepare_id' => 'required|exists:manual_followup_preparations,id',
                 'template_id' => 'required|exists:salon_sms_templates,id',
@@ -451,8 +494,6 @@ class CustomerFollowUpController extends Controller
                     'message' => 'دسترسی غیرمجاز به این آماده‌سازی.'
                 ], 403);
             }
-
-            $salon = Salon::findOrFail($salonId);
             $template = \App\Models\SalonSmsTemplate::findOrFail($data['template_id']);
 
             // بررسی موجودی شارژ سالن
@@ -517,7 +558,8 @@ class CustomerFollowUpController extends Controller
                             'sent_at' => Carbon::now(),
                         ]);
                         
-                        // ثبت در تاریخچه
+                        // ثبت در تاریخچه (غیرفعال کردن FK checks به دلیل MyISAM بودن salon_sms_templates)
+                        DB::statement('SET FOREIGN_KEY_CHECKS=0');
                         $historyRecord = CustomerFollowUpHistory::create([
                             'salon_id' => $salonId,
                             'customer_id' => $customerId,
@@ -530,6 +572,7 @@ class CustomerFollowUpController extends Controller
                             'total_customers' => $preparation->customer_count,
                             'sms_count' => $smsUsed,
                         ]);
+                        DB::statement('SET FOREIGN_KEY_CHECKS=1');
                         
                         Log::info('Manual followup history created', [
                             'history_id' => $historyRecord->id,
@@ -567,8 +610,9 @@ class CustomerFollowUpController extends Controller
     }
 
     // 12. Get Follow-up History
-    public function history(Request $request, $salonId)
+    public function history(Request $request, Salon $salon)
     {
+        $salonId = $salon->id;
         $perPage = $request->get('per_page', 15);
         $type = $request->get('type'); // manual or automatic
         $startDate = $request->get('start_date');
