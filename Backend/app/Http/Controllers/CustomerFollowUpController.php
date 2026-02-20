@@ -558,28 +558,45 @@ class CustomerFollowUpController extends Controller
                             'sent_at' => Carbon::now(),
                         ]);
                         
-                        // ثبت در تاریخچه (غیرفعال کردن FK checks به دلیل MyISAM بودن salon_sms_templates)
-                        DB::statement('SET FOREIGN_KEY_CHECKS=0');
-                        $historyRecord = CustomerFollowUpHistory::create([
-                            'salon_id' => $salonId,
-                            'customer_id' => $customerId,
-                            'template_id' => $template->id,
-                            'message' => $message,
-                            'sent_at' => Carbon::now(),
-                            'type' => 'manual',
-                            'customer_group_ids' => $preparation->customer_group_ids,
-                            'service_ids' => $preparation->service_ids,
-                            'total_customers' => $preparation->customer_count,
-                            'sms_count' => $smsUsed,
-                        ]);
-                        DB::statement('SET FOREIGN_KEY_CHECKS=1');
-                        
-                        Log::info('Manual followup history created', [
-                            'history_id' => $historyRecord->id,
-                            'salon_id' => $salonId,
-                            'customer_id' => $customerId,
-                            'sent_at' => $historyRecord->sent_at,
-                        ]);
+                        // ثبت در تاریخچه - با استفاده از یک connection واحد تا SET FOREIGN_KEY_CHECKS و INSERT حتماً روی یک session باشند
+                        try {
+                            $historyData = [
+                                'salon_id' => $salonId,
+                                'customer_id' => $customerId,
+                                'template_id' => $template->id,
+                                'message' => $message,
+                                'sent_at' => Carbon::now(),
+                                'type' => 'manual',
+                                'customer_group_ids' => is_array($preparation->customer_group_ids) ? json_encode($preparation->customer_group_ids) : $preparation->customer_group_ids,
+                                'service_ids' => is_array($preparation->service_ids) ? json_encode($preparation->service_ids) : $preparation->service_ids,
+                                'total_customers' => $preparation->customer_count,
+                                'sms_count' => $smsUsed,
+                                'created_at' => Carbon::now(),
+                                'updated_at' => Carbon::now(),
+                            ];
+
+                            // استفاده از connection واحد برای اطمینان از اجرای FK_CHECKS و INSERT روی یک session
+                            $connection = DB::connection();
+                            $connection->statement('SET FOREIGN_KEY_CHECKS=0');
+                            $connection->table('customer_followup_histories')->insert($historyData);
+                            $connection->statement('SET FOREIGN_KEY_CHECKS=1');
+
+                            Log::info('Manual followup history created', [
+                                'salon_id' => $salonId,
+                                'customer_id' => $customerId,
+                                'sent_at' => $historyData['sent_at'],
+                            ]);
+                        } catch (\Exception $historyException) {
+                            // اطمینان از برگرداندن FK_CHECKS به حالت عادی
+                            try { DB::statement('SET FOREIGN_KEY_CHECKS=1'); } catch (\Exception $e) {}
+                            
+                            Log::error('Failed to create followup history:', [
+                                'salon_id' => $salonId,
+                                'customer_id' => $customerId,
+                                'error' => $historyException->getMessage(),
+                                'trace' => $historyException->getTraceAsString(),
+                            ]);
+                        }
                     } else {
                         $failedCount++;
                     }

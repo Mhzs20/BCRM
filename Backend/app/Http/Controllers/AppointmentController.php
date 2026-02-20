@@ -668,9 +668,10 @@ class AppointmentController extends Controller
                 });
             }
 
-            $appointments = $query->orderBy('appointment_date')->orderBy('start_time')->get();
+            $perPage = $request->input('per_page', 15);
+            $appointments = $query->orderBy('appointment_date')->orderBy('start_time')->paginate($perPage);
 
-            return response()->json(['data' => AppointmentResource::collection($appointments)]);
+            return AppointmentResource::collection($appointments);
         } catch (\Exception $e) {
                 Log::error('خطا در دریافت نوبت‌ها: ' . $e->getMessage());
                 return response()->json(['message' => 'خطا در دریافت نوبت‌ها: ' . $e->getMessage()], 500);
@@ -709,7 +710,7 @@ class AppointmentController extends Controller
                 $perPage = $request->input('per_page', 15);
                 $appointments = $query->orderBy('appointment_date')->orderBy('start_time')->paginate($perPage);
 
-                return response()->json(['data' => AppointmentResource::collection($appointments)]);
+                return AppointmentResource::collection($appointments);
             } catch (\Exception $e) {
                 return response()->json(['error' => $e->getMessage()], 500);
             }
@@ -729,8 +730,9 @@ class AppointmentController extends Controller
         if (!empty($validated['staff_id'])) {
             $query->where('staff_id', $validated['staff_id']);
         }
-        $appointments = $query->orderBy('appointment_date')->orderBy('start_time')->get();
-            return response()->json(['data' => AppointmentResource::collection($appointments)]);
+        $perPage = $request->input('per_page', 15);
+        $appointments = $query->orderBy('appointment_date')->orderBy('start_time')->paginate($perPage);
+        return AppointmentResource::collection($appointments);
     }
     /**
       * @param int $year سال شمسی
