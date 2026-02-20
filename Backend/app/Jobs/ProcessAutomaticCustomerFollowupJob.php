@@ -165,17 +165,25 @@ class ProcessAutomaticCustomerFollowupJob implements ShouldQueue
                 );
 
                 if (isset($result['status']) && $result['status'] === 'success') {
-                    // ثبت در تاریخچه (غیرفعال کردن FK checks به دلیل MyISAM بودن salon_sms_templates)
-                    DB::statement('SET FOREIGN_KEY_CHECKS=0');
-                    CustomerFollowUpHistory::create([
-                        'salon_id' => $salon->id,
-                        'customer_id' => $customer->id,
-                        'template_id' => $template->id,
-                        'message' => $message,
-                        'sent_at' => Carbon::now(),
-                        'type' => 'automatic',
-                    ]);
-                    DB::statement('SET FOREIGN_KEY_CHECKS=1');
+                    // ثبت در تاریخچه - استفاده از connection واحد برای اطمینان از FK_CHECKS
+                    try {
+                        $connection = DB::connection();
+                        $connection->statement('SET FOREIGN_KEY_CHECKS=0');
+                        $connection->table('customer_followup_histories')->insert([
+                            'salon_id' => $salon->id,
+                            'customer_id' => $customer->id,
+                            'template_id' => $template->id,
+                            'message' => $message,
+                            'sent_at' => Carbon::now(),
+                            'type' => 'automatic',
+                            'created_at' => Carbon::now(),
+                            'updated_at' => Carbon::now(),
+                        ]);
+                        $connection->statement('SET FOREIGN_KEY_CHECKS=1');
+                    } catch (\Exception $historyEx) {
+                        try { DB::statement('SET FOREIGN_KEY_CHECKS=1'); } catch (\Exception $e) {}
+                        Log::error("Failed to save followup history for customer {$customer->id}: " . $historyEx->getMessage());
+                    }
 
                     $sentCount++;
                     Log::info("Followup SMS sent to customer {$customer->id} in salon {$salon->id}");
@@ -259,20 +267,28 @@ class ProcessAutomaticCustomerFollowupJob implements ShouldQueue
                 );
 
                 if (isset($result['status']) && $result['status'] === 'success') {
-                    // ثبت در تاریخچه (غیرفعال کردن FK checks به دلیل MyISAM بودن salon_sms_templates)
-                    DB::statement('SET FOREIGN_KEY_CHECKS=0');
-                    CustomerFollowUpHistory::create([
-                        'salon_id' => $salon->id,
-                        'customer_id' => $customer->id,
-                        'template_id' => $template->id,
-                        'message' => $message,
-                        'sent_at' => Carbon::now(),
-                        'type' => 'automatic',
-                    ]);
-                    DB::statement('SET FOREIGN_KEY_CHECKS=1');
+                    // ثبت در تاریخچه - استفاده از connection واحد برای اطمینان از FK_CHECKS
+                    try {
+                        $connection = DB::connection();
+                        $connection->statement('SET FOREIGN_KEY_CHECKS=0');
+                        $connection->table('customer_followup_histories')->insert([
+                            'salon_id' => $salon->id,
+                            'customer_id' => $customer->id,
+                            'template_id' => $template->id,
+                            'message' => $message,
+                            'sent_at' => Carbon::now(),
+                            'type' => 'automatic',
+                            'created_at' => Carbon::now(),
+                            'updated_at' => Carbon::now(),
+                        ]);
+                        $connection->statement('SET FOREIGN_KEY_CHECKS=1');
+                    } catch (\Exception $historyEx) {
+                        try { DB::statement('SET FOREIGN_KEY_CHECKS=1'); } catch (\Exception $e) {}
+                        Log::error("Failed to save followup history for customer {$customer->id}: " . $historyEx->getMessage());
+                    }
 
                     $sentCount++;
-                    Log::info("Followup SMS sent to customer {$customer->id} in salon {$salon->id}");
+                    Log::info("Followup SMS sent to customer {$customer->id} (group {$groupSetting->customer_group_id}) in salon {$salon->id}");
                 } else {
                     Log::warning("Failed to send followup SMS to customer {$customer->id} in salon {$salon->id}: " . ($result['message'] ?? 'Unknown error'));
                 }
