@@ -21,6 +21,14 @@ class GetAvailableSlotsRequest extends FormRequest
      */
     protected function prepareForValidation()
     {
+        // پشتیبانی از start_time/end_time به عنوان alias برای start_date/end_date
+        if ($this->has('start_time') && !$this->has('start_date')) {
+            $this->merge(['start_date' => $this->input('start_time')]);
+        }
+        if ($this->has('end_time') && !$this->has('end_date')) {
+            $this->merge(['end_date' => $this->input('end_time')]);
+        }
+
         if ($this->has('start_date')) {
             try {
                 $jalaliDate = $this->input('start_date');
@@ -46,12 +54,13 @@ class GetAvailableSlotsRequest extends FormRequest
      */
     public function rules(): array
     {
-        // **-- کد اصلاح شده --**
-        // پارامتر 'salon' از روت به صورت مستقیم به عنوان شناسه استفاده می‌شود
         $salonId = $this->route('salon');
+        if (is_object($salonId)) {
+            $salonId = $salonId->getKey();
+        }
 
         return [
-            'start_date' => ['nullable', 'date', 'after_or_equal:today'],
+            'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'staff_id' => [
                 'required', 'integer',
