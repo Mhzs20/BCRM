@@ -12,16 +12,24 @@ class SmsReportService extends BaseReportService
     /**
      * Generate preset report.
      */
-    public function generatePresetReport($salonId, $period = 'weekly')
+    public function generatePresetReport($salonId, $period = null)
     {
         $this->salonId = $salonId;
-        $dateRange = $this->getPresetDateRange($period);
-        $this->dateFrom = $dateRange['from'];
-        $this->dateTo = $dateRange['to'];
+
+        if ($period) {
+            $dateRange = $this->getPresetDateRange($period);
+            $this->dateFrom = $dateRange['from'];
+            $this->dateTo = $dateRange['to'];
+        } else {
+            $this->dateFrom = null;
+            $this->dateTo = null;
+        }
 
         return [
-            'period' => $period,
-            'date_range' => $this->getPersianDateRange($this->dateFrom, $this->dateTo),
+            'period' => $period ?? 'overall',
+            'date_range' => $this->dateFrom && $this->dateTo
+                ? $this->getPersianDateRange($this->dateFrom, $this->dateTo)
+                : null,
             'kpis' => $this->calculateKPIs(),
             'charts' => $this->generateCharts(['period' => $period]),
             'sections' => $this->generateSections(),
@@ -79,9 +87,9 @@ class SmsReportService extends BaseReportService
             ->whereNotNull('sent_at')
             ->sum('sms_count');
 
-        // Manual (promotional) SMS
+        // Manual SMS (manual_sms, manual_reminder, bulk campaigns)
         $manualSms = (clone $baseQuery)
-            ->where('sms_type', 'manual')
+            ->whereIn('sms_type', ['manual_sms', 'manual_reminder', 'bulk'])
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('sent_at', '>=', $this->dateFrom);
             })
@@ -91,9 +99,13 @@ class SmsReportService extends BaseReportService
             ->whereNotNull('sent_at')
             ->sum('sms_count');
 
-        // System SMS (reservation, cancellation, reminders)
+        // System SMS (appointment-related and automated types)
         $systemSms = (clone $baseQuery)
-            ->whereIn('sms_type', ['reservation', 'reminder', 'cancellation', 'confirmation', 'satisfaction'])
+            ->whereIn('sms_type', [
+                'appointment_confirmation', 'appointment_modification',
+                'appointment_cancellation', 'appointment_reminder',
+                'satisfaction_survey', 'exclusive_link',
+            ])
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('sent_at', '>=', $this->dateFrom);
             })
@@ -130,10 +142,18 @@ class SmsReportService extends BaseReportService
             ->whereNotNull('sent_at')
             ->sum('sms_count');
 
-        // Average daily consumption
-        $daysCount = $this->dateFrom && $this->dateTo 
-            ? $this->dateFrom->diffInDays($this->dateTo) + 1 
-            : 30;
+        // Average daily consumption based on actual date range of sent SMS
+        if ($this->dateFrom && $this->dateTo) {
+            $daysCount = $this->dateFrom->diffInDays($this->dateTo) + 1;
+        } else {
+            $firstDate = (clone $baseQuery)->whereNotNull('sent_at')->min('sent_at');
+            $lastDate  = (clone $baseQuery)->whereNotNull('sent_at')->max('sent_at');
+            if ($firstDate && $lastDate) {
+                $daysCount = \Carbon\Carbon::parse($firstDate)->diffInDays(\Carbon\Carbon::parse($lastDate)) + 1;
+            } else {
+                $daysCount = 1;
+            }
+        }
         $avgDailyConsumption = $totalSms / max($daysCount, 1);
 
         // Current balance (remaining SMS in account)

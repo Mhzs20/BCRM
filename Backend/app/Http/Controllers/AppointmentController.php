@@ -717,6 +717,8 @@ class AppointmentController extends Controller
         }
     public function getCalendarAppointments(CalendarQueryRequest $request, $salon_id)
     {
+        $salon_id = is_object($salon_id) ? $salon_id->getKey() : (int) $salon_id;
+
         $validated = $request->validated();
         if (isset($validated['start_date'])) {
             $validated['start_date'] = Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validated['start_date']))->toCarbon();

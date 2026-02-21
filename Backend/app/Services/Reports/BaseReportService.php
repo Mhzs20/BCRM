@@ -3,6 +3,7 @@
 namespace App\Services\Reports;
 
 use Carbon\Carbon;
+use Hekmatinasser\Verta\Verta;
 use Illuminate\Support\Facades\DB;
 
 abstract class BaseReportService
@@ -57,25 +58,31 @@ abstract class BaseReportService
                 ];
             case 'weekly':
             case 'week':
+                // یک هفته شمسی گذشته تا امروز
                 return [
-                    'from' => $now->copy()->startOfWeek(),
-                    'to' => $now->copy()->endOfWeek(),
+                    'from' => Verta::now()->subWeek()->toCarbon()->startOfDay(),
+                    'to' => $now->copy()->endOfDay(),
                 ];
             case 'last_week':
+                // هفته قبل شمسی
+                $vLastWeek = Verta::now()->subWeek();
                 return [
-                    'from' => $now->copy()->subWeek()->startOfWeek(),
-                    'to' => $now->copy()->subWeek()->endOfWeek(),
+                    'from' => $vLastWeek->startWeek()->toCarbon()->startOfDay(),
+                    'to' => $vLastWeek->endWeek()->toCarbon()->endOfDay(),
                 ];
             case 'monthly':
             case 'month':
+                // یک ماه شمسی گذشته تا امروز
                 return [
-                    'from' => $now->copy()->startOfMonth(),
-                    'to' => $now->copy()->endOfMonth(),
+                    'from' => Verta::now()->subMonth()->toCarbon()->startOfDay(),
+                    'to' => $now->copy()->endOfDay(),
                 ];
             case 'last_month':
+                // ماه قبل شمسی
+                $vLastMonth = Verta::now()->subMonth();
                 return [
-                    'from' => $now->copy()->subMonth()->startOfMonth(),
-                    'to' => $now->copy()->subMonth()->endOfMonth(),
+                    'from' => $vLastMonth->startMonth()->toCarbon()->startOfDay(),
+                    'to' => $vLastMonth->endMonth()->toCarbon()->endOfDay(),
                 ];
             case 'yearly':
             case 'year':
@@ -94,9 +101,10 @@ abstract class BaseReportService
                     'to' => Carbon::createFromDate($lastYearEnd[0], $lastYearEnd[1], $lastYearEnd[2])->endOfDay(),
                 ];
             default:
+                // پیش‌فرض: یک ماه شمسی گذشته تا امروز
                 return [
-                    'from' => $now->copy()->startOfMonth(),
-                    'to' => $now->copy()->endOfMonth(),
+                    'from' => Verta::now()->subMonth()->toCarbon()->startOfDay(),
+                    'to' => $now->copy()->endOfDay(),
                 ];
         }
     }
@@ -188,8 +196,8 @@ abstract class BaseReportService
                 ];
 
             default:
-                // Default to weekly
-                return $this->getChartGrouping('weekly');
+                // Overall/all-time: group by Persian month
+                return $this->getChartGrouping('yearly');
         }
     }
 

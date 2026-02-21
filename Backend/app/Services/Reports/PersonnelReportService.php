@@ -14,16 +14,24 @@ class PersonnelReportService extends BaseReportService
     /**
      * Generate preset report.
      */
-    public function generatePresetReport($salonId, $period = 'weekly')
+    public function generatePresetReport($salonId, $period = null)
     {
         $this->salonId = $salonId;
-        $dateRange = $this->getPresetDateRange($period);
-        $this->dateFrom = $dateRange['from'];
-        $this->dateTo = $dateRange['to'];
+
+        if ($period) {
+            $dateRange = $this->getPresetDateRange($period);
+            $this->dateFrom = $dateRange['from'];
+            $this->dateTo = $dateRange['to'];
+        } else {
+            $this->dateFrom = null;
+            $this->dateTo = null;
+        }
 
         return [
-            'period' => $period,
-            'date_range' => $this->getPersianDateRange($this->dateFrom, $this->dateTo),
+            'period' => $period ?? 'overall',
+            'date_range' => $this->dateFrom && $this->dateTo
+                ? $this->getPersianDateRange($this->dateFrom, $this->dateTo)
+                : null,
             'kpis' => $this->calculateKPIs(),
             'charts' => $this->generateCharts(['period' => $period]),
             'sections' => $this->generateSections(),
@@ -107,27 +115,33 @@ class PersonnelReportService extends BaseReportService
         
         $totalCompleted = $totalCompletedQuery->count();
 
-        // Top personnel by income
-        $topByIncomeQuery = Payment::where('salon_id', $this->salonId)
+        // Top personnel by income: sum of total_price for completed appointments
+        $topByIncomeQuery = Appointment::where('salon_id', $this->salonId)
+            ->where('status', 'completed')
             ->whereNotNull('staff_id')
             ->when($this->dateFrom, function ($q) {
-                $q->whereDate('date', '>=', $this->dateFrom);
+                $q->whereDate('appointment_date', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
-                $q->whereDate('date', '<=', $this->dateTo);
+                $q->whereDate('appointment_date', '<=', $this->dateTo);
             });
-            
+
         // Apply personnel filter
         if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
             $topByIncomeQuery->whereIn('staff_id', $filters['personnel_ids']);
         }
-        
-        $topByIncome = $topByIncomeQuery
-            ->select('staff_id', DB::raw('SUM(amount) as total_income'))
+
+        $topByIncomeRow = $topByIncomeQuery
+            ->select('staff_id', DB::raw('SUM(total_price) as total_income'))
             ->groupBy('staff_id')
             ->orderByDesc('total_income')
-            ->with('staff')
             ->first();
+
+        $topByIncomeStaff = $topByIncomeRow ? Staff::find($topByIncomeRow->staff_id) : null;
+        $topByIncome = $topByIncomeRow ? (object)[
+            'staff' => $topByIncomeStaff,
+            'total_income' => $topByIncomeRow->total_income,
+        ] : null;
 
         // Total commission
         $totalCommissionQuery = DB::table('expenses')
@@ -175,38 +189,39 @@ class PersonnelReportService extends BaseReportService
             ->with('staff')
             ->first();
 
-        // Best personnel by satisfaction
-        $bestBySatisfactionQuery = CustomerFeedback::whereHas('appointment', function ($q) {
-                $q->where('salon_id', $this->salonId);
-            })
-            ->whereNotNull('staff_id')
+        // Best personnel by satisfaction (via appointment JOIN since cf.staff_id is not populated)
+        $bestBySatisfactionQuery = DB::table('customer_feedback as cf')
+            ->join('appointments as a', 'cf.appointment_id', '=', 'a.id')
+            ->where('a.salon_id', $this->salonId)
+            ->whereNotNull('a.staff_id')
             ->when($this->dateFrom, function ($q) {
-                $q->whereHas('appointment', function ($query) {
-                    $query->whereDate('appointment_date', '>=', $this->dateFrom);
-                });
+                $q->whereDate('a.appointment_date', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
-                $q->whereHas('appointment', function ($query) {
-                    $query->whereDate('appointment_date', '<=', $this->dateTo);
-                });
+                $q->whereDate('a.appointment_date', '<=', $this->dateTo);
             });
-            
+
         // Apply personnel filter
         if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
-            $bestBySatisfactionQuery->whereIn('staff_id', $filters['personnel_ids']);
+            $bestBySatisfactionQuery->whereIn('a.staff_id', $filters['personnel_ids']);
         }
-        
+
         // Apply service filter
         if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
-            $bestBySatisfactionQuery->whereIn('service_id', $filters['service_ids']);
+            $bestBySatisfactionQuery->whereIn('cf.service_id', $filters['service_ids']);
         }
-        
-        $bestBySatisfaction = $bestBySatisfactionQuery
-            ->select('staff_id', DB::raw('AVG(rating) as avg_rating'))
-            ->groupBy('staff_id')
+
+        $bestBySatisfactionRow = $bestBySatisfactionQuery
+            ->select('a.staff_id', DB::raw('AVG(cf.rating) as avg_rating'))
+            ->groupBy('a.staff_id')
             ->orderByDesc('avg_rating')
-            ->with('staff')
             ->first();
+
+        $bestBySatisfactionStaff = $bestBySatisfactionRow ? Staff::find($bestBySatisfactionRow->staff_id) : null;
+        $bestBySatisfaction = $bestBySatisfactionRow ? (object)[
+            'staff' => $bestBySatisfactionStaff,
+            'avg_rating' => $bestBySatisfactionRow->avg_rating,
+        ] : null;
 
         // Rehire rate - customers who returned to same staff
         $rehireRate = $this->calculateRehireRate();
@@ -217,7 +232,7 @@ class PersonnelReportService extends BaseReportService
             'rehire_rate' => round($rehireRate, 1),
             'top_personnel_by_income' => [
                 'name' => $topByIncome->staff->full_name ?? 'نامشخص',
-                'amount' => $topByIncome->total_income ?? 0,
+                'amount' => (int) ($topByIncome->total_income ?? 0),
             ],
             'total_commission' => round($totalCommission, 2),
             'most_customers_personnel' => [
@@ -320,25 +335,28 @@ class PersonnelReportService extends BaseReportService
      */
     protected function getIncomeByStaff()
     {
-        return Payment::where('salon_id', $this->salonId)
+        // Income = sum of total_price for completed appointments per staff
+        $rows = Appointment::where('salon_id', $this->salonId)
+            ->where('status', 'completed')
             ->whereNotNull('staff_id')
             ->when($this->dateFrom, function ($q) {
-                $q->whereDate('date', '>=', $this->dateFrom);
+                $q->whereDate('appointment_date', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
-                $q->whereDate('date', '<=', $this->dateTo);
+                $q->whereDate('appointment_date', '<=', $this->dateTo);
             })
-            ->select('staff_id', DB::raw('SUM(amount) as total_income'))
+            ->select('staff_id', DB::raw('SUM(total_price) as total_income'))
             ->groupBy('staff_id')
             ->orderByDesc('total_income')
-            ->with('staff')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'staff_name' => $item->staff->full_name ?? 'نامشخص',
-                    'total_income' => $item->total_income,
-                ];
-            });
+            ->get();
+
+        return $rows->map(function ($item) {
+            $staff = Staff::find($item->staff_id);
+            return [
+                'staff_name' => $staff->full_name ?? 'نامشخص',
+                'total_income' => (int) $item->total_income,
+            ];
+        });
     }
 
     /**
@@ -346,32 +364,30 @@ class PersonnelReportService extends BaseReportService
      */
     protected function getSatisfactionByStaff()
     {
-        return CustomerFeedback::whereHas('appointment', function ($q) {
-                $q->where('salon_id', $this->salonId);
-            })
-            ->whereNotNull('staff_id')
+        // customer_feedback.staff_id is not populated; use appointments JOIN instead
+        $rows = DB::table('customer_feedback as cf')
+            ->join('appointments as a', 'cf.appointment_id', '=', 'a.id')
+            ->where('a.salon_id', $this->salonId)
+            ->whereNotNull('a.staff_id')
             ->when($this->dateFrom, function ($q) {
-                $q->whereHas('appointment', function ($query) {
-                    $query->whereDate('appointment_date', '>=', $this->dateFrom);
-                });
+                $q->whereDate('a.appointment_date', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
-                $q->whereHas('appointment', function ($query) {
-                    $query->whereDate('appointment_date', '<=', $this->dateTo);
-                });
+                $q->whereDate('a.appointment_date', '<=', $this->dateTo);
             })
-            ->select('staff_id', DB::raw('AVG(rating) as avg_rating'), DB::raw('COUNT(*) as total_ratings'))
-            ->groupBy('staff_id')
+            ->select('a.staff_id', DB::raw('AVG(cf.rating) as avg_rating'), DB::raw('COUNT(*) as total_ratings'))
+            ->groupBy('a.staff_id')
             ->orderByDesc('avg_rating')
-            ->with('staff')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'staff_name' => $item->staff->full_name ?? 'نامشخص',
-                    'avg_rating' => round($item->avg_rating, 1),
-                    'total_ratings' => $item->total_ratings,
-                ];
-            });
+            ->get();
+
+        return $rows->map(function ($item) {
+            $staff = Staff::find($item->staff_id);
+            return [
+                'staff_name'    => $staff->full_name ?? 'نامشخص',
+                'avg_rating'    => round($item->avg_rating, 1),
+                'total_ratings' => $item->total_ratings,
+            ];
+        });
     }
 
     /**

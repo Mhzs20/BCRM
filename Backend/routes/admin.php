@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\AdminTransactionController;
 use App\Http\Controllers\Admin\ReferralManagementController;
 use App\Http\Controllers\Admin\ReferralSettingsController;
 use App\Http\Controllers\Admin\WalletManagementController;
+use App\Http\Controllers\Admin\SystemMonitorController;
 use App\Http\Controllers\ManualSmsController;
 use App\Http\Controllers\SmsCampaignController;
 use App\Http\Middleware\SuperAdminMiddleware;
@@ -175,5 +176,15 @@ Route::middleware(['auth:web', SuperAdminMiddleware::class])->name('admin.')->gr
     // Options Management (only list and toggle)
     Route::get('options', [\App\Http\Controllers\Admin\OptionController::class, 'index'])->name('options.index');
     Route::post('options/{option}/toggle-status', [\App\Http\Controllers\Admin\OptionController::class, 'toggleStatus'])->name('options.toggle-status');
+
+    // System Monitor
+    Route::prefix('system-monitor')->name('system-monitor.')->group(function () {
+        Route::get('/', [SystemMonitorController::class, 'index'])->name('index');
+        Route::get('/scheduler-status', [SystemMonitorController::class, 'schedulerStatus'])->name('scheduler-status');
+        Route::get('/app-log', [SystemMonitorController::class, 'appLog'])->name('app-log');
+        Route::post('/run-command', [SystemMonitorController::class, 'runCommand'])->name('run-command');
+        Route::post('/clear-log', [SystemMonitorController::class, 'clearLog'])->name('clear-log');
+    });
 });
-        Route::resource('card-setting', \App\Http\Controllers\Admin\CardSettingController::class);
+
+Route::resource('card-setting', \App\Http\Controllers\Admin\CardSettingController::class);
