@@ -25,7 +25,7 @@ class SubmitUpdateAppointmentRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     if (!$value) return;
                     $exists = \App\Models\PendingAppointmentUpdate::where('id', $value)
-                        ->where('salon_id', $this->route('salon'))
+                        ->where('salon_id', $salonId)
                         ->where('expires_at', '>', now())
                         ->exists();
                     if (!$exists) {

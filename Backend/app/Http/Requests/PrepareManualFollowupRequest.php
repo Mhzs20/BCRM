@@ -9,7 +9,8 @@ class PrepareManualFollowupRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $salonId = $this->route('salon');
+        $salon = $this->route('salon');
+        $salonId = is_object($salon) ? $salon->getKey() : $salon;
         return Auth::check() && Auth::user()->salons()->where('id', $salonId)->exists();
     }
 

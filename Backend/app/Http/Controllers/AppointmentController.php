@@ -643,6 +643,7 @@ class AppointmentController extends Controller
     }
     public function getAvailableSlots(GetAvailableSlotsRequest $request, $salon_id)
     {
+        $salon_id = is_object($salon_id) ? $salon_id->getKey() : (int) $salon_id;
         $validated = $request->validated();
 
         try {
@@ -683,6 +684,7 @@ class AppointmentController extends Controller
           */
         public function getAvailableSlotsPaginated(GetAvailableSlotsRequest $request, $salon_id)
         {
+            $salon_id = is_object($salon_id) ? $salon_id->getKey() : (int) $salon_id;
             $validated = $request->validated();
             try {
                 $query = Appointment::where('salon_id', $salon_id)
