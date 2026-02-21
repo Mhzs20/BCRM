@@ -124,7 +124,7 @@ class CheckSmsStatus implements ShouldQueue
 
     private function checkManualSmsTransactions(SmsService $smsService): void
     {
-        $pendingTransactions = SmsTransaction::where('status', 'pending')
+        $pendingTransactions = SmsTransaction::whereIn('status', ['pending', 'processing'])
             ->whereNotNull('external_response')
             ->limit(100) // Process in chunks
             ->get();

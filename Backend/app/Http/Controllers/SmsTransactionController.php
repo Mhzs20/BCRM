@@ -95,14 +95,13 @@ class SmsTransactionController extends Controller
             $toDate = null;
         }
 
-        // Default to current Jalali month if no dates provided
+        // Default to last 30 Jalali days (one Shamsi month ago until today)
         if (!$fromDate || !$toDate) {
-            $vNow = Verta::now();
             if (!$fromDate) {
-                $fromDate = $vNow->startMonth()->toCarbon()->startOfDay();
+                $fromDate = Verta::now()->subMonth()->toCarbon()->startOfDay();
             }
             if (!$toDate) {
-                $toDate = $vNow->endMonth()->toCarbon()->endOfDay();
+                $toDate = \Carbon\Carbon::now()->endOfDay();
             }
         }
 
@@ -441,15 +440,26 @@ class SmsTransactionController extends Controller
                     });
                 });
 
-                // Purchase transactions (in this project they are stored as SmsTransaction with type = 'purchase' or via Order)
-                $purchaseQuery = (clone $periodBaseQuery)->where(function($q) {
+                // Purchase transactions - بدون محدودیت بازه زمانی (کل خریدها)
+                // چون remaining_sms هم مقدار کل عمره، purchased_sms هم باید کل باشه
+                $allTimePurchaseQuery = SmsTransaction::query();
+                if ($salon) {
+                    $allTimePurchaseQuery->where('salon_id', $salon->id);
+                } else {
+                    $allTimePurchaseQuery->where('user_id', $user->id);
+                }
+                $allTimePurchaseQuery->where(function($q) {
+                    $q->where('description', 'NOT LIKE', 'پیامک گروهی توسط ادمین%')
+                      ->orWhereNull('description');
+                });
+                $allTimePurchaseQuery->where(function($q) {
                     $q->where('type', 'purchase')
                       ->orWhere('type', 'gift')
                       ->orWhere('sms_type', 'purchase');
                 });
 
                 // محاسبه با در نظر گرفتن تراکنش‌های قدیمی که sms_count ندارند
-                $totalPurchased = (clone $purchaseQuery)->get()->sum(function($t) {
+                $totalPurchased = (clone $allTimePurchaseQuery)->get()->sum(function($t) {
                     if ($t->sms_count !== null) {
                         return $t->sms_count;
                     }
@@ -459,7 +469,37 @@ class SmsTransactionController extends Controller
                     return 0;
                 });
                 
-                $totalConsumed = (clone $consumptionQuery)->get()->sum(function($t) {
+                // مصرف کل عمر (بدون محدودیت بازه زمانی) - هم‌خوان با purchased_sms و remaining_sms
+                $allTimeConsumptionQuery = SmsTransaction::query();
+                if ($salon) {
+                    $allTimeConsumptionQuery->where('salon_id', $salon->id);
+                } else {
+                    $allTimeConsumptionQuery->where('user_id', $user->id);
+                }
+                $allTimeConsumptionQuery->where(function($q) {
+                    $q->where('description', 'NOT LIKE', 'پیامک گروهی توسط ادمین%')
+                      ->orWhereNull('description');
+                });
+                $allTimeConsumptionQuery->where(function($q) {
+                    $q->where(function($subQ) {
+                        $subQ->whereIn('status', ['delivered', 'sent'])
+                             ->where(function($typeQ) {
+                                 $typeQ->whereIn('type', ['send', 'deduction', 'manual_send'])
+                                       ->orWhereIn('sms_type', [
+                                           'appointment_confirmation', 'appointment_reminder', 'manual_reminder',
+                                           'appointment_cancellation', 'appointment_modification', 'satisfaction_survey',
+                                           'birthday_greeting', 'service_specific_notes'
+                                       ]);
+                             });
+                    })
+                    ->orWhere(function($manualQ) {
+                        $manualQ->where('sms_type', 'manual_sms')
+                                ->where('approval_status', 'approved')
+                                ->where('balance_deducted_at_submission', '>', 0);
+                    });
+                });
+                
+                $totalConsumed = (clone $allTimeConsumptionQuery)->get()->sum(function($t) {
                     if ($t->sms_count !== null) {
                         return $t->sms_count;
                     }
@@ -741,7 +781,7 @@ class SmsTransactionController extends Controller
                 'appointment:id,appointment_date,start_time,end_time',
                 'salon:id,name'
             ])
-            ->where('status', 'delivered') // Only delivered messages
+            ->whereIn('status', ['delivered', 'sent']) // Only delivered/sent messages
             ->where('amount', '>', 0) // Only transactions with cost
             ->where('salon_id', $salon->id) // Only for this specific salon
             ->latest();
@@ -849,7 +889,7 @@ class SmsTransactionController extends Controller
 
         // Calculate summary statistics
         $summaryQuery = SmsTransaction::query()
-            ->where('status', 'delivered')
+            ->whereIn('status', ['delivered', 'sent'])
             ->where('amount', '>', 0)
             ->where('salon_id', $salon->id);
 

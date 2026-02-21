@@ -81,7 +81,7 @@ class ReportController extends Controller
     public function customersPreset(Request $request)
     {
         $salonId = $request->user()->active_salon_id;
-        $period = $request->input('period', 'weekly');
+        $period = $request->input('period', null);
 
         $report = $this->customerReportService->generatePresetReport($salonId, $period);
 
@@ -149,7 +149,7 @@ class ReportController extends Controller
     public function reservationsPreset(Request $request)
     {
         $salonId = $request->user()->active_salon_id;
-        $period = $request->input('period', 'weekly');
+        $period = $request->input('period', null);
 
         $report = $this->reservationReportService->generatePresetReport($salonId, $period);
 
@@ -209,7 +209,7 @@ class ReportController extends Controller
     public function appointmentsPreset(Request $request)
     {
         $salonId = $request->user()->active_salon_id;
-        $period = $request->input('period', 'weekly');
+        $period = $request->input('period', null);
 
         $report = $this->appointmentReportService->generatePresetReport($salonId, $period);
 
@@ -275,7 +275,7 @@ class ReportController extends Controller
     public function financePreset(Request $request)
     {
         $salonId = $request->user()->active_salon_id;
-        $period = $request->input('period', 'weekly');
+        $period = $request->input('period', null);
 
         $report = $this->financeReportService->generatePresetReport($salonId, $period);
 
@@ -322,7 +322,7 @@ class ReportController extends Controller
     public function personnelPreset(Request $request)
     {
         $salonId = $request->user()->active_salon_id;
-        $period = $request->input('period', 'weekly');
+        $period = $request->input('period', null);
 
         $report = $this->personnelReportService->generatePresetReport($salonId, $period);
 
@@ -386,7 +386,7 @@ class ReportController extends Controller
     public function satisfactionPreset(Request $request)
     {
         $salonId = $request->user()->active_salon_id;
-        $period = $request->input('period', 'weekly');
+        $period = $request->input('period', null);
 
         $report = $this->satisfactionReportService->generatePresetReport($salonId, $period);
 
@@ -446,7 +446,7 @@ class ReportController extends Controller
     public function smsPreset(Request $request)
     {
         $salonId = $request->user()->active_salon_id;
-        $period = $request->input('period', 'weekly');
+        $period = $request->input('period', null);
 
         $report = $this->smsReportService->generatePresetReport($salonId, $period);
 

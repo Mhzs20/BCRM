@@ -211,18 +211,13 @@ class DashboardController extends Controller
 
     private function mapSmsStatus(string $status): string
     {
-        switch ($status) {
-            case 'sent_simulated':
-            case 'sent_production_simulated':
-            case 'sent_otp':
-                return 'ارسال شده';
-            case 'failed':
-            case 'error':
-            case 'error_otp':
-                return 'خطا در ارسال';
-            default:
-                return 'در حال بررسی'; // Default for any other unexpected status
-        }
+        return match ($status) {
+            'sent', 'delivered', 'sent_simulated', 'sent_production_simulated', 'sent_otp' => 'ارسال شده',
+            'failed', 'error', 'error_otp' => 'خطا در ارسال',
+            'not_sent' => 'ارسال نشده',
+            'pending', 'processing' => 'در حال ارسال',
+            default => 'نامشخص',
+        };
     }
     public function allSalonAppointments(Request $request)
     {

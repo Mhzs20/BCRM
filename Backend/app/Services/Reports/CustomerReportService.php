@@ -13,16 +13,25 @@ class CustomerReportService extends BaseReportService
     /**
      * Generate preset report.
      */
-    public function generatePresetReport($salonId, $period = 'weekly')
+    public function generatePresetReport($salonId, $period = null)
     {
         $this->salonId = $salonId;
-        $dateRange = $this->getPresetDateRange($period);
-        $this->dateFrom = $dateRange['from'];
-        $this->dateTo = $dateRange['to'];
+
+        if ($period) {
+            $dateRange = $this->getPresetDateRange($period);
+            $this->dateFrom = $dateRange['from'];
+            $this->dateTo = $dateRange['to'];
+        } else {
+            // Overall mode: no date filtering
+            $this->dateFrom = null;
+            $this->dateTo = null;
+        }
 
         return [
-            'period' => $period,
-            'date_range' => $this->getPersianDateRange($this->dateFrom, $this->dateTo),
+            'period' => $period ?? 'overall',
+            'date_range' => $this->dateFrom && $this->dateTo
+                ? $this->getPersianDateRange($this->dateFrom, $this->dateTo)
+                : null,
             'kpis' => $this->calculateKPIs(),
             'charts' => $this->generateCharts(['period' => $period]),
             'sections' => $this->generateSections(),
@@ -333,6 +342,60 @@ class CustomerReportService extends BaseReportService
                 'labels' => $labels,
                 'data' => $data,
             ],
+            'payment_by_customer' => $this->getPaymentByCustomerChart($customerIds),
+            'income_by_staff' => $this->getIncomeByStaffChart($customerIds),
+        ];
+    }
+
+    /**
+     * Chart: top customers by total payments (bar chart).
+     */
+    protected function getPaymentByCustomerChart($customerIds = null)
+    {
+        $query = Payment::where('salon_id', $this->salonId)
+            ->select('customer_id', DB::raw('SUM(amount) as total_paid'))
+            ->groupBy('customer_id')
+            ->orderByDesc('total_paid')
+            ->with('customer')
+            ->limit(10);
+
+        if (!empty($customerIds)) {
+            $query->whereIn('customer_id', $customerIds);
+        }
+
+        $rows = $query->get();
+
+        return [
+            'labels' => $rows->map(fn($r) => $r->customer->name ?? 'نامشخص')->values()->all(),
+            'data'   => $rows->map(fn($r) => (int) $r->total_paid)->values()->all(),
+        ];
+    }
+
+    /**
+     * Chart: income per staff for appointments involving filtered customers.
+     */
+    protected function getIncomeByStaffChart($customerIds = null)
+    {
+        $query = Appointment::where('salon_id', $this->salonId)
+            ->where('status', 'completed')
+            ->whereNotNull('staff_id')
+            ->when($this->dateFrom, fn($q) => $q->whereDate('appointment_date', '>=', $this->dateFrom))
+            ->when($this->dateTo,   fn($q) => $q->whereDate('appointment_date', '<=', $this->dateTo));
+
+        if (!empty($customerIds)) {
+            $query->whereIn('customer_id', $customerIds);
+        }
+
+        $rows = $query
+            ->select('staff_id', DB::raw('SUM(total_price) as total_income'))
+            ->groupBy('staff_id')
+            ->orderByDesc('total_income')
+            ->with('staff')
+            ->get();
+
+        return [
+            'labels' => $rows->map(fn($r) => $r->staff->full_name ?? 'نامشخص')->values()->all(),
+            'data'   => $rows->map(fn($r) => (int) $r->total_income)->values()->all(),
         ];
     }
 
