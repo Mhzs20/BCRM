@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Package;
 use App\Models\Order;
+use App\Models\Salon;
 use App\Models\Transaction;
 use App\Models\UserPackage;
 use App\Events\FeaturePackagePurchased;
@@ -552,13 +553,13 @@ class PackageController extends Controller
      * دریافت پکیج فعال سالن 
      * GET /api/salons/{salon}/feature-packages/my-package
      */
-    public function myPackage($salon)
+    public function myPackage(Salon $salon)
     {
         try {
             $user = auth()->user();
             
             // Verify salon belongs to user
-            $userSalon = $user->salons()->find($salon);
+            $userSalon = $user->salons()->find($salon->id);
             
             if (!$userSalon) {
                 return response()->json([
@@ -569,7 +570,7 @@ class PackageController extends Controller
             
             $userPackage = UserPackage::with(['package.options', 'order', 'salon'])
                 ->where('user_id', $user->id)
-                ->where('salon_id', $salon)
+                ->where('salon_id', $salon->id)
                 ->where('status', 'active')
                 ->where('expires_at', '>', now())
                 ->first();
@@ -622,13 +623,13 @@ class PackageController extends Controller
      * تاریخچه خریدهای سالن
      * GET /api/salons/{salon}/feature-packages/my-packages
      */
-    public function myPackages($salon)
+    public function myPackages(Salon $salon)
     {
         try {
             $user = auth()->user();
             
             // Verify salon belongs to user
-            $userSalon = $user->salons()->find($salon);
+            $userSalon = $user->salons()->find($salon->id);
             
             if (!$userSalon) {
                 return response()->json([
@@ -639,7 +640,7 @@ class PackageController extends Controller
             
             $userPackages = UserPackage::with(['package', 'order', 'salon'])
                 ->where('user_id', $user->id)
-                ->where('salon_id', $salon)
+                ->where('salon_id', $salon->id)
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function ($userPackage) {
