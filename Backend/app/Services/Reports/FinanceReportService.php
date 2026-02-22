@@ -104,19 +104,21 @@ class FinanceReportService extends BaseReportService
         // Profit margin
         $profitMargin = $totalIncome > 0 ? ($netProfit / $totalIncome) * 100 : 0;
 
-        // Top personnel by income
-        $topPersonnelByIncome = Payment::where('salon_id', $this->salonId)
-            ->whereNotNull('staff_id')
+        // Top personnel by income (via appointment's staff_id)
+        $topPersonnelByIncome = DB::table('payments_received')
+            ->join('appointments', 'payments_received.appointment_id', '=', 'appointments.id')
+            ->join('salon_staff', 'appointments.staff_id', '=', 'salon_staff.id')
+            ->where('payments_received.salon_id', $this->salonId)
+            ->whereNotNull('appointments.staff_id')
             ->when($this->dateFrom, function ($q) {
-                $q->whereDate('date', '>=', $this->dateFrom);
+                $q->whereDate('payments_received.date', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
-                $q->whereDate('date', '<=', $this->dateTo);
+                $q->whereDate('payments_received.date', '<=', $this->dateTo);
             })
-            ->select('staff_id', DB::raw('SUM(amount) as total_income'))
-            ->groupBy('staff_id')
+            ->select('appointments.staff_id', 'salon_staff.full_name', DB::raw('SUM(payments_received.amount) as total_income'))
+            ->groupBy('appointments.staff_id', 'salon_staff.full_name')
             ->orderByDesc('total_income')
-            ->with('staff')
             ->first();
 
         // Top service by income
@@ -181,7 +183,7 @@ class FinanceReportService extends BaseReportService
             'commission_paid' => round($commissionPaid, 2),
             'profit_margin' => round($profitMargin, 1),
             'top_personnel_by_income' => [
-                'name' => $topPersonnelByIncome->staff->full_name ?? 'نامشخص',
+                'name' => $topPersonnelByIncome->full_name ?? 'نامشخص',
                 'amount' => $topPersonnelByIncome->total_income ?? 0,
             ],
             'top_service_by_income' => [
@@ -243,6 +245,64 @@ class FinanceReportService extends BaseReportService
             $expenseData[] = $expenseByWeekday[$i + 1] ?? 0;
         }
 
+        // ---- Total Income Pie Chart (مجموع دریافتی) ----
+        // Staff income = sum of payments linked to appointments with a staff
+        $staffIncome = DB::table('payments_received')
+            ->join('appointments', 'payments_received.appointment_id', '=', 'appointments.id')
+            ->where('payments_received.salon_id', $this->salonId)
+            ->whereNotNull('appointments.staff_id')
+            ->when($this->dateFrom, function ($q) {
+                $q->whereDate('payments_received.date', '>=', $this->dateFrom);
+            })
+            ->when($this->dateTo, function ($q) {
+                $q->whereDate('payments_received.date', '<=', $this->dateTo);
+            })
+            ->sum('payments_received.amount');
+
+        $totalIncome = Payment::where('salon_id', $this->salonId)
+            ->when($this->dateFrom, function ($q) {
+                $q->whereDate('date', '>=', $this->dateFrom);
+            })
+            ->when($this->dateTo, function ($q) {
+                $q->whereDate('date', '<=', $this->dateTo);
+            })
+            ->sum('amount');
+
+        $salonIncome = $totalIncome - $staffIncome;
+
+        // ---- Income Distribution by Staff Pie Chart (توزیع درآمد پرسنل) ----
+        $incomeByStaff = DB::table('payments_received')
+            ->join('appointments', 'payments_received.appointment_id', '=', 'appointments.id')
+            ->join('salon_staff', 'appointments.staff_id', '=', 'salon_staff.id')
+            ->where('payments_received.salon_id', $this->salonId)
+            ->whereNotNull('appointments.staff_id')
+            ->when($this->dateFrom, function ($q) {
+                $q->whereDate('payments_received.date', '>=', $this->dateFrom);
+            })
+            ->when($this->dateTo, function ($q) {
+                $q->whereDate('payments_received.date', '<=', $this->dateTo);
+            })
+            ->select('salon_staff.full_name', DB::raw('SUM(payments_received.amount) as total_income'))
+            ->groupBy('appointments.staff_id', 'salon_staff.full_name')
+            ->orderByDesc('total_income')
+            ->get();
+
+        // ---- Commission by Staff Bar Chart (پورسانت پرسنل) ----
+        $commissionByStaff = DB::table('staff_commission_transactions')
+            ->join('salon_staff', 'staff_commission_transactions.staff_id', '=', 'salon_staff.id')
+            ->where('staff_commission_transactions.salon_id', $this->salonId)
+            ->where('staff_commission_transactions.amount', '>', 0)
+            ->when($this->dateFrom, function ($q) {
+                $q->whereDate('staff_commission_transactions.created_at', '>=', $this->dateFrom);
+            })
+            ->when($this->dateTo, function ($q) {
+                $q->whereDate('staff_commission_transactions.created_at', '<=', $this->dateTo);
+            })
+            ->select('salon_staff.full_name', DB::raw('SUM(staff_commission_transactions.amount) as total_commission'))
+            ->groupBy('staff_commission_transactions.staff_id', 'salon_staff.full_name')
+            ->orderByDesc('total_commission')
+            ->get();
+
         return [
             'income_expense_by_weekday' => [
                 'labels' => $weekdays,
@@ -254,6 +314,32 @@ class FinanceReportService extends BaseReportService
                     [
                         'label' => 'پرداختی‌ها',
                         'data' => $expenseData,
+                    ],
+                ],
+            ],
+            'total_income_distribution' => [
+                'type' => 'pie',
+                'title' => 'مجموع دریافتی',
+                'total_income' => $totalIncome,
+                'staff_income' => $staffIncome,
+                'salon_income' => $salonIncome,
+                'labels' => ['درآمد سالن', 'درآمد خدمات'],
+                'data' => [$salonIncome, $staffIncome],
+            ],
+            'income_by_staff_chart' => [
+                'type' => 'pie',
+                'title' => 'توزیع درآمد پرسنل',
+                'labels' => $incomeByStaff->pluck('full_name')->toArray(),
+                'data' => $incomeByStaff->pluck('total_income')->toArray(),
+            ],
+            'commission_by_staff_chart' => [
+                'type' => 'bar',
+                'title' => 'پورسانت پرسنل',
+                'labels' => $commissionByStaff->pluck('full_name')->toArray(),
+                'datasets' => [
+                    [
+                        'label' => 'میزان پورسانت',
+                        'data' => $commissionByStaff->pluck('total_commission')->toArray(),
                     ],
                 ],
             ],
@@ -279,22 +365,24 @@ class FinanceReportService extends BaseReportService
      */
     protected function getIncomeByStaff()
     {
-        return Payment::where('salon_id', $this->salonId)
-            ->whereNotNull('staff_id')
+        return DB::table('payments_received')
+            ->join('appointments', 'payments_received.appointment_id', '=', 'appointments.id')
+            ->join('salon_staff', 'appointments.staff_id', '=', 'salon_staff.id')
+            ->where('payments_received.salon_id', $this->salonId)
+            ->whereNotNull('appointments.staff_id')
             ->when($this->dateFrom, function ($q) {
-                $q->whereDate('date', '>=', $this->dateFrom);
+                $q->whereDate('payments_received.date', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
-                $q->whereDate('date', '<=', $this->dateTo);
+                $q->whereDate('payments_received.date', '<=', $this->dateTo);
             })
-            ->select('staff_id', DB::raw('SUM(amount) as total_income'))
-            ->groupBy('staff_id')
+            ->select('appointments.staff_id', 'salon_staff.full_name', DB::raw('SUM(payments_received.amount) as total_income'))
+            ->groupBy('appointments.staff_id', 'salon_staff.full_name')
             ->orderByDesc('total_income')
-            ->with('staff')
             ->get()
             ->map(function ($item) {
                 return [
-                    'staff_name' => $item->staff->full_name ?? 'نامشخص',
+                    'staff_name' => $item->full_name ?? 'نامشخص',
                     'total_income' => $item->total_income,
                 ];
             });
@@ -302,26 +390,28 @@ class FinanceReportService extends BaseReportService
 
     /**
      * Get commission by staff.
+     * Uses staff_commission_transactions table as primary source,
+     * falls back to expenses with commission_payment type.
      */
     protected function getCommissionByStaff()
     {
-        return Expense::where('salon_id', $this->salonId)
-            ->where('expense_type', 'commission')
-            ->whereNotNull('staff_id')
+        return DB::table('staff_commission_transactions')
+            ->join('salon_staff', 'staff_commission_transactions.staff_id', '=', 'salon_staff.id')
+            ->where('staff_commission_transactions.salon_id', $this->salonId)
+            ->where('staff_commission_transactions.amount', '>', 0)
             ->when($this->dateFrom, function ($q) {
-                $q->whereDate('date', '>=', $this->dateFrom);
+                $q->whereDate('staff_commission_transactions.created_at', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
-                $q->whereDate('date', '<=', $this->dateTo);
+                $q->whereDate('staff_commission_transactions.created_at', '<=', $this->dateTo);
             })
-            ->select('staff_id', DB::raw('SUM(amount) as total_commission'))
-            ->groupBy('staff_id')
+            ->select('staff_commission_transactions.staff_id', 'salon_staff.full_name', DB::raw('SUM(staff_commission_transactions.amount) as total_commission'))
+            ->groupBy('staff_commission_transactions.staff_id', 'salon_staff.full_name')
             ->orderByDesc('total_commission')
-            ->with('staff')
             ->get()
             ->map(function ($item) {
                 return [
-                    'staff_name' => $item->staff->full_name ?? 'نامشخص',
+                    'staff_name' => $item->full_name ?? 'نامشخص',
                     'total_commission' => $item->total_commission,
                 ];
             });
@@ -332,6 +422,8 @@ class FinanceReportService extends BaseReportService
      */
     protected function getIncomeByService()
     {
+        // Calculate each service's share of the appointment payment
+        // When an appointment has multiple services, divide the payment equally
         return DB::table('appointment_service')
             ->join('appointments', 'appointment_service.appointment_id', '=', 'appointments.id')
             ->join('payments_received', 'appointments.id', '=', 'payments_received.appointment_id')
@@ -343,14 +435,17 @@ class FinanceReportService extends BaseReportService
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('payments_received.date', '<=', $this->dateTo);
             })
-            ->select('services.name', DB::raw('SUM(payments_received.amount) as total_income'))
+            ->select(
+                'services.name',
+                DB::raw('SUM(payments_received.amount / (SELECT COUNT(*) FROM appointment_service AS as2 WHERE as2.appointment_id = appointments.id)) as total_income')
+            )
             ->groupBy('services.id', 'services.name')
             ->orderByDesc('total_income')
             ->get()
             ->map(function ($item) {
                 return [
                     'service' => $item->name,
-                    'total_income' => $item->total_income,
+                    'total_income' => round($item->total_income, 2),
                 ];
             });
     }
