@@ -153,6 +153,16 @@ class ProcessScheduledSatisfactionSurveys implements ShouldQueue
                     : 'pending';
             }
 
+            // Mark the appointment as survey sent
+            if ($status !== 'failed') {
+                $appointment->survey_sms_sent_at = Carbon::now();
+                $appointment->satisfaction_sms_status = $status;
+                if ($messageId) {
+                    $appointment->satisfaction_sms_message_id = $messageId;
+                }
+                $appointment->save();
+            }
+
             // Log the send
             SatisfactionSurveyLog::create([
                 'appointment_id' => $appointment->id,

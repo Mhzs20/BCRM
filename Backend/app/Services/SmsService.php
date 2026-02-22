@@ -308,6 +308,7 @@ class SmsService
                         } elseif ($eventType === 'satisfaction_survey') {
                             $appointment->satisfaction_sms_status = $internalStatus;
                             $appointment->satisfaction_sms_message_id = $messageId;
+                            $appointment->survey_sms_sent_at = now();
                         } elseif ($eventType === 'appointment_confirmation') {
                             $appointment->confirmation_sms_status = $internalStatus;
                             $appointment->confirmation_sms_message_id = $messageId;
