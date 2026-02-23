@@ -76,7 +76,7 @@ class CustomerReportService extends BaseReportService
         
         $baseQuery = Customer::where('salon_id', $this->salonId);
         
-        if (!empty($customerIds)) {
+        if ($customerIds !== null) {
             $baseQuery->whereIn('id', $customerIds);
         }
         
@@ -88,17 +88,17 @@ class CustomerReportService extends BaseReportService
         
         // Use filtered customers for all calculations
         $allCustomersQuery = Customer::where('salon_id', $this->salonId);
-        if (!empty($customerIds)) {
+        if ($customerIds !== null) {
             $allCustomersQuery->whereIn('id', $customerIds);
         }
         $allCustomers = $allCustomersQuery->get();
 
-        // Active/Inactive customers (customers with appointments in the last 3 months are active)
-        $threeMonthsAgo = Carbon::now()->subMonths(3);
+        // Active/Inactive customers (customers with appointments in the last 6 months are active)
+        $sixMonthsAgo = Carbon::now()->subMonths(6);
         $activeCustomerIdsQuery = Appointment::where('salon_id', $this->salonId)
-            ->where('appointment_date', '>=', $threeMonthsAgo);
+            ->where('appointment_date', '>=', $sixMonthsAgo);
             
-        if (!empty($customerIds)) {
+        if ($customerIds !== null) {
             $activeCustomerIdsQuery->whereIn('customer_id', $customerIds);
         }
         
@@ -106,13 +106,13 @@ class CustomerReportService extends BaseReportService
 
         $activeCustomersQuery = Customer::where('salon_id', $this->salonId)
             ->whereIn('id', $activeCustomerIds);
-        if (!empty($customerIds)) {
+        if ($customerIds !== null) {
             $activeCustomersQuery->whereIn('id', $customerIds);
         }
         $activeCustomers = $activeCustomersQuery->count();
 
         $inactiveCustomersQuery = Customer::where('salon_id', $this->salonId);
-        if (!empty($customerIds)) {
+        if ($customerIds !== null) {
             $inactiveCustomersQuery->whereIn('id', $customerIds);
         }
         $inactiveCustomers = $inactiveCustomersQuery->count() - $activeCustomers;
@@ -127,21 +127,16 @@ class CustomerReportService extends BaseReportService
         // Repeat visits (customers with more than 1 appointment)
         $repeatCustomersQuery = Customer::where('salon_id', $this->salonId)
             ->has('appointments', '>', 1);
-        if (!empty($customerIds)) {
+        if ($customerIds !== null) {
             $repeatCustomersQuery->whereIn('id', $customerIds);
         }
         $repeatCustomers = $repeatCustomersQuery->count();
 
-        // Top customer by revenue
-        $topCustomerByRevenueQuery = Payment::where('salon_id', $this->salonId)
-            ->select('customer_id', DB::raw('SUM(amount) as total_paid'))
-            ->groupBy('customer_id')
+        // Top customer by revenue (unified: payments_received + unlinked appointment costs)
+        $topRow = $this->buildTotalPaidPerCustomer($customerIds)
             ->orderByDesc('total_paid')
-            ->with('customer');
-        if (!empty($customerIds)) {
-            $topCustomerByRevenueQuery->whereIn('customer_id', $customerIds);
-        }
-        $topCustomerByRevenue = $topCustomerByRevenueQuery->first();
+            ->first();
+        $topCustomerModel = $topRow ? Customer::find($topRow->customer_id) : null;
 
         // Top job/profession
         $topJobQuery = Customer::where('salon_id', $this->salonId)
@@ -150,7 +145,7 @@ class CustomerReportService extends BaseReportService
             ->groupBy('profession_id')
             ->orderByDesc('count')
             ->with('profession');
-        if (!empty($customerIds)) {
+        if ($customerIds !== null) {
             $topJobQuery->whereIn('id', $customerIds);
         }
         $topJob = $topJobQuery->first();
@@ -162,7 +157,7 @@ class CustomerReportService extends BaseReportService
             ->groupBy('how_introduced_id')
             ->orderByDesc('count')
             ->with('howIntroduced');
-        if (!empty($customerIds)) {
+        if ($customerIds !== null) {
             $topAcquisitionSourceQuery->whereIn('id', $customerIds);
         }
         $topAcquisitionSource = $topAcquisitionSourceQuery->first();
@@ -174,14 +169,14 @@ class CustomerReportService extends BaseReportService
             'average_age' => round($avgAge ?? 0, 1),
             'repeat_visits' => $repeatCustomers,
             'top_customer_by_revenue' => [
-                'name' => $topCustomerByRevenue->customer->name ?? 'نامشخص',
-                'amount' => $topCustomerByRevenue->total_paid ?? 0,
+                'name' => $topCustomerModel->name ?? 'نامشخص',
+                'amount' => $topRow->total_paid ?? 0,
             ],
             'top_job' => $topJob->profession->name ?? 'نامشخص',
             'top_acquisition_source' => $topAcquisitionSource->howIntroduced->name ?? 'نامشخص',
             'highest_payer' => [
-                'name' => $topCustomerByRevenue->customer->name ?? 'نامشخص',
-                'amount' => $topCustomerByRevenue->total_paid ?? 0,
+                'name' => $topCustomerModel->name ?? 'نامشخص',
+                'amount' => $topRow->total_paid ?? 0,
             ],
         ];
     }
@@ -254,11 +249,9 @@ class CustomerReportService extends BaseReportService
             }
         }
 
-        // Filter by paid amount range
+        // Filter by paid amount range (unified: payments_received + unlinked appointment costs)
         if (isset($filters['min_paid_amount']) || isset($filters['max_paid_amount'])) {
-            $paymentQuery = Payment::where('salon_id', $this->salonId)
-                ->select('customer_id', DB::raw('SUM(amount) as total_paid'))
-                ->groupBy('customer_id');
+            $paymentQuery = $this->buildTotalPaidPerCustomer();
             
             if (isset($filters['min_paid_amount'])) {
                 $paymentQuery->havingRaw('SUM(amount) >= ?', [$filters['min_paid_amount']]);
@@ -295,7 +288,7 @@ class CustomerReportService extends BaseReportService
         
         $newCustomersQuery = Customer::where('salon_id', $this->salonId);
         
-        if (!empty($customerIds)) {
+        if ($customerIds !== null) {
             $newCustomersQuery->whereIn('id', $customerIds);
         }
         
@@ -349,24 +342,20 @@ class CustomerReportService extends BaseReportService
 
     /**
      * Chart: top customers by total payments (bar chart).
+     * Unified: payments_received + unlinked completed appointment costs.
      */
     protected function getPaymentByCustomerChart($customerIds = null)
     {
-        $query = Payment::where('salon_id', $this->salonId)
-            ->select('customer_id', DB::raw('SUM(amount) as total_paid'))
-            ->groupBy('customer_id')
+        $rows = $this->buildTotalPaidPerCustomer($customerIds)
             ->orderByDesc('total_paid')
-            ->with('customer')
-            ->limit(10);
+            ->limit(10)
+            ->get();
 
-        if (!empty($customerIds)) {
-            $query->whereIn('customer_id', $customerIds);
-        }
-
-        $rows = $query->get();
+        $customerMap = Customer::whereIn('id', $rows->pluck('customer_id')->all())
+            ->get()->keyBy('id');
 
         return [
-            'labels' => $rows->map(fn($r) => $r->customer->name ?? 'نامشخص')->values()->all(),
+            'labels' => $rows->map(fn($r) => $customerMap[$r->customer_id]->name ?? 'نامشخص')->values()->all(),
             'data'   => $rows->map(fn($r) => (int) $r->total_paid)->values()->all(),
         ];
     }
@@ -382,7 +371,7 @@ class CustomerReportService extends BaseReportService
             ->when($this->dateFrom, fn($q) => $q->whereDate('appointment_date', '>=', $this->dateFrom))
             ->when($this->dateTo,   fn($q) => $q->whereDate('appointment_date', '<=', $this->dateTo));
 
-        if (!empty($customerIds)) {
+        if ($customerIds !== null) {
             $query->whereIn('customer_id', $customerIds);
         }
 
@@ -424,7 +413,7 @@ class CustomerReportService extends BaseReportService
         $customersQuery = Customer::where('salon_id', $this->salonId)
             ->whereNotNull('birth_date');
             
-        if (!empty($customerIds)) {
+        if ($customerIds !== null) {
             $customersQuery->whereIn('id', $customerIds);
         }
         
@@ -448,7 +437,7 @@ class CustomerReportService extends BaseReportService
                 $ageRanges['36-45']++;
             } elseif ($age >= 46 && $age <= 55) {
                 $ageRanges['46-55']++;
-            } else {
+            } elseif ($age >= 56) {
                 $ageRanges['56+']++;
             }
         }
@@ -457,28 +446,66 @@ class CustomerReportService extends BaseReportService
     }
 
     /**
+     * Build a query returning (customer_id, total_paid) from two combined sources:
+     *  1. All records in payments_received for this salon
+     *  2. Completed appointments with total_price > 0 that have NO linked payment in payments_received
+     * This ensures every settled appointment is counted once, even if not linked to a payment record.
+     */
+    protected function buildTotalPaidPerCustomer($customerIds = null)
+    {
+        $salonId = $this->salonId;
+
+        // Source 1: all payments_received entries for this salon
+        $paymentsSubq = DB::table('payments_received')
+            ->select('customer_id', 'amount')
+            ->where('salon_id', $salonId);
+
+        // Source 2: completed appointments with a price but no linked payment record
+        $appointmentsSubq = DB::table('appointments as a')
+            ->select('a.customer_id', DB::raw('a.total_price as amount'))
+            ->where('a.salon_id', $salonId)
+            ->where('a.status', 'completed')
+            ->where('a.total_price', '>', 0)
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                  ->from('payments_received as p')
+                  ->whereColumn('p.appointment_id', 'a.id');
+            });
+
+        $union = $paymentsSubq->unionAll($appointmentsSubq);
+
+        $query = DB::table(DB::raw("({$union->toSql()}) as unified_payments"))
+            ->mergeBindings($union)
+            ->select('customer_id', DB::raw('SUM(amount) as total_paid'))
+            ->groupBy('customer_id');
+
+        if ($customerIds !== null) {
+            $query->whereIn('customer_id', $customerIds);
+        }
+
+        return $query;
+    }
+
+    /**
      * Get payment distribution by customer.
+     * Unified: payments_received + unlinked completed appointment costs.
      */
     protected function getPaymentDistribution($customerIds = null)
     {
-        $paymentQuery = Payment::where('salon_id', $this->salonId)
-            ->select('customer_id', DB::raw('SUM(amount) as total_paid'))
-            ->groupBy('customer_id')
+        $rows = $this->buildTotalPaidPerCustomer($customerIds)
             ->orderByDesc('total_paid')
-            ->with('customer')
-            ->limit(10);
-            
-        if (!empty($customerIds)) {
-            $paymentQuery->whereIn('customer_id', $customerIds);
-        }
-        
-        return $paymentQuery->get()
-            ->map(function ($payment) {
-                return [
-                    'customer_name' => $payment->customer->name ?? 'نامشخص',
-                    'total_paid' => $payment->total_paid,
-                ];
-            });
+            ->limit(10)
+            ->get();
+
+        $customerMap = Customer::whereIn('id', $rows->pluck('customer_id')->all())
+            ->get()->keyBy('id');
+
+        return $rows->map(function ($row) use ($customerMap) {
+            return [
+                'customer_name' => $customerMap[$row->customer_id]->name ?? 'نامشخص',
+                'total_paid' => $row->total_paid,
+            ];
+        });
     }
 
     /**
@@ -493,7 +520,7 @@ class CustomerReportService extends BaseReportService
             ->orderByDesc('count')
             ->with('profession');
             
-        if (!empty($customerIds)) {
+        if ($customerIds !== null) {
             $professionQuery->whereIn('id', $customerIds);
         }
         
@@ -519,7 +546,7 @@ class CustomerReportService extends BaseReportService
             ->groupBy('customer_groups.id', 'customer_groups.name')
             ->orderByDesc('count');
             
-        if (!empty($customerIds)) {
+        if ($customerIds !== null) {
             $groupQuery->whereIn('customer_customer_group.customer_id', $customerIds);
         }
         
@@ -544,7 +571,7 @@ class CustomerReportService extends BaseReportService
             ->orderByDesc('count')
             ->with('howIntroduced');
             
-        if (!empty($customerIds)) {
+        if ($customerIds !== null) {
             $acquisitionQuery->whereIn('id', $customerIds);
         }
         
@@ -568,7 +595,7 @@ class CustomerReportService extends BaseReportService
             ->orderByDesc('appointments_count')
             ->limit(10);
             
-        if (!empty($customerIds)) {
+        if ($customerIds !== null) {
             $repeatVisitsQuery->whereIn('id', $customerIds);
         }
         
