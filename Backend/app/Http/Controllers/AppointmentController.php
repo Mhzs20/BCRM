@@ -616,9 +616,9 @@ class AppointmentController extends Controller
         }
     }
 
-    public function destroy($salon_id, Appointment $appointment)
+    public function destroy(Salon $salon, Appointment $appointment)
     {
-        if ($appointment->salon_id != $salon_id) {
+        if ($appointment->salon_id != $salon->id) {
             return response()->json(['message' => 'نوبت یافت نشد.'], 404);
         }
 
@@ -627,7 +627,7 @@ class AppointmentController extends Controller
         }
 
         $customer = $appointment->customer;
-        $salon = Salon::with('user')->findOrFail($salon_id);
+        $salon->loadMissing('user');
 
         // Update the status to 'canceled' instead of deleting
         $appointment->update(['status' => 'canceled']);

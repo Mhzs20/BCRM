@@ -176,8 +176,12 @@ class SmsReportService extends BaseReportService
      */
     protected function generateCharts(array $filters = [])
     {
-        // SMS sent by day (excluding purchase transactions)
-        $smsByDay = SmsTransaction::where('salon_id', $this->salonId)
+        $grouping = $this->getChartGrouping($filters['period'] ?? null);
+        $sentGroupSql = str_replace('{{column}}', 'sent_at', $grouping['sql']);
+        $createdGroupSql = str_replace('{{column}}', 'created_at', $grouping['sql']);
+
+        // SMS sent by period (excluding purchase transactions)
+        $smsByPeriod = SmsTransaction::where('salon_id', $this->salonId)
             ->where(function ($q) {
                 $q->where('type', '!=', 'purchase')
                   ->orWhereNull('type');
@@ -190,21 +194,35 @@ class SmsReportService extends BaseReportService
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('sent_at', '<=', $this->dateTo);
             })
-            ->select(DB::raw('DATE(sent_at) as date'), DB::raw('SUM(sms_count) as count'))
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
+            ->selectRaw($sentGroupSql . ', SUM(sms_count) as count')
+            ->groupBy('group_key')
+            ->orderBy('group_key')
+            ->get()
+            ->pluck('count', 'group_key');
 
-        $dates = [];
-        $counts = [];
+        $labels = $grouping['labels'];
+        $smsData = array_fill(0, count($labels), 0);
 
-        foreach ($smsByDay as $item) {
-            $dates[] = $item->date;
-            $counts[] = $item->count;
+        foreach ($smsByPeriod as $key => $count) {
+            if ($grouping['type'] === 'weekday') {
+                $mapping = [7 => 0, 1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6];
+                $index = $mapping[$key] ?? null;
+                if ($index !== null) $smsData[$index] = $count;
+            } elseif ($grouping['type'] === 'day') {
+                $index = $key - 1;
+                if ($index >= 0 && $index < count($smsData)) $smsData[$index] = $count;
+            } elseif ($grouping['type'] === 'month') {
+                try {
+                    $date = Carbon::parse($key . '-01');
+                    $verta = new \Hekmatinasser\Verta\Verta($date);
+                    $monthIndex = $verta->month - 1;
+                    if ($monthIndex >= 0 && $monthIndex < 12) $smsData[$monthIndex] += $count;
+                } catch (\Exception $e) {}
+            }
         }
 
         // SMS packages purchased over time
-        $packagesPurchased = SmsTransaction::where('salon_id', $this->salonId)
+        $packagesByPeriod = SmsTransaction::where('salon_id', $this->salonId)
             ->where('sms_type', 'purchase')
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('created_at', '>=', $this->dateFrom);
@@ -212,36 +230,56 @@ class SmsReportService extends BaseReportService
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('created_at', '<=', $this->dateTo);
             })
-            ->select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(sms_count) as total_sms'), DB::raw('COUNT(*) as package_count'))
-            ->groupBy('date')
-            ->orderBy('date')
+            ->selectRaw($createdGroupSql . ', SUM(sms_count) as total_sms, COUNT(*) as package_count')
+            ->groupBy('group_key')
+            ->orderBy('group_key')
             ->get();
 
-        $packageDates = [];
-        $packageSmsCount = [];
-        $packageCount = [];
+        $packageSmsData = array_fill(0, count($labels), 0);
+        $packageCountData = array_fill(0, count($labels), 0);
 
-        foreach ($packagesPurchased as $item) {
-            $packageDates[] = $item->date;
-            $packageSmsCount[] = $item->total_sms;
-            $packageCount[] = $item->package_count;
+        foreach ($packagesByPeriod as $item) {
+            if ($grouping['type'] === 'weekday') {
+                $mapping = [7 => 0, 1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6];
+                $index = $mapping[$item->group_key] ?? null;
+                if ($index !== null) {
+                    $packageSmsData[$index] = $item->total_sms;
+                    $packageCountData[$index] = $item->package_count;
+                }
+            } elseif ($grouping['type'] === 'day') {
+                $index = $item->group_key - 1;
+                if ($index >= 0 && $index < count($packageSmsData)) {
+                    $packageSmsData[$index] = $item->total_sms;
+                    $packageCountData[$index] = $item->package_count;
+                }
+            } elseif ($grouping['type'] === 'month') {
+                try {
+                    $date = Carbon::parse($item->group_key . '-01');
+                    $verta = new \Hekmatinasser\Verta\Verta($date);
+                    $monthIndex = $verta->month - 1;
+                    if ($monthIndex >= 0 && $monthIndex < 12) {
+                        $packageSmsData[$monthIndex] += $item->total_sms;
+                        $packageCountData[$monthIndex] += $item->package_count;
+                    }
+                } catch (\Exception $e) {}
+            }
         }
 
         return [
             'sms_by_day' => [
-                'labels' => $dates,
-                'data' => $counts,
+                'labels' => $labels,
+                'data' => $smsData,
             ],
             'packages_purchased' => [
-                'labels' => $packageDates,
+                'labels' => $labels,
                 'datasets' => [
                     [
                         'label' => 'تعداد پیامک',
-                        'data' => $packageSmsCount,
+                        'data' => $packageSmsData,
                     ],
                     [
                         'label' => 'تعداد بسته',
-                        'data' => $packageCount,
+                        'data' => $packageCountData,
                     ],
                 ],
             ],

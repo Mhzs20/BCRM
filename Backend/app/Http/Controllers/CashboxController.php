@@ -312,6 +312,61 @@ class CashboxController extends Controller
     }
 
     /**
+     * لیست تراکنش‌های همه صندوق‌ها
+     */
+    public function allTransactions(Request $request, $salon)
+    {
+        $validator = Validator::make($request->all(), [
+            'start_date'  => 'nullable|date',
+            'end_date'    => 'nullable|date|after_or_equal:start_date',
+            'type'        => 'nullable|in:income,expense,transfer',
+            'category'    => 'nullable|string',
+            'cashbox_id'  => 'nullable|integer',
+            'per_page'    => 'nullable|integer|min:1|max:100',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        $query = CashboxTransaction::forSalon($salon->id)
+            ->with(['cashbox', 'fromCashbox', 'toCashbox', 'payment', 'expense', 'commissionTransaction'])
+            ->orderBy('transaction_date', 'desc')
+            ->orderBy('created_at', 'desc');
+
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $query->betweenDates($request->start_date, $request->end_date);
+        } elseif ($request->filled('start_date')) {
+            $query->where('transaction_date', '>=', $request->start_date);
+        } elseif ($request->filled('end_date')) {
+            $query->where('transaction_date', '<=', $request->end_date);
+        }
+
+        if ($request->filled('type')) {
+            $query->where('type', $request->type);
+        }
+
+        if ($request->filled('category')) {
+            $query->byCategory($request->category);
+        }
+
+        if ($request->filled('cashbox_id')) {
+            $query->forCashbox($request->cashbox_id);
+        }
+
+        $perPage = $request->input('per_page', 20);
+        $transactions = $query->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'data'    => $transactions,
+        ]);
+    }
+
+    /**
      * محاسبه مجدد موجودی
      */
     public function recalculateBalance($salon, $id)
