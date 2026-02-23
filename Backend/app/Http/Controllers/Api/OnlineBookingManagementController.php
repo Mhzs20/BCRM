@@ -27,6 +27,7 @@ class OnlineBookingManagementController extends Controller
      */
     public function index(Request $request, $salonId)
     {
+        $salonId = is_object($salonId) ? $salonId->id : $salonId;
         $perPage = $request->input('per_page', 15);
         $status = $request->input('status'); // pending, confirmed, canceled
         $jalaliDate = $request->input('date'); // YYYY/MM/DD or YYYY-MM-DD
@@ -279,6 +280,7 @@ class OnlineBookingManagementController extends Controller
      */
     public function approve(Request $request, $salonId, $appointmentId)
     {
+        $salonId = is_object($salonId) ? $salonId->id : $salonId;
         $appointment = Appointment::where('salon_id', $salonId)
             ->where('id', $appointmentId)
             ->firstOrFail();
@@ -333,6 +335,7 @@ class OnlineBookingManagementController extends Controller
      */
     public function reject(Request $request, $salonId, $appointmentId)
     {
+        $salonId = is_object($salonId) ? $salonId->id : $salonId;
         $appointment = Appointment::where('salon_id', $salonId)
             ->where('id', $appointmentId)
             ->firstOrFail();
@@ -363,6 +366,7 @@ class OnlineBookingManagementController extends Controller
      */
     public function bulkApprove(Request $request, $salonId)
     {
+        $salonId = is_object($salonId) ? $salonId->id : $salonId;
         $validated = $request->validate([
             'appointment_ids' => 'required|array|min:1',
             'appointment_ids.*' => 'integer'

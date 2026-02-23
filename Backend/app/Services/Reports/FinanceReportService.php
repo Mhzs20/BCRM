@@ -210,39 +210,74 @@ class FinanceReportService extends BaseReportService
      */
     protected function generateCharts(array $filters = [])
     {
-        // Income and expense by weekday
-        $incomeByWeekday = Payment::where('salon_id', $this->salonId)
+        $grouping = $this->getChartGrouping($filters['period'] ?? null);
+        $groupSql = str_replace('{{column}}', 'date', $grouping['sql']);
+
+        // Income by period
+        $incomeByPeriod = Payment::where('salon_id', $this->salonId)
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('date', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('date', '<=', $this->dateTo);
             })
-            ->select(DB::raw('DAYOFWEEK(date) as day_of_week'), DB::raw('SUM(amount) as total'))
-            ->groupBy('day_of_week')
+            ->selectRaw($groupSql . ', SUM(amount) as total')
+            ->groupBy('group_key')
+            ->orderBy('group_key')
             ->get()
-            ->pluck('total', 'day_of_week');
+            ->pluck('total', 'group_key');
 
-        $expenseByWeekday = Expense::where('salon_id', $this->salonId)
+        $expenseByPeriod = Expense::where('salon_id', $this->salonId)
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('date', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('date', '<=', $this->dateTo);
             })
-            ->select(DB::raw('DAYOFWEEK(date) as day_of_week'), DB::raw('SUM(amount) as total'))
-            ->groupBy('day_of_week')
+            ->selectRaw($groupSql . ', SUM(amount) as total')
+            ->groupBy('group_key')
+            ->orderBy('group_key')
             ->get()
-            ->pluck('total', 'day_of_week');
+            ->pluck('total', 'group_key');
 
-        $weekdays = [];
-        $incomeData = [];
-        $expenseData = [];
+        $labels = $grouping['labels'];
+        $incomeData = array_fill(0, count($labels), 0);
+        $expenseData = array_fill(0, count($labels), 0);
 
-        for ($i = 0; $i < 7; $i++) {
-            $weekdays[] = $this->getWeekdayName($i);
-            $incomeData[] = $incomeByWeekday[$i + 1] ?? 0;
-            $expenseData[] = $expenseByWeekday[$i + 1] ?? 0;
+        foreach ($incomeByPeriod as $key => $total) {
+            if ($grouping['type'] === 'weekday') {
+                $mapping = [7 => 0, 1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6];
+                $index = $mapping[$key] ?? null;
+                if ($index !== null) $incomeData[$index] = $total;
+            } elseif ($grouping['type'] === 'day') {
+                $index = $key - 1;
+                if ($index >= 0 && $index < count($incomeData)) $incomeData[$index] = $total;
+            } elseif ($grouping['type'] === 'month') {
+                try {
+                    $date = Carbon::parse($key . '-01');
+                    $verta = new \Hekmatinasser\Verta\Verta($date);
+                    $monthIndex = $verta->month - 1;
+                    if ($monthIndex >= 0 && $monthIndex < 12) $incomeData[$monthIndex] += $total;
+                } catch (\Exception $e) {}
+            }
+        }
+
+        foreach ($expenseByPeriod as $key => $total) {
+            if ($grouping['type'] === 'weekday') {
+                $mapping = [7 => 0, 1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6];
+                $index = $mapping[$key] ?? null;
+                if ($index !== null) $expenseData[$index] = $total;
+            } elseif ($grouping['type'] === 'day') {
+                $index = $key - 1;
+                if ($index >= 0 && $index < count($expenseData)) $expenseData[$index] = $total;
+            } elseif ($grouping['type'] === 'month') {
+                try {
+                    $date = Carbon::parse($key . '-01');
+                    $verta = new \Hekmatinasser\Verta\Verta($date);
+                    $monthIndex = $verta->month - 1;
+                    if ($monthIndex >= 0 && $monthIndex < 12) $expenseData[$monthIndex] += $total;
+                } catch (\Exception $e) {}
+            }
         }
 
         // ---- Total Income Pie Chart (مجموع دریافتی) ----
@@ -305,7 +340,7 @@ class FinanceReportService extends BaseReportService
 
         return [
             'income_expense_by_weekday' => [
-                'labels' => $weekdays,
+                'labels' => $labels,
                 'datasets' => [
                     [
                         'label' => 'دریافتی‌ها',

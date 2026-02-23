@@ -300,6 +300,7 @@ Route::middleware('auth:api')->group(function () {
                 Route::get('dashboard', [\App\Http\Controllers\CashboxController::class, 'dashboard'])->name('dashboard');
                 Route::get('/', [\App\Http\Controllers\CashboxController::class, 'index'])->name('index');
                 Route::post('/', [\App\Http\Controllers\CashboxController::class, 'store'])->name('store');
+                Route::get('transactions', [\App\Http\Controllers\CashboxController::class, 'allTransactions'])->name('all_transactions');
                 Route::get('{cashbox}', [\App\Http\Controllers\CashboxController::class, 'show'])->name('show');
                 Route::put('{cashbox}', [\App\Http\Controllers\CashboxController::class, 'update'])->name('update');
                 Route::delete('{cashbox}', [\App\Http\Controllers\CashboxController::class, 'destroy'])->name('destroy');
