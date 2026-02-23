@@ -389,7 +389,10 @@ class AuthController extends Controller
         if (isset($responseData['salons'])) {
             foreach ($responseData['salons'] as &$salon) {
                 $salon['online_booking_url'] = route('booking.show', ['salonId' => $salon['id']]);
-                
+
+                // credit_score = تعداد شارژ پیامک باقیمانده
+                $salon['credit_score'] = (int) (\App\Models\SalonSmsBalance::where('salon_id', $salon['id'])->value('balance') ?? 0);
+
                 // Add active package for each salon
                 $salonPackage = \App\Models\UserPackage::with(['package.options'])
                     ->where('salon_id', $salon['id'])
@@ -407,8 +410,11 @@ class AuthController extends Controller
                         'expires_at_jalali' => \Morilog\Jalali\Jalalian::fromDateTime($salonPackage->expires_at)->format('Y/m/d'),
                         'days_remaining' => now()->diffInDays($salonPackage->expires_at),
                     ];
+                    // credit_expiry_date = روزهای باقیمانده از پکیج فعال سالن
+                    $salon['credit_expiry_date'] = (int) now()->diffInDays($salonPackage->expires_at);
                 } else {
                     $salon['active_package'] = null;
+                    $salon['credit_expiry_date'] = null;
                 }
             }
         }
