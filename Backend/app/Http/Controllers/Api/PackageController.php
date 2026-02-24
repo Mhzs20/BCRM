@@ -620,6 +620,117 @@ class PackageController extends Controller
     }
 
     /**
+     * نمای کلی پکیج: پکیج فعال فعلی + تاریخچه خرید با روش پرداخت
+     * GET /api/salons/{salon}/feature-packages/overview
+     */
+    public function packageOverview(Salon $salon)
+    {
+        try {
+            $user = auth()->user();
+
+            $userSalon = $user->salons()->find($salon->id);
+            if (!$userSalon) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'سالن یافت نشد یا به شما تعلق ندارد'
+                ], 403);
+            }
+
+            // --- پکیج فعال فعلی ---
+            $activeUserPackage = UserPackage::with(['package.options', 'salon'])
+                ->where('user_id', $user->id)
+                ->where('salon_id', $salon->id)
+                ->where('status', 'active')
+                ->where('expires_at', '>', now())
+                ->first();
+
+            $activePackageData = null;
+            if ($activeUserPackage) {
+                $activePackageData = [
+                    'id'               => $activeUserPackage->id,
+                    'package'          => [
+                        'id'          => $activeUserPackage->package->id,
+                        'name'        => $activeUserPackage->package->name,
+                        'description' => $activeUserPackage->package->description,
+                        'options'     => $activeUserPackage->package->options->map(fn($o) => [
+                            'id'      => $o->id,
+                            'name'    => $o->name,
+                            'details' => $o->details,
+                        ])->values(),
+                    ],
+                    'amount_paid'        => (int) $activeUserPackage->amount_paid,
+                    'formatted_amount'   => number_format((int) $activeUserPackage->amount_paid / 10) . ' تومان',
+                    'status'             => $activeUserPackage->status,
+                    'purchased_at'       => $activeUserPackage->purchased_at?->toDateTimeString(),
+                    'purchased_at_jalali'=> $activeUserPackage->purchased_at
+                        ? verta($activeUserPackage->purchased_at)->format('Y/m/d H:i')
+                        : null,
+                    'expires_at'         => $activeUserPackage->expires_at?->toDateTimeString(),
+                    'expires_at_jalali'  => $activeUserPackage->expires_at
+                        ? verta($activeUserPackage->expires_at)->format('Y/m/d H:i')
+                        : null,
+                    'days_remaining'     => (int) now()->diffInDays($activeUserPackage->expires_at),
+                ];
+            }
+
+            // --- تاریخچه خرید ---
+            $history = UserPackage::with(['package', 'order.transactions'])
+                ->where('user_id', $user->id)
+                ->where('salon_id', $salon->id)
+                ->orderBy('purchased_at', 'desc')
+                ->get()
+                ->map(function ($up) {
+                    // تشخیص روش پرداخت
+                    if (is_null($up->order_id)) {
+                        $paymentMethod        = 'gift';
+                        $paymentMethodDisplay = 'هدیه سیستمی';
+                    } elseif ($up->order && $up->order->transactions->isNotEmpty()) {
+                        $paymentMethod        = 'gateway';
+                        $paymentMethodDisplay = 'درگاه پرداخت';
+                    } else {
+                        $paymentMethod        = 'wallet';
+                        $paymentMethodDisplay = 'خرید از کیف پول';
+                    }
+
+                    return [
+                        'id'                   => $up->id,
+                        'package_name'         => $up->package?->name ?? 'نامشخص',
+                        'amount_paid'          => (int) $up->amount_paid,
+                        'formatted_amount'     => 'به مبلغ ' . number_format((int) $up->amount_paid / 10) . ' تومان',
+                        'status'               => $up->status,
+                        'is_active'            => $up->status === 'active' && $up->expires_at > now(),
+                        'payment_method'       => $paymentMethod,
+                        'payment_method_display' => $paymentMethodDisplay,
+                        'purchased_at'         => $up->purchased_at?->toDateTimeString(),
+                        'purchased_at_jalali'  => $up->purchased_at
+                            ? verta($up->purchased_at)->format('Y/m/d H:i')
+                            : null,
+                        'expires_at'           => $up->expires_at?->toDateTimeString(),
+                        'expires_at_jalali'    => $up->expires_at
+                            ? verta($up->expires_at)->format('Y/m/d H:i')
+                            : null,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data'    => [
+                    'active_package'     => $activePackageData,
+                    'has_active_package' => !is_null($activePackageData),
+                    'history'            => $history,
+                    'history_count'      => $history->count(),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching package overview: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'خطا در دریافت اطلاعات پکیج'
+            ], 500);
+        }
+    }
+
+    /**
      * تاریخچه خریدهای سالن
      * GET /api/salons/{salon}/feature-packages/my-packages
      */

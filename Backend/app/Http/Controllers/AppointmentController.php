@@ -1793,6 +1793,9 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
      */
     public function sendReminderSms(Request $request, $salon_id, Appointment $appointment)
     {
+        // Handle Route Model Binding - salon_id might be a Salon object or an integer
+        $salon_id = is_object($salon_id) ? $salon_id->id : $salon_id;
+
         try {
             // Check if appointment belongs to the salon
             if ($appointment->salon_id != $salon_id) {

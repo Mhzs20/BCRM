@@ -368,6 +368,13 @@ class CommissionController extends Controller
         $validator = Validator::make($request->all(), [
             'amount' => 'required|numeric', // می‌تواند منفی باشد
             'description' => 'required|string|max:500',
+            'for_month' => 'nullable|integer|min:1|max:12',
+            'for_year' => 'nullable|integer|min:1300|max:1500',
+        ], [
+            'for_month.min' => 'ماه باید بین 1 تا 12 باشد',
+            'for_month.max' => 'ماه باید بین 1 تا 12 باشد',
+            'for_year.min' => 'سال باید بین 1300 تا 1500 باشد',
+            'for_year.max' => 'سال باید بین 1300 تا 1500 باشد',
         ]);
 
         if ($validator->fails()) {
@@ -384,7 +391,9 @@ class CommissionController extends Controller
                 $staff->id,
                 $request->input('amount'),
                 $request->input('description'),
-                auth()->id()
+                auth()->id(),
+                $request->input('for_month'),
+                $request->input('for_year')
             );
 
             return response()->json([
