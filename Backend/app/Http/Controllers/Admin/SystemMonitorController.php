@@ -65,14 +65,14 @@ class SystemMonitorController extends Controller
                 'name' => 'لغو نوبت‌های گذشته',
                 'command' => 'appointments:cancel-past',
                 'cache_key' => 'appointments_cancel_past',
-                'schedule' => 'هر ۵ دقیقه',
+                'schedule' => 'هر دقیقه',
                 'type' => 'command',
             ],
             [
                 'name' => 'بررسی وضعیت SMS',
                 'command' => 'sms:check-status',
                 'cache_key' => 'CheckSmsStatus',
-                'schedule' => 'هر ۵ دقیقه',
+                'schedule' => 'هر دقیقه',
                 'type' => 'job',
             ],
             [
@@ -93,14 +93,14 @@ class SystemMonitorController extends Controller
                 'name' => 'نظرسنجی رضایت',
                 'command' => 'satisfaction:process',
                 'cache_key' => 'satisfaction_process',
-                'schedule' => 'هر ساعت',
+                'schedule' => 'هر دقیقه',
                 'type' => 'command',
             ],
             [
                 'name' => 'پیگیری خودکار مشتریان',
                 'command' => 'followup:process-customers',
                 'cache_key' => 'followup_process_customers',
-                'schedule' => 'هر ساعت',
+                'schedule' => 'هر دقیقه',
                 'type' => 'command',
             ],
         ];

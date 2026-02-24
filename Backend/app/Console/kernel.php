@@ -19,14 +19,14 @@ class Kernel extends ConsoleKernel
 			->after(fn() => $this->trackEnd('sms_send_reminders'))
 			->onFailure(fn() => $this->trackError('sms_send_reminders'));
 
-		// Cancel past appointments - runs every 5 minutes for optimal user experience
-		$schedule->command('appointments:cancel-past')->everyFiveMinutes()
+		// Cancel past appointments - runs every minute
+		$schedule->command('appointments:cancel-past')->everyMinute()
 			->before(fn() => $this->trackStart('appointments_cancel_past'))
 			->after(fn() => $this->trackEnd('appointments_cancel_past'))
 			->onFailure(fn() => $this->trackError('appointments_cancel_past'));
 
 		// Check and update all pending SMS statuses (appointments + manual SMS transactions)
-		$schedule->job(new \App\Jobs\CheckSmsStatus)->everyFiveMinutes()
+		$schedule->job(new \App\Jobs\CheckSmsStatus)->everyMinute()
 			->before(fn() => $this->trackStart('CheckSmsStatus'))
 			->after(fn() => $this->trackEnd('CheckSmsStatus'))
 			->onFailure(fn() => $this->trackError('CheckSmsStatus'));
@@ -43,14 +43,14 @@ class Kernel extends ConsoleKernel
 			->after(fn() => $this->trackEnd('reminders_send_birthday'))
 			->onFailure(fn() => $this->trackError('reminders_send_birthday'));
 
-		// Process satisfaction surveys every hour
-		$schedule->command('satisfaction:process')->hourly()->withoutOverlapping()
+		// Process satisfaction surveys every minute
+		$schedule->command('satisfaction:process')->everyMinute()->withoutOverlapping()
 			->before(fn() => $this->trackStart('satisfaction_process'))
 			->after(fn() => $this->trackEnd('satisfaction_process'))
 			->onFailure(fn() => $this->trackError('satisfaction_process'));
 
-		// Process automatic customer followups every hour
-		$schedule->command('followup:process-customers')->hourly()->withoutOverlapping()
+		// Process automatic customer followups every minute
+		$schedule->command('followup:process-customers')->everyMinute()->withoutOverlapping()
 			->before(fn() => $this->trackStart('followup_process_customers'))
 			->after(fn() => $this->trackEnd('followup_process_customers'))
 			->onFailure(fn() => $this->trackError('followup_process_customers'));
