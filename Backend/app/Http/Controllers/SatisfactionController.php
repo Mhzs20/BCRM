@@ -144,7 +144,9 @@ class SatisfactionController extends Controller
         // Ensure appointment_date is treated as a date only, and combine with end_time
         $appointment_end_datetime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->end_time);
 
-        if (Carbon::now()->lessThan($appointment_end_datetime)) {
+        // Allow sending if the appointment is already manually marked as completed,
+        // even if the scheduled end time hasn't passed yet.
+        if (Carbon::now()->lessThan($appointment_end_datetime) && $appointment->status !== 'completed') {
             return response()->json(['message' => 'هنوز زمان نوبت به پایان نرسیده است.'], 422);
         }
 

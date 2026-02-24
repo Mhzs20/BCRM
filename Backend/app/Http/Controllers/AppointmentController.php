@@ -589,6 +589,14 @@ class AppointmentController extends Controller
 
             DB::commit();
 
+            // Dispatch satisfaction survey SMS when status is manually changed to completed
+            if ($newStatus === 'completed' && $oldStatus !== 'completed') {
+                $appointment->refresh();
+                if ($appointment->send_satisfaction_sms && in_array($appointment->satisfaction_sms_status, ['not_sent', null])) {
+                    \App\Jobs\SendSatisfactionSurveySms::dispatch($appointment, $salon);
+                }
+            }
+
             $message = 'نوبت با موفقیت به‌روزرسانی شد.';
             if ($smsSent === 'confirmation') {
                 $message .= ' پیامک تایید نوبت ارسال شد.';
