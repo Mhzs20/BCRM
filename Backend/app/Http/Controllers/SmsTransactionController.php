@@ -440,8 +440,7 @@ class SmsTransactionController extends Controller
                     });
                 });
 
-                // Purchase transactions - بدون محدودیت بازه زمانی (کل خریدها)
-                // چون remaining_sms هم مقدار کل عمره، purchased_sms هم باید کل باشه
+                // Purchase transactions - فیلتر بر اساس بازه زمانی انتخابی
                 $allTimePurchaseQuery = SmsTransaction::query();
                 if ($salon) {
                     $allTimePurchaseQuery->where('salon_id', $salon->id);
@@ -457,6 +456,11 @@ class SmsTransactionController extends Controller
                       ->orWhere('type', 'gift')
                       ->orWhere('sms_type', 'purchase');
                 });
+                // اعمال فیلتر بازه زمانی
+                $allTimePurchaseQuery->where(function ($q) use ($fromDate, $toDate) {
+                    $q->whereBetween('created_at', [$fromDate, $toDate])
+                      ->orWhereBetween('sent_at', [$fromDate, $toDate]);
+                });
 
                 // محاسبه با در نظر گرفتن تراکنش‌های قدیمی که sms_count ندارند
                 $totalPurchased = (clone $allTimePurchaseQuery)->get()->sum(function($t) {
@@ -469,37 +473,8 @@ class SmsTransactionController extends Controller
                     return 0;
                 });
                 
-                // مصرف کل عمر (بدون محدودیت بازه زمانی) - هم‌خوان با purchased_sms و remaining_sms
-                $allTimeConsumptionQuery = SmsTransaction::query();
-                if ($salon) {
-                    $allTimeConsumptionQuery->where('salon_id', $salon->id);
-                } else {
-                    $allTimeConsumptionQuery->where('user_id', $user->id);
-                }
-                $allTimeConsumptionQuery->where(function($q) {
-                    $q->where('description', 'NOT LIKE', 'پیامک گروهی توسط ادمین%')
-                      ->orWhereNull('description');
-                });
-                $allTimeConsumptionQuery->where(function($q) {
-                    $q->where(function($subQ) {
-                        $subQ->whereIn('status', ['delivered', 'sent'])
-                             ->where(function($typeQ) {
-                                 $typeQ->whereIn('type', ['send', 'deduction', 'manual_send'])
-                                       ->orWhereIn('sms_type', [
-                                           'appointment_confirmation', 'appointment_reminder', 'manual_reminder',
-                                           'appointment_cancellation', 'appointment_modification', 'satisfaction_survey',
-                                           'birthday_greeting', 'service_specific_notes'
-                                       ]);
-                             });
-                    })
-                    ->orWhere(function($manualQ) {
-                        $manualQ->where('sms_type', 'manual_sms')
-                                ->where('approval_status', 'approved')
-                                ->where('balance_deducted_at_submission', '>', 0);
-                    });
-                });
-                
-                $totalConsumed = (clone $allTimeConsumptionQuery)->get()->sum(function($t) {
+                // مصرف در بازه زمانی انتخابی - استفاده از consumptionQuery که قبلاً بر اساس periodBaseQuery ساخته شده
+                $totalConsumed = (clone $consumptionQuery)->get()->sum(function($t) {
                     if ($t->sms_count !== null) {
                         return $t->sms_count;
                     }
@@ -519,10 +494,12 @@ class SmsTransactionController extends Controller
                     $remainingBalance = null; // Not meaningful across multiple salons
                 }
 
-                // Percent consumed relative to consumed + remaining (avoid division by zero)
+                // Percent consumed relative to purchased in the period (avoid division by zero)
                 $percentConsumed = 0;
-                if (($totalConsumed + ($remainingBalance ?? 0)) > 0) {
-                    $percentConsumed = round(($totalConsumed / ($totalConsumed + ($remainingBalance ?? 0))) * 100);
+                if ($totalPurchased > 0) {
+                    $percentConsumed = min(100, round(($totalConsumed / $totalPurchased) * 100));
+                } elseif ($totalConsumed > 0) {
+                    $percentConsumed = 100;
                 }
 
                 // محاسبه آمار transactions_by_type با در نظر گرفتن sms_count واقعی

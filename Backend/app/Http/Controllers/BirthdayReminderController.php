@@ -4,14 +4,14 @@ namespace App\Http\Controllers;
 use App\Models\BirthdayReminder;
 use App\Models\BirthdayReminderCustomerGroup;
 use App\Models\CustomerGroup;
+use App\Models\Salon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class BirthdayReminderController extends Controller
 {
-     public function groupsSettingsDetailed($salonId)
-    {
-        $reminder = BirthdayReminder::where('salon_id', $salonId)->first();
+     public function groupsSettingsDetailed(Salon $salon)
+    {        $salonId = $salon->id;        $reminder = BirthdayReminder::where('salon_id', $salonId)->first();
         if (!$reminder) {
             return response()->json([ 'success' => false, 'error' => 'تنظیمات تولد یافت نشد.' ], 404);
         }
@@ -36,8 +36,9 @@ class BirthdayReminderController extends Controller
         return response()->json($result);
     }
     // 1. Get Birthday Reminder Statistics
-    public function stats($salonId)
+    public function stats(Salon $salon)
     {
+         $salonId = $salon->id;
          $totalGroups = CustomerGroup::where('salon_id', $salonId)->count();
         $activeGroups = BirthdayReminderCustomerGroup::whereHas('birthdayReminder', function($q) use ($salonId) {
             $q->where('salon_id', $salonId);
@@ -56,8 +57,9 @@ class BirthdayReminderController extends Controller
         ]);
     }
 
-     public function groups(Request $request, $salonId)
+     public function groups(Request $request, Salon $salon)
     {
+        $salonId = $salon->id;
         $search = $request->get('search');
         $reminder_status = $request->get('reminder_status');
         $sort_by = $request->get('sort_by', 'name');
@@ -97,14 +99,16 @@ class BirthdayReminderController extends Controller
         ]);
     }
 
-     public function summary($salonId)
+     public function summary(Salon $salon)
     {
+        $salonId = $salon->id;
         $reminder = BirthdayReminder::where('salon_id', $salonId)->with('customerGroups')->first();
         return response()->json($reminder);
     }
 
-     public function updateSettings(Request $request, $salonId)
+     public function updateSettings(Request $request, Salon $salon)
     {
+        $salonId = $salon->id;
         $data = $request->all();
         $reminder = BirthdayReminder::firstOrCreate([
             'salon_id' => $salonId
@@ -162,8 +166,9 @@ class BirthdayReminderController extends Controller
         return response()->json($response);
     }
 
-     public function toggleGroup(Request $request, $salonId, $groupId)
+     public function toggleGroup(Request $request, Salon $salon, $groupId)
     {
+        $salonId = $salon->id;
         $reminder = BirthdayReminder::where('salon_id', $salonId)->firstOrFail();
         $groupSetting = BirthdayReminderCustomerGroup::where('birthday_reminder_id', $reminder->id)
             ->where('customer_group_id', $groupId)->firstOrFail();
@@ -173,8 +178,9 @@ class BirthdayReminderController extends Controller
     }
 
     // 7. Enable/Disable Global Birthday Reminder System
-    public function globalToggle(Request $request, $salonId)
+    public function globalToggle(Request $request, Salon $salon)
     {
+        $salonId = $salon->id;
         $reminder = BirthdayReminder::where('salon_id', $salonId)->firstOrFail();
         $reminder->is_global_active = $request->input('is_active');
         $reminder->save();
@@ -182,8 +188,9 @@ class BirthdayReminderController extends Controller
     }
 
     // 8. Delete Birthday Reminder Settings for a Group
-    public function deleteGroupSettings($salonId, $groupId)
+    public function deleteGroupSettings(Salon $salon, $groupId)
     {
+        $salonId = $salon->id;
         $reminder = BirthdayReminder::where('salon_id', $salonId)->firstOrFail();
         BirthdayReminderCustomerGroup::where('birthday_reminder_id', $reminder->id)
             ->where('customer_group_id', $groupId)->delete();
@@ -191,8 +198,9 @@ class BirthdayReminderController extends Controller
     }
 
     // 9. Get Specific Group Settings
-    public function groupSettings($salonId, $groupId)
+    public function groupSettings(Salon $salon, $groupId)
     {
+        $salonId = $salon->id;
         $reminder = BirthdayReminder::where('salon_id', $salonId)->firstOrFail();
         $groupSetting = BirthdayReminderCustomerGroup::where('birthday_reminder_id', $reminder->id)
             ->where('customer_group_id', $groupId)->first();

@@ -24,12 +24,12 @@ class PackageController extends Controller
      * لیست تمام پکیج‌های فعال
      * GET /api/salons/{salon}/feature-packages?discount_code=WINTER30
      */
-    public function index(Request $request, $salon)
+    public function index(Request $request, Salon $salon)
     {
         try {
             // Verify salon belongs to user
             $user = auth()->user();
-            $userSalon = $user->salons()->find($salon);
+            $userSalon = $user->salons()->find($salon->id);
             
             if (!$userSalon) {
                 return response()->json([
@@ -160,12 +160,12 @@ class PackageController extends Controller
      * جزئیات یک پکیج
      * GET /api/salons/{salon}/feature-packages/{id}
      */
-    public function show($salon, $id)
+    public function show(Salon $salon, $id)
     {
         try {
             // Verify salon belongs to user
             $user = auth()->user();
-            $userSalon = $user->salons()->find($salon);
+            $userSalon = $user->salons()->find($salon->id);
             
             if (!$userSalon) {
                 return response()->json([
@@ -219,7 +219,7 @@ class PackageController extends Controller
      * شروع فرآیند خرید پکیج (دقیقاً مثل purchase در ZarinpalController)
      * POST /api/salons/{salon}/feature-packages/{id}/purchase
      */
-    public function purchase(Request $request, $salon, $id)
+    public function purchase(Request $request, Salon $salon, $id)
     {
         $request->validate([
             'callback_url' => ['required', 'regex:/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//'], // Allow custom schemes
@@ -231,7 +231,7 @@ class PackageController extends Controller
         $callbackUrl = $request->callback_url;
 
         // Verify salon belongs to user
-        $userSalon = $user->salons()->find($salon);
+        $userSalon = $user->salons()->find($salon->id);
         
         if (!$userSalon) {
             return response()->json([

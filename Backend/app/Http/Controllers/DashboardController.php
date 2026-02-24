@@ -83,8 +83,9 @@ class DashboardController extends Controller
      * @param  int  $salon_id
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getSalonStats(Request $request, $salon_id)
+    public function getSalonStats(Request $request, Salon $salon)
     {
+        $salon_id = $salon->id;
 
         $targetSalon = Salon::find($salon_id);
         if (!$targetSalon) {
@@ -332,8 +333,10 @@ class DashboardController extends Controller
     ]);
 }
 
-    public function importCustomers(Request $request, $salon_id)
+    public function importCustomers(Request $request, Salon $salon)
     {
+        $salon_id = $salon->id;
+
         $request->validate([
             'file' => 'required|mimes:xlsx,xls,csv'
         ]);
