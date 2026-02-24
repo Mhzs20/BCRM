@@ -379,6 +379,7 @@ Route::middleware('auth:api')->group(function () {
                 Route::get('/', [\App\Http\Controllers\Api\PackageController::class, 'index'])->name('index');
                 Route::get('/active', [\App\Http\Controllers\Api\PackageController::class, 'myPackage'])->name('active');
                 Route::get('/history', [\App\Http\Controllers\Api\PackageController::class, 'myPackages'])->name('history');
+                Route::get('/overview', [\App\Http\Controllers\Api\PackageController::class, 'packageOverview'])->name('overview');
                 Route::get('/{id}', [\App\Http\Controllers\Api\PackageController::class, 'show'])->name('show');
                 Route::post('/{id}/purchase', [\App\Http\Controllers\Api\PackageController::class, 'purchase'])->name('purchase');
                 Route::post('/verify', [\App\Http\Controllers\Api\PackageController::class, 'verify'])->name('verify');

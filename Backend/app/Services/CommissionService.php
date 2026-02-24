@@ -232,7 +232,9 @@ class CommissionService
         int $staffId,
         float $amount,
         string $description,
-        ?int $createdBy = null
+        ?int $createdBy = null,
+        ?int $forMonth = null,
+        ?int $forYear = null
     ): StaffCommissionTransaction {
         return StaffCommissionTransaction::create([
             'salon_id' => $salonId,
@@ -242,6 +244,8 @@ class CommissionService
             'payment_status' => StaffCommissionTransaction::STATUS_PENDING,
             'description' => $description,
             'created_by' => $createdBy,
+            'for_month' => $forMonth,
+            'for_year' => $forYear,
         ]);
     }
 
