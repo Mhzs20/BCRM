@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Salon;
 use App\Models\TransactionCategory;
 use App\Models\TransactionSubcategory;
 use Illuminate\Http\Request;
@@ -12,7 +13,7 @@ class TransactionCategoryController extends Controller
     /**
      * لیست دسته‌بندی‌ها
      */
-    public function index(Request $request, $salon)
+    public function index(Request $request, Salon $salon)
     {
         $query = TransactionCategory::forSalon($salon->id)
             ->with(['activeSubcategories'])
@@ -44,7 +45,7 @@ class TransactionCategoryController extends Controller
     /**
      * ایجاد دسته‌بندی جدید
      */
-    public function store(Request $request, $salon)
+    public function store(Request $request, Salon $salon)
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
@@ -80,7 +81,7 @@ class TransactionCategoryController extends Controller
     /**
      * نمایش جزئیات دسته‌بندی
      */
-    public function show($salon, $id)
+    public function show(Salon $salon, $id)
     {
         $category = TransactionCategory::forSalon($salon->id)
             ->with(['subcategories' => function ($q) {
@@ -97,7 +98,7 @@ class TransactionCategoryController extends Controller
     /**
      * ویرایش دسته‌بندی
      */
-    public function update(Request $request, $salon, $id)
+    public function update(Request $request, Salon $salon, $id)
     {
         $category = TransactionCategory::forSalon($salon->id)->findOrFail($id);
 
@@ -139,7 +140,7 @@ class TransactionCategoryController extends Controller
     /**
      * حذف دسته‌بندی
      */
-    public function destroy($salon, $id)
+    public function destroy(Salon $salon, $id)
     {
         $category = TransactionCategory::forSalon($salon->id)->findOrFail($id);
 
@@ -163,7 +164,7 @@ class TransactionCategoryController extends Controller
     /**
      * لیست زیردسته‌های یک دسته‌بندی
      */
-    public function subcategories(Request $request, $salon, $categoryId)
+    public function subcategories(Request $request, Salon $salon, $categoryId)
     {
         // بررسی وجود دسته‌بندی
         $category = TransactionCategory::forSalon($salon->id)->findOrFail($categoryId);
@@ -190,7 +191,7 @@ class TransactionCategoryController extends Controller
     /**
      * ایجاد زیردسته جدید
      */
-    public function storeSubcategory(Request $request, $salon, $categoryId)
+    public function storeSubcategory(Request $request, Salon $salon, $categoryId)
     {
         // بررسی وجود دسته‌بندی
         $category = TransactionCategory::forSalon($salon->id)->findOrFail($categoryId);
@@ -229,7 +230,7 @@ class TransactionCategoryController extends Controller
     /**
      * نمایش جزئیات زیردسته
      */
-    public function showSubcategory($salon, $categoryId, $subcategoryId)
+    public function showSubcategory(Salon $salon, $categoryId, $subcategoryId)
     {
         $subcategory = TransactionSubcategory::forCategory($categoryId)
             ->forSalon($salon->id)
@@ -245,7 +246,7 @@ class TransactionCategoryController extends Controller
     /**
      * ویرایش زیردسته
      */
-    public function updateSubcategory(Request $request, $salon, $categoryId, $subcategoryId)
+    public function updateSubcategory(Request $request, Salon $salon, $categoryId, $subcategoryId)
     {
         $subcategory = TransactionSubcategory::forCategory($categoryId)
             ->forSalon($salon->id)
@@ -287,7 +288,7 @@ class TransactionCategoryController extends Controller
     /**
      * حذف زیردسته
      */
-    public function destroySubcategory($salon, $categoryId, $subcategoryId)
+    public function destroySubcategory(Salon $salon, $categoryId, $subcategoryId)
     {
         $subcategory = TransactionSubcategory::forCategory($categoryId)
             ->forSalon($salon->id)

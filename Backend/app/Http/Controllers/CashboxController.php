@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Cashbox;
 use App\Models\CashboxTransaction;
+use App\Models\Salon;
 use App\Services\CashboxService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -20,7 +21,7 @@ class CashboxController extends Controller
     /**
      * لیست صندوق‌ها
      */
-    public function index(Request $request, $salon)
+    public function index(Request $request, Salon $salon)
     {
         $query = Cashbox::forSalon($salon->id)
             ->orderBy('sort_order')
@@ -48,7 +49,7 @@ class CashboxController extends Controller
     /**
      * ایجاد صندوق جدید
      */
-    public function store(Request $request, $salon)
+    public function store(Request $request, Salon $salon)
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
@@ -87,7 +88,7 @@ class CashboxController extends Controller
     /**
      * نمایش جزئیات صندوق
      */
-    public function show($salon, $id)
+    public function show(Salon $salon, $id)
     {
         $cashbox = Cashbox::forSalon($salon->id)->findOrFail($id);
 
@@ -100,7 +101,7 @@ class CashboxController extends Controller
     /**
      * ویرایش صندوق
      */
-    public function update(Request $request, $salon, $id)
+    public function update(Request $request, Salon $salon, $id)
     {
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255',
@@ -134,7 +135,7 @@ class CashboxController extends Controller
     /**
      * حذف صندوق
      */
-    public function destroy($salon, $id)
+    public function destroy(Salon $salon, $id)
     {
         $cashbox = Cashbox::forSalon($salon->id)->findOrFail($id);
 
@@ -157,7 +158,7 @@ class CashboxController extends Controller
     /**
      * ثبت دریافتی
      */
-    public function recordIncome(Request $request, $salon)
+    public function recordIncome(Request $request, Salon $salon)
     {
         $validator = Validator::make($request->all(), [
             'cashbox_id' => 'required|exists:cashboxes,id',
@@ -196,7 +197,7 @@ class CashboxController extends Controller
     /**
      * ثبت پرداختی
      */
-    public function recordExpense(Request $request, $salon)
+    public function recordExpense(Request $request, Salon $salon)
     {
         $validator = Validator::make($request->all(), [
             'cashbox_id' => 'required|exists:cashboxes,id',
@@ -235,7 +236,7 @@ class CashboxController extends Controller
     /**
      * انتقال موجودی
      */
-    public function transfer(Request $request, $salon)
+    public function transfer(Request $request, Salon $salon)
     {
         $validator = Validator::make($request->all(), [
             'from_cashbox_id' => 'required|exists:cashboxes,id',
@@ -270,7 +271,7 @@ class CashboxController extends Controller
     /**
      * گزارش تراکنش‌های صندوق
      */
-    public function transactions(Request $request, $salon, $id)
+    public function transactions(Request $request, Salon $salon, $id)
     {
         $validator = Validator::make($request->all(), [
             'start_date' => 'nullable|date',
@@ -314,7 +315,7 @@ class CashboxController extends Controller
     /**
      * لیست تراکنش‌های همه صندوق‌ها
      */
-    public function allTransactions(Request $request, $salon)
+    public function allTransactions(Request $request, Salon $salon)
     {
         $validator = Validator::make($request->all(), [
             'start_date'  => 'nullable|date',
@@ -369,7 +370,7 @@ class CashboxController extends Controller
     /**
      * محاسبه مجدد موجودی
      */
-    public function recalculateBalance($salon, $id)
+    public function recalculateBalance(Salon $salon, $id)
     {
         $result = $this->cashboxService->recalculateCashboxBalance($id);
 
@@ -383,7 +384,7 @@ class CashboxController extends Controller
     /**
      * خلاصه داشبورد صندوق‌ها
      */
-    public function dashboard($salon)
+    public function dashboard(Salon $salon)
     {
         $summary = $this->cashboxService->getCashboxesSummary($salon->id);
 
