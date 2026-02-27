@@ -224,7 +224,7 @@ class PersonnelReportService extends BaseReportService
         ] : null;
 
         // Rehire rate - customers who returned to same staff
-        $rehireRate = $this->calculateRehireRate();
+        $rehireRate = $this->calculateRehireRate($filters);
 
         return [
             'total_staff' => $totalStaff,
@@ -249,9 +249,9 @@ class PersonnelReportService extends BaseReportService
     /**
      * Calculate rehire rate.
      */
-    protected function calculateRehireRate()
+    protected function calculateRehireRate(array $filters = [])
     {
-        $staffWithReturningCustomers = DB::table('appointments')
+        $returningQuery = DB::table('appointments')
             ->select('staff_id', 'customer_id', DB::raw('COUNT(*) as visit_count'))
             ->where('salon_id', $this->salonId)
             ->when($this->dateFrom, function ($q) {
@@ -259,19 +259,31 @@ class PersonnelReportService extends BaseReportService
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('appointment_date', '<=', $this->dateTo);
-            })
+            });
+
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $returningQuery->whereIn('staff_id', $filters['personnel_ids']);
+        }
+
+        $staffWithReturningCustomers = $returningQuery
             ->groupBy('staff_id', 'customer_id')
             ->having('visit_count', '>', 1)
             ->get();
 
-        $totalUniqueCustomers = DB::table('appointments')
+        $totalQuery = DB::table('appointments')
             ->where('salon_id', $this->salonId)
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('appointment_date', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('appointment_date', '<=', $this->dateTo);
-            })
+            });
+
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $totalQuery->whereIn('staff_id', $filters['personnel_ids']);
+        }
+
+        $totalUniqueCustomers = $totalQuery
             ->distinct('customer_id')
             ->count('customer_id');
 
@@ -295,7 +307,21 @@ class PersonnelReportService extends BaseReportService
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('appointment_date', '<=', $this->dateTo);
-            })
+            });
+
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $completedByStaff->whereIn('staff_id', $filters['personnel_ids']);
+        }
+
+        // Apply service filter
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $completedByStaff->whereHas('services', function ($q) use ($filters) {
+                $q->whereIn('service_id', $filters['service_ids']);
+            });
+        }
+
+        $completedByStaff = $completedByStaff
             ->select('staff_id', DB::raw('COUNT(*) as count'))
             ->groupBy('staff_id')
             ->with('staff')
@@ -323,20 +349,20 @@ class PersonnelReportService extends BaseReportService
     protected function generateSections(array $filters = [])
     {
         return [
-            'income_by_staff' => $this->getIncomeByStaff(),
-            'satisfaction_by_staff' => $this->getSatisfactionByStaff(),
-            'completion_rate_by_staff' => $this->getCompletionRateByStaff(),
-            'returning_customers' => $this->getReturningCustomers(),
+            'income_by_staff' => $this->getIncomeByStaff($filters),
+            'satisfaction_by_staff' => $this->getSatisfactionByStaff($filters),
+            'completion_rate_by_staff' => $this->getCompletionRateByStaff($filters),
+            'returning_customers' => $this->getReturningCustomers($filters),
         ];
     }
 
     /**
      * Get income by staff.
      */
-    protected function getIncomeByStaff()
+    protected function getIncomeByStaff(array $filters = [])
     {
         // Income = sum of total_price for completed appointments per staff
-        $rows = Appointment::where('salon_id', $this->salonId)
+        $query = Appointment::where('salon_id', $this->salonId)
             ->where('status', 'completed')
             ->whereNotNull('staff_id')
             ->when($this->dateFrom, function ($q) {
@@ -344,7 +370,21 @@ class PersonnelReportService extends BaseReportService
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('appointment_date', '<=', $this->dateTo);
-            })
+            });
+
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $query->whereIn('staff_id', $filters['personnel_ids']);
+        }
+
+        // Apply service filter
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $query->whereHas('services', function ($q) use ($filters) {
+                $q->whereIn('service_id', $filters['service_ids']);
+            });
+        }
+
+        $rows = $query
             ->select('staff_id', DB::raw('SUM(total_price) as total_income'))
             ->groupBy('staff_id')
             ->orderByDesc('total_income')
@@ -362,10 +402,10 @@ class PersonnelReportService extends BaseReportService
     /**
      * Get satisfaction by staff.
      */
-    protected function getSatisfactionByStaff()
+    protected function getSatisfactionByStaff(array $filters = [])
     {
         // customer_feedback.staff_id is not populated; use appointments JOIN instead
-        $rows = DB::table('customer_feedback as cf')
+        $query = DB::table('customer_feedback as cf')
             ->join('appointments as a', 'cf.appointment_id', '=', 'a.id')
             ->where('a.salon_id', $this->salonId)
             ->whereNotNull('a.staff_id')
@@ -374,7 +414,19 @@ class PersonnelReportService extends BaseReportService
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('a.appointment_date', '<=', $this->dateTo);
-            })
+            });
+
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $query->whereIn('a.staff_id', $filters['personnel_ids']);
+        }
+
+        // Apply service filter
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $query->whereIn('cf.service_id', $filters['service_ids']);
+        }
+
+        $rows = $query
             ->select('a.staff_id', DB::raw('AVG(cf.rating) as avg_rating'), DB::raw('COUNT(*) as total_ratings'))
             ->groupBy('a.staff_id')
             ->orderByDesc('avg_rating')
@@ -393,15 +445,29 @@ class PersonnelReportService extends BaseReportService
     /**
      * Get completion rate by staff.
      */
-    protected function getCompletionRateByStaff()
+    protected function getCompletionRateByStaff(array $filters = [])
     {
-        return Appointment::where('salon_id', $this->salonId)
+        $query = Appointment::where('salon_id', $this->salonId)
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('appointment_date', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('appointment_date', '<=', $this->dateTo);
-            })
+            });
+
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $query->whereIn('staff_id', $filters['personnel_ids']);
+        }
+
+        // Apply service filter
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $query->whereHas('services', function ($q) use ($filters) {
+                $q->whereIn('service_id', $filters['service_ids']);
+            });
+        }
+
+        return $query
             ->select(
                 'staff_id',
                 DB::raw('COUNT(*) as total'),
@@ -424,17 +490,35 @@ class PersonnelReportService extends BaseReportService
     /**
      * Get returning customers by staff.
      */
-    protected function getReturningCustomers()
+    protected function getReturningCustomers(array $filters = [])
     {
-        return DB::table('appointments')
-            ->select('staff_id', DB::raw('COUNT(DISTINCT customer_id) as unique_customers'), DB::raw('COUNT(*) as total_visits'))
+        $query = DB::table('appointments')
             ->where('salon_id', $this->salonId)
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('appointment_date', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('appointment_date', '<=', $this->dateTo);
-            })
+            });
+
+        // Apply personnel filter
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
+            $query->whereIn('staff_id', $filters['personnel_ids']);
+        }
+
+        // Apply service filter (via subquery join on appointment_service)
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
+            $serviceIds = $filters['service_ids'];
+            $query->whereExists(function ($q) use ($serviceIds) {
+                $q->select(DB::raw(1))
+                    ->from('appointment_service')
+                    ->whereColumn('appointment_service.appointment_id', 'appointments.id')
+                    ->whereIn('appointment_service.service_id', $serviceIds);
+            });
+        }
+
+        return $query
+            ->select('staff_id', DB::raw('COUNT(DISTINCT customer_id) as unique_customers'), DB::raw('COUNT(*) as total_visits'))
             ->groupBy('staff_id')
             ->orderByDesc('unique_customers')
             ->get()

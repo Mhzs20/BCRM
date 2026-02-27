@@ -157,7 +157,7 @@
                         <p><span class="font-medium">مالک:</span> {{ $salon->owner->name ?? 'N/A' }}</p>
                         <p><span class="font-medium">شهر:</span> {{ $salon->city->name ?? 'N/A' }}</p>
                         <p><span class="font-medium">اعتبار پیامک:</span> {{ $salon->smsBalance->balance ?? 0 }}</p>
-                        <p><span class="font-medium">مصرف کل:</span> {{ $salon->smsTransactions->first()->total_consumed ?? 0 }}</p>
+                        <p><span class="font-medium">مصرف کل:</span> {{ number_format($salon->total_consumed ?? 0) }}</p>
                     </div>
                     <div class="mt-3">
                         <a href="{{ route('admin.salons.show', $salon->id) }}" class="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition ease-in-out duration-150">
