@@ -20,8 +20,8 @@ class CalendarQueryRequest extends FormRequest
         }
 
         return [
-            'start_date' => ['required', 'date_format:Y-m-d'],
-            'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
+            'start_date' => ['required', 'jdate_format:Y-m-d'],
+            'end_date' => ['required', 'jdate_format:Y-m-d', 'after_or_equal:start_date'],
             'staff_id' => ['nullable', 'integer', Rule::exists('salon_staff', 'id')->where(function ($query) use ($salonId) {
                 if ($salonId) { $query->where('salon_id', $salonId); }
             })],
