@@ -432,6 +432,14 @@
                 </div>
             </div>
 
+            <!-- System Monitor -->
+            <a href="{{ route('admin.system-monitor.index') }}"
+               class="flex items-center px-4 py-3 rounded-lg transition-all duration-200 ease-in-out {{ request()->routeIs('admin.system-monitor.*') ? 'bg-indigo-600 text-white' : 'hover:bg-gray-800 hover:text-white' }}"
+               :class="sidebarOpen ? '' : 'justify-center'">
+                <i class="ri-pulse-line text-xl"></i>
+                <span class="mr-4 font-medium" x-show="sidebarOpen" x-cloak>مانیتورینگ سیستم</span>
+            </a>
+
             <!-- General Settings Dropdown -->
             <div x-data="{ open: {{ request()->routeIs('admin.how-introduced.*', 'admin.professions.*', 'admin.customer-groups.*') ? 'true' : 'false' }} }" class="relative">
                 <button @click="open = !open"

@@ -117,11 +117,19 @@ class SatisfactionController extends Controller
             'weaknesses_selected' => 'nullable|string',
         ]);
 
+        // Get staff_id and first service_id from appointment
+        $staffId = $appointment->staff_id;
+        $serviceId = $appointment->services()->first()?->id;
+
         $appointment->feedback()->create([
+            'staff_id' => $staffId,
+            'service_id' => $serviceId,
             'rating' => $request->rating,
             'text_feedback' => $request->text_feedback,
             'strengths_selected' => json_decode($request->strengths_selected, true) ?? [],
             'weaknesses_selected' => json_decode($request->weaknesses_selected, true) ?? [],
+            'is_submitted' => true,
+            'submitted_at' => now(),
         ]);
 
         // Reload the appointment to ensure the feedback relationship is available to the view
@@ -133,14 +141,8 @@ class SatisfactionController extends Controller
 
     public function sendSurvey(Appointment $appointment)
     {
-        // Ensure appointment_date is treated as a date only, and combine with end_time
-        $appointment_end_datetime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->end_time);
-
-        if (Carbon::now()->lessThan($appointment_end_datetime)) {
-            return response()->json(['message' => 'هنوز زمان نوبت به پایان نرسیده است.'], 422);
-        }
-
-    SendSatisfactionSurveySms::dispatch($appointment, $appointment->salon);
+        // Manual send — no time restriction. Admin can send satisfaction survey at any time.
+        SendSatisfactionSurveySms::dispatch($appointment, $appointment->salon);
 
         // If satisfaction SMS was disabled, enable it for this manual send request
         if (!$appointment->send_satisfaction_sms) {

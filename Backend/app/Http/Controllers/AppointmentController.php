@@ -298,8 +298,9 @@ class AppointmentController extends Controller
         $this->appointmentBookingService = $appointmentBookingService;
         $this->smsService = $smsService;
     }
-    public function index(Request $request, $salon_id)
+    public function index(Request $request, Salon $salon)
     {
+        $salon_id = $salon->id;
         $appointments = Appointment::where('salon_id', $salon_id)
             ->with(['customer:id,name,phone_number', 'staff:id,full_name', 'services:id,name,duration_minutes'])
             ->orderBy($request->input('sort_by', 'appointment_date'), $request->input('sort_direction', 'desc'))
@@ -307,8 +308,9 @@ class AppointmentController extends Controller
             ->paginate($request->input('per_page', 15));
         return AppointmentResource::collection($appointments);
     }
-    public function store(StoreAppointmentRequest $request, $salon_id)
+    public function store(StoreAppointmentRequest $request, Salon $salon)
     {
+        $salon_id = $salon->id;
         $validatedData = $request->validated();
         if (isset($validatedData['appointment_date'])) {
             try {
@@ -460,8 +462,9 @@ class AppointmentController extends Controller
         }
     }
 
-    public function show($salon_id, Appointment $appointment)
+    public function show(Salon $salon, Appointment $appointment)
     {
+        $salon_id = $salon->id;
         if ($appointment->salon_id != $salon_id) {
             return response()->json(['message' => 'نوبت یافت نشد.'], 404);
         }
@@ -589,6 +592,14 @@ class AppointmentController extends Controller
 
             DB::commit();
 
+            // Dispatch satisfaction survey SMS when status is manually changed to completed
+            if ($newStatus === 'completed' && $oldStatus !== 'completed') {
+                $appointment->refresh();
+                if ($appointment->send_satisfaction_sms && in_array($appointment->satisfaction_sms_status, ['not_sent', null])) {
+                    \App\Jobs\SendSatisfactionSurveySms::dispatch($appointment, $salon);
+                }
+            }
+
             $message = 'نوبت با موفقیت به‌روزرسانی شد.';
             if ($smsSent === 'confirmation') {
                 $message .= ' پیامک تایید نوبت ارسال شد.';
@@ -616,9 +627,9 @@ class AppointmentController extends Controller
         }
     }
 
-    public function destroy($salon_id, Appointment $appointment)
+    public function destroy(Salon $salon, Appointment $appointment)
     {
-        if ($appointment->salon_id != $salon_id) {
+        if ($appointment->salon_id != $salon->id) {
             return response()->json(['message' => 'نوبت یافت نشد.'], 404);
         }
 
@@ -627,7 +638,7 @@ class AppointmentController extends Controller
         }
 
         $customer = $appointment->customer;
-        $salon = Salon::with('user')->findOrFail($salon_id);
+        $salon->loadMissing('user');
 
         // Update the status to 'canceled' instead of deleting
         $appointment->update(['status' => 'canceled']);
@@ -641,8 +652,9 @@ class AppointmentController extends Controller
 
         return response()->json(['message' => $message], 200);
     }
-    public function getAvailableSlots(GetAvailableSlotsRequest $request, $salon_id)
+    public function getAvailableSlots(GetAvailableSlotsRequest $request, Salon $salon)
     {
+        $salon_id = $salon->id;
         $validated = $request->validated();
 
         try {
@@ -668,9 +680,10 @@ class AppointmentController extends Controller
                 });
             }
 
-            $appointments = $query->orderBy('appointment_date')->orderBy('start_time')->get();
+            $perPage = $request->input('per_page', 15);
+            $appointments = $query->orderBy('appointment_date')->orderBy('start_time')->paginate($perPage);
 
-            return response()->json(['data' => AppointmentResource::collection($appointments)]);
+            return AppointmentResource::collection($appointments);
         } catch (\Exception $e) {
                 Log::error('خطا در دریافت نوبت‌ها: ' . $e->getMessage());
                 return response()->json(['message' => 'خطا در دریافت نوبت‌ها: ' . $e->getMessage()], 500);
@@ -680,8 +693,9 @@ class AppointmentController extends Controller
 
         /**
           */
-        public function getAvailableSlotsPaginated(GetAvailableSlotsRequest $request, $salon_id)
+        public function getAvailableSlotsPaginated(GetAvailableSlotsRequest $request, Salon $salon)
         {
+            $salon_id = $salon->id;
             $validated = $request->validated();
             try {
                 $query = Appointment::where('salon_id', $salon_id)
@@ -709,13 +723,15 @@ class AppointmentController extends Controller
                 $perPage = $request->input('per_page', 15);
                 $appointments = $query->orderBy('appointment_date')->orderBy('start_time')->paginate($perPage);
 
-                return response()->json(['data' => AppointmentResource::collection($appointments)]);
+                return AppointmentResource::collection($appointments);
             } catch (\Exception $e) {
                 return response()->json(['error' => $e->getMessage()], 500);
             }
         }
-    public function getCalendarAppointments(CalendarQueryRequest $request, $salon_id)
+    public function getCalendarAppointments(CalendarQueryRequest $request, Salon $salon)
     {
+        $salon_id = $salon->id;
+
         $validated = $request->validated();
         if (isset($validated['start_date'])) {
             $validated['start_date'] = Jalalian::fromFormat('Y-m-d', str_replace('/', '-', $validated['start_date']))->toCarbon();
@@ -729,8 +745,9 @@ class AppointmentController extends Controller
         if (!empty($validated['staff_id'])) {
             $query->where('staff_id', $validated['staff_id']);
         }
-        $appointments = $query->orderBy('appointment_date')->orderBy('start_time')->get();
-            return response()->json(['data' => AppointmentResource::collection($appointments)]);
+        $perPage = $request->input('per_page', 15);
+        $appointments = $query->orderBy('appointment_date')->orderBy('start_time')->paginate($perPage);
+        return AppointmentResource::collection($appointments);
     }
     /**
       * @param int $year سال شمسی
@@ -756,8 +773,9 @@ class AppointmentController extends Controller
      * @param int $salon_id
      * @return \Illuminate\Http\JsonResponse
      */
-public function getMonthlyAppointmentsCount($salon_id, $year, $month)
+public function getMonthlyAppointmentsCount(Salon $salon, $year, $month)
 {
+    $salon_id = $salon->id;
     $validator = Validator::make(['year' => $year, 'month' => $month], [
         'year' => 'required|integer|min:1300|max:1500',
         'month' => 'required|integer|min:1|max:12',
@@ -801,8 +819,9 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
      * @param int $month ماه شمسی
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getAppointmentsByMonth(Request $request, $salon_id, $year, $month)
+    public function getAppointmentsByMonth(Request $request, Salon $salon, $year, $month)
     {
+        $salon_id = $salon->id;
 
         $validator = Validator::make(['year' => $year, 'month' => $month], [
             'year' => 'required|integer|min:1300|max:1500',
@@ -840,8 +859,9 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
      * @param int $day روز شمسی
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getAppointments(Request $request, $salon_id)
+    public function getAppointments(Request $request, Salon $salon)
     {
+        $salon_id = $salon->id;
         $validator = Validator::make($request->all(), [
             'start_date' => 'sometimes|required|date_format:Y-m-d',
             'end_date' => 'sometimes|required|date_format:Y-m-d|after_or_equal:start_date',
@@ -938,8 +958,9 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
     /**
      * Get SMS templates for appointments
      */
-    public function smsTemplates(Request $request, $salon_id)
+    public function smsTemplates(Request $request, Salon $salon)
     {
+        $salon_id = $salon->id;
         $eventType = $request->query('event_type');
         
         $query = \App\Models\SalonSmsTemplate::where(function($q) use ($salon_id) {
@@ -965,8 +986,10 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
     /**
      * Prepare appointment - validates data and checks for conflicts
      */
-    public function prepareAppointment(PrepareAppointmentRequest $request, $salon_id)
+    public function prepareAppointment(PrepareAppointmentRequest $request, Salon $salon)
     {
+        $salon_id = $salon->id;
+        
         $validatedData = $request->validated();
         
         // Convert Jalali date to Gregorian
@@ -1097,7 +1120,7 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
 
             $staff = \App\Models\Staff::where('salon_id', $salon_id)
                 ->where('id', $validatedData['staff_id'])
-                ->first(['id', 'full_name']);
+                ->first(['id', 'full_name', 'phone_number', 'specialty', 'profile_image']);
 
             // Load salon with relationships for complete response
             $salon = Salon::with(['businessCategory', 'businessSubcategories', 'province', 'city', 'user'])
@@ -1192,8 +1215,9 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
     /**
      * Prepare update for existing appointment - check conflicts before updating
      */
-    public function prepareUpdate(UpdateAppointmentRequest $request, $salon_id, $appointmentId)
+    public function prepareUpdate(UpdateAppointmentRequest $request, Salon $salon, $appointmentId)
     {
+        $salon_id = $salon->id;
         $appointment = Appointment::findOrFail($appointmentId);
         
         if ($appointment->salon_id != $salon_id) {
@@ -1355,8 +1379,10 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
     /**
      * Submit appointment - creates final appointment from pending appointment OR updates existing appointment
      */
-    public function submitAppointment(SubmitAppointmentRequest $request, $salon_id)
+    public function submitAppointment(SubmitAppointmentRequest $request, Salon $salon)
     {
+        $salon_id = $salon->id;
+        
         $validatedData = $request->validated();
         
         // Check if this is an update or create
@@ -1378,6 +1404,9 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
      */
     private function submitCreate($validatedData, $salon_id)
     {
+        // Ensure salon_id is an integer
+        $salon_id = is_object($salon_id) ? $salon_id->id : $salon_id;
+        
         $pendingAppointment = PendingAppointment::notExpired()
             ->where('salon_id', $salon_id)
             ->findOrFail($validatedData['pending_appointment_id']);
@@ -1409,7 +1438,8 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
                   $appointmentData['conflicting_appointments'], $appointmentData['expires_at'], 
                   $appointmentData['created_at'], $appointmentData['updated_at']);
             
-            // Ensure appointment_date is correctly set
+            // Ensure critical fields are correctly set
+            $appointmentData['salon_id'] = $salon_id;
             $appointmentData['appointment_date'] = $pendingAppointment->appointment_date->format('Y-m-d');
             $appointmentData['customer_id'] = $customer->id;
             $appointmentData['status'] = $pendingAppointment->status;
@@ -1465,6 +1495,9 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
      */
     private function submitUpdate($validatedData, $salon_id)
     {
+        // Ensure salon_id is an integer
+        $salon_id = is_object($salon_id) ? $salon_id->id : $salon_id;
+        
         // Check if pending_appointment_id is provided (new flow with 1-minute expiry)
         if (isset($validatedData['pending_appointment_id'])) {
             $pendingAppointment = PendingAppointment::notExpired()
@@ -1649,8 +1682,9 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
     /**
      * Store old appointment - creates appointment in past dates with completed status
      */
-    public function storeOldAppointment(StoreOldAppointmentRequest $request, $salon_id)
+    public function storeOldAppointment(StoreOldAppointmentRequest $request, Salon $salon)
     {
+        $salon_id = $salon->id;
         $validatedData = $request->validated();
         if (isset($validatedData['appointment_date'])) {
             try {
@@ -1772,8 +1806,10 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
     /**
      * Send reminder SMS for a specific appointment
      */
-    public function sendReminderSms(Request $request, $salon_id, Appointment $appointment)
+    public function sendReminderSms(Request $request, Salon $salon, Appointment $appointment)
     {
+        $salon_id = $salon->id;
+
         try {
             // Check if appointment belongs to the salon
             if ($appointment->salon_id != $salon_id) {
@@ -1813,8 +1849,10 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
     /**
      * Prepare appointment update - Check for conflicts before updating
      */
-    public function prepareUpdateAppointment(PrepareUpdateAppointmentRequest $request, $salon_id)
+    public function prepareUpdateAppointment(PrepareUpdateAppointmentRequest $request, Salon $salon)
     {
+        $salon_id = $salon->id;
+        
         $validatedData = $request->validated();
         
         $appointment = Appointment::where('salon_id', $salon_id)
@@ -1977,8 +2015,9 @@ public function getMonthlyAppointmentsCount($salon_id, $year, $month)
     /**
      * Submit appointment update - Apply the pending update
      */
-    public function submitUpdateAppointment(SubmitUpdateAppointmentRequest $request, $salon_id)
+    public function submitUpdateAppointment(SubmitUpdateAppointmentRequest $request, Salon $salon)
     {
+        $salon_id = $salon->id;
         $validatedData = $request->validated();
         
         $pendingUpdate = PendingAppointmentUpdate::notExpired()

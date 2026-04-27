@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AppointmentAttachment;
 use App\Models\Appointment;
+use App\Models\Salon;
 use App\Services\AttachmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -26,10 +27,11 @@ class AppointmentAttachmentController extends Controller
      * @param  int  $appointmentId
      * @return \Illuminate\Http\JsonResponse
      */
-    public function storeOrUpdate(Request $request, $salonId, $appointmentId)
+    public function storeOrUpdate(Request $request, Salon $salon, $appointmentId)
     {
+        $salonId = $salon->id;
         // Verify salon ownership
-        if (Auth::user()->salon_id !== (int) $salonId) {
+        if (auth('api')->user()->active_salon_id !== (int) $salonId) {
             return response()->json(['message' => 'دسترسی غیرمجاز'], 403);
         }
 
@@ -111,10 +113,11 @@ class AppointmentAttachmentController extends Controller
      * @param  int  $appointmentId
      * @return \Illuminate\Http\JsonResponse
      */
-    public function show($salonId, $appointmentId)
+    public function show(Salon $salon, $appointmentId)
     {
+        $salonId = $salon->id;
         // Verify salon ownership
-        if (Auth::user()->salon_id !== (int) $salonId) {
+        if (auth('api')->user()->active_salon_id !== (int) $salonId) {
             return response()->json(['message' => 'دسترسی غیرمجاز'], 403);
         }
 
@@ -158,10 +161,11 @@ class AppointmentAttachmentController extends Controller
      * @param  int  $attachmentId
      * @return \Illuminate\Http\JsonResponse
      */
-    public function destroy($salonId, $attachmentId)
+    public function destroy(Salon $salon, $attachmentId)
     {
+        $salonId = $salon->id;
         // Verify salon ownership
-        if (Auth::user()->salon_id !== (int) $salonId) {
+        if (auth('api')->user()->active_salon_id !== (int) $salonId) {
             return response()->json(['message' => 'دسترسی غیرمجاز'], 403);
         }
 
@@ -182,10 +186,11 @@ class AppointmentAttachmentController extends Controller
      * @param  int  $customerId
      * @return \Illuminate\Http\JsonResponse
      */
-    public function customerHistory(Request $request, $salonId, $customerId)
+    public function customerHistory(Request $request, Salon $salon, $customerId)
     {
+        $salonId = $salon->id;
         // Verify salon ownership
-        if (Auth::user()->salon_id !== (int) $salonId) {
+        if (auth('api')->user()->active_salon_id !== (int) $salonId) {
             return response()->json(['message' => 'دسترسی غیرمجاز'], 403);
         }
 
@@ -234,10 +239,11 @@ class AppointmentAttachmentController extends Controller
      * @param  int  $customerId
      * @return \Illuminate\Http\JsonResponse
      */
-    public function customerGallery(Request $request, $salonId, $customerId)
+    public function customerGallery(Request $request, Salon $salon, $customerId)
     {
+        $salonId = $salon->id;
         // Verify salon ownership
-        if (Auth::user()->salon_id !== (int) $salonId) {
+        if (auth('api')->user()->active_salon_id !== (int) $salonId) {
             return response()->json(['message' => 'دسترسی غیرمجاز'], 403);
         }
 

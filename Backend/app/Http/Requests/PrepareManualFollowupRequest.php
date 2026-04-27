@@ -9,7 +9,8 @@ class PrepareManualFollowupRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $salonId = $this->route('salon');
+        $salon = $this->route('salon');
+        $salonId = is_object($salon) ? $salon->getKey() : $salon;
         return Auth::check() && Auth::user()->salons()->where('id', $salonId)->exists();
     }
 
@@ -17,9 +18,17 @@ class PrepareManualFollowupRequest extends FormRequest
     {
         return [
             'customer_group_ids' => ['nullable', 'array'],
-            'customer_group_ids.*' => ['exists:customer_groups,id'],
+            'customer_group_ids.*' => ['integer', function ($attribute, $value, $fail) {
+                if ($value != 0 && !\App\Models\CustomerGroup::where('id', $value)->exists()) {
+                    $fail('گروه مشتری انتخاب شده معتبر نیست.');
+                }
+            }],
             'service_ids' => ['nullable', 'array'],
-            'service_ids.*' => ['exists:services,id'],
+            'service_ids.*' => ['integer', function ($attribute, $value, $fail) {
+                if ($value != 0 && !\App\Models\Service::where('id', $value)->exists()) {
+                    $fail('سرویس انتخاب شده معتبر نیست.');
+                }
+            }],
             'days_since_last_visit' => ['required', 'integer', 'min:1', 'max:365'],
             'template_id' => ['required', 'exists:salon_sms_templates,id'],
         ];

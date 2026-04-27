@@ -25,8 +25,9 @@ class OnlineBookingManagementController extends Controller
     /**
      * List online bookings for a salon with filtering.
      */
-    public function index(Request $request, $salonId)
+    public function index(Request $request, Salon $salon)
     {
+        $salonId = $salon->id;
         $perPage = $request->input('per_page', 15);
         $status = $request->input('status'); // pending, confirmed, canceled
         $jalaliDate = $request->input('date'); // YYYY/MM/DD or YYYY-MM-DD
@@ -277,8 +278,9 @@ class OnlineBookingManagementController extends Controller
     /**
      * Approve an online booking.
      */
-    public function approve(Request $request, $salonId, $appointmentId)
+    public function approve(Request $request, Salon $salon, $appointmentId)
     {
+        $salonId = $salon->id;
         $appointment = Appointment::where('salon_id', $salonId)
             ->where('id', $appointmentId)
             ->firstOrFail();
@@ -331,8 +333,9 @@ class OnlineBookingManagementController extends Controller
     /**
      * Reject an online booking.
      */
-    public function reject(Request $request, $salonId, $appointmentId)
+    public function reject(Request $request, Salon $salon, $appointmentId)
     {
+        $salonId = $salon->id;
         $appointment = Appointment::where('salon_id', $salonId)
             ->where('id', $appointmentId)
             ->firstOrFail();
@@ -361,8 +364,9 @@ class OnlineBookingManagementController extends Controller
      * Bulk approve multiple online bookings for a salon.
      * Expects JSON: { "appointment_ids": [1,2,3] }
      */
-    public function bulkApprove(Request $request, $salonId)
+    public function bulkApprove(Request $request, Salon $salon)
     {
+        $salonId = $salon->id;
         $validated = $request->validate([
             'appointment_ids' => 'required|array|min:1',
             'appointment_ids.*' => 'integer'

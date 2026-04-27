@@ -14,16 +14,18 @@ class ServiceResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $durationMinutes = $this->duration_minutes; // Capture outside closure
+        
         return [
             'id' => $this->id,
             'name' => $this->name,
             'duration_minutes' => $this->duration_minutes,
-            'pivot' => $this->whenPivotLoaded('appointment_service', function () {
+            'pivot' => $this->whenPivotLoaded('appointment_service', function () use ($durationMinutes) {
                 return [
                     'appointment_id' => $this->pivot->appointment_id,
                     'service_id' => $this->pivot->service_id,
                     'price_at_booking' => $this->pivot->price_at_booking,
-                    // 'duration_at_booking' => $this->pivot->duration_at_booking, // Removed as total_duration is now on appointment
+                    'duration_at_booking' => $durationMinutes, // Use service's duration_minutes for backward compatibility
                     'created_at' => $this->pivot->created_at,
                     'updated_at' => $this->pivot->updated_at,
                 ];

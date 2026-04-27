@@ -12,16 +12,24 @@ class ReservationReportService extends BaseReportService
     /**
      * Generate preset report.
      */
-    public function generatePresetReport($salonId, $period = 'weekly')
+    public function generatePresetReport($salonId, $period = null)
     {
         $this->salonId = $salonId;
-        $dateRange = $this->getPresetDateRange($period);
-        $this->dateFrom = $dateRange['from'];
-        $this->dateTo = $dateRange['to'];
+
+        if ($period) {
+            $dateRange = $this->getPresetDateRange($period);
+            $this->dateFrom = $dateRange['from'];
+            $this->dateTo = $dateRange['to'];
+        } else {
+            $this->dateFrom = null;
+            $this->dateTo = null;
+        }
 
         return [
-            'period' => $period,
-            'date_range' => $this->getPersianDateRange($this->dateFrom, $this->dateTo),
+            'period' => $period ?? 'overall',
+            'date_range' => $this->dateFrom && $this->dateTo
+                ? $this->getPersianDateRange($this->dateFrom, $this->dateTo)
+                : null,
             'kpis' => $this->calculateKPIs(),
             'charts' => $this->generateCharts(['period' => $period]),
             'sections' => $this->generateSections(),
@@ -67,14 +75,14 @@ class ReservationReportService extends BaseReportService
         }
 
         // Apply service filter
-        if (!empty($filters['service_ids'])) {
+        if (!empty($filters['service_ids']) && !in_array(0, $filters['service_ids'])) {
             $baseQuery->whereHas('services', function ($q) use ($filters) {
                 $q->whereIn('services.id', $filters['service_ids']);
             });
         }
 
         // Apply personnel filter
-        if (!empty($filters['personnel_ids'])) {
+        if (!empty($filters['personnel_ids']) && !in_array(0, $filters['personnel_ids'])) {
             $baseQuery->whereIn('staff_id', $filters['personnel_ids']);
         }
 
@@ -147,36 +155,55 @@ class ReservationReportService extends BaseReportService
      */
     protected function generateCharts(array $filters = [])
     {
-        // Appointments by weekday
-        $appointmentsByWeekday = Appointment::where('salon_id', $this->salonId)
+        $grouping = $this->getChartGrouping($filters['period'] ?? null);
+        $groupSql = str_replace('{{column}}', 'appointment_date', $grouping['sql']);
+
+        $appointmentsByPeriod = Appointment::where('salon_id', $this->salonId)
             ->when($this->dateFrom, function ($q) {
                 $q->whereDate('appointment_date', '>=', $this->dateFrom);
             })
             ->when($this->dateTo, function ($q) {
                 $q->whereDate('appointment_date', '<=', $this->dateTo);
             })
-            ->select(
-                DB::raw('DAYOFWEEK(appointment_date) as day_of_week'),
-                DB::raw('COUNT(CASE WHEN status NOT IN ("canceled", "cancelled") THEN 1 END) as booked'),
-                DB::raw('COUNT(CASE WHEN status IN ("canceled", "cancelled") THEN 1 END) as canceled')
-            )
-            ->groupBy('day_of_week')
+            ->selectRaw($groupSql . ', COUNT(CASE WHEN status NOT IN ("canceled", "cancelled") THEN 1 END) as booked, COUNT(CASE WHEN status IN ("canceled", "cancelled") THEN 1 END) as canceled')
+            ->groupBy('group_key')
+            ->orderBy('group_key')
             ->get();
 
-        $weekdays = [];
-        $bookedData = [];
-        $canceledData = [];
+        $labels = $grouping['labels'];
+        $bookedData = array_fill(0, count($labels), 0);
+        $canceledData = array_fill(0, count($labels), 0);
 
-        foreach ($appointmentsByWeekday as $item) {
-            $dayName = $this->getWeekdayName($item->day_of_week - 1);
-            $weekdays[] = $dayName;
-            $bookedData[] = $item->booked;
-            $canceledData[] = $item->canceled;
+        foreach ($appointmentsByPeriod as $item) {
+            if ($grouping['type'] === 'weekday') {
+                $mapping = [7 => 0, 1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6];
+                $index = $mapping[$item->group_key] ?? null;
+                if ($index !== null) {
+                    $bookedData[$index] = $item->booked;
+                    $canceledData[$index] = $item->canceled;
+                }
+            } elseif ($grouping['type'] === 'day') {
+                $index = $item->group_key - 1;
+                if ($index >= 0 && $index < count($bookedData)) {
+                    $bookedData[$index] = $item->booked;
+                    $canceledData[$index] = $item->canceled;
+                }
+            } elseif ($grouping['type'] === 'month') {
+                try {
+                    $date = Carbon::parse($item->group_key . '-01');
+                    $verta = new \Hekmatinasser\Verta\Verta($date);
+                    $monthIndex = $verta->month - 1;
+                    if ($monthIndex >= 0 && $monthIndex < 12) {
+                        $bookedData[$monthIndex] += $item->booked;
+                        $canceledData[$monthIndex] += $item->canceled;
+                    }
+                } catch (\Exception $e) {}
+            }
         }
 
         return [
             'appointments_by_weekday' => [
-                'labels' => $weekdays,
+                'labels' => $labels,
                 'datasets' => [
                     [
                         'label' => 'اخذ شده',

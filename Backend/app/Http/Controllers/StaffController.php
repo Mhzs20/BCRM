@@ -40,6 +40,16 @@ class StaffController extends Controller
         $query = $salon->staff()
             ->with(['services:id,name,duration_minutes', 'schedules', 'breaks']);
 
+        // Search functionality
+        if ($request->filled('q')) {
+            $searchTerm = $request->input('q');
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('full_name', 'like', "%{$searchTerm}%")
+                    ->orWhere('specialty', 'like', "%{$searchTerm}%")
+                    ->orWhere('phone_number', 'like', "%{$searchTerm}%");
+            });
+        }
+
         if ($request->filled('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }

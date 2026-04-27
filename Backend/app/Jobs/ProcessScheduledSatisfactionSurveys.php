@@ -141,15 +141,38 @@ class ProcessScheduledSatisfactionSurveys implements ShouldQueue
             $smsService = app(SmsService::class);
             $result = $smsService->sendSms($customer->phone_number, $message, null);
 
+            // Determine status based on API response
+            $status = 'failed';
+            $messageId = null;
+            if ($result && is_array($result) && count($result) > 0) {
+                $entry = $result[0];
+                $kavenegarStatus = $entry['status'] ?? null;
+                $messageId = $entry['messageid'] ?? null;
+                $status = $kavenegarStatus !== null 
+                    ? $smsService->mapKavenegarStatusToInternal($kavenegarStatus) 
+                    : 'pending';
+            }
+
+            // Mark the appointment as survey sent
+            if ($status !== 'failed') {
+                $appointment->survey_sms_sent_at = Carbon::now();
+                $appointment->satisfaction_sms_status = $status;
+                if ($messageId) {
+                    $appointment->satisfaction_sms_message_id = $messageId;
+                }
+                $appointment->save();
+            }
+
             // Log the send
             SatisfactionSurveyLog::create([
                 'appointment_id' => $appointment->id,
                 'customer_id' => $customer->id,
                 'salon_id' => $salon->id,
                 'scheduled_at' => $sendAt,
-                'sent_at' => Carbon::now(),
-                'status' => $result ? 'sent' : 'failed',
-                'error_message' => $result ? null : 'SMS send failed',
+                'sent_at' => $status !== 'failed' ? Carbon::now() : null,
+                'status' => $status,
+                'message_id' => $messageId,
+                'error_message' => $status === 'failed' ? 'SMS send failed' : null,
             ]);
 
             if ($result) {

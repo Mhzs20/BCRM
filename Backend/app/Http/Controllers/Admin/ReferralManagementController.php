@@ -259,7 +259,9 @@ class ReferralManagementController extends Controller
      */
     public function userReferrals(Request $request, User $user)
     {
-        $query = $user->referrals()->with('referred');
+        $query = $user->referrals()->with(['referred' => function($q) {
+            $q->withCount('orders');
+        }]);
 
         // Filters
         if ($request->search) {

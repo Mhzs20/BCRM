@@ -36,6 +36,9 @@ use App\Http\Controllers\ContactPickerController;
 use App\Http\Controllers\RenewalReminderController;
 use App\Http\Controllers\ServiceRenewalController;
 use App\Http\Controllers\CustomerFollowUpController;
+use App\Http\Controllers\Api\AdminAuthController;
+use App\Http\Controllers\Api\SalonAdminController;
+use App\Http\Controllers\Api\PermissionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -152,6 +155,7 @@ Route::middleware('auth:api')->group(function () {
                 ->group(function () {
                     Route::get('stats', [\App\Http\Controllers\CustomerFollowUpController::class, 'stats'])->name('stats');
                     Route::get('groups', [\App\Http\Controllers\CustomerFollowUpController::class, 'groups'])->name('groups');
+                    Route::get('services', [\App\Http\Controllers\CustomerFollowUpController::class, 'services'])->name('services');
                     Route::get('templates', [\App\Http\Controllers\CustomerFollowUpController::class, 'templates'])->name('templates');
                     Route::get('settings/summary', [\App\Http\Controllers\CustomerFollowUpController::class, 'summary'])->name('settings.summary');
                     Route::put('groups/settings', [\App\Http\Controllers\CustomerFollowUpController::class, 'updateSettings'])->name('groups.update_settings');
@@ -239,15 +243,15 @@ Route::middleware('auth:api')->group(function () {
             Route::post('appointments/submit', [AppointmentController::class, 'submitAppointment'])->name('appointments.submit');
             Route::post('appointments/prepare-update', [AppointmentController::class, 'prepareUpdateAppointment'])->name('appointments.prepare_update');
             Route::post('appointments/submit-update', [AppointmentController::class, 'submitUpdateAppointment'])->name('appointments.submit_update');
-            Route::post('appointments/{appointmentId}/prepare-update', [AppointmentController::class, 'prepareUpdate'])->name('appointments.prepare_update');
+            Route::post('appointments/{appointmentId}/prepare-update', [AppointmentController::class, 'prepareUpdate'])->name('appointments.prepare_update_by_id');
             Route::post('appointments/old', [AppointmentController::class, 'storeOldAppointment'])->name('appointments.old');
             Route::get('appointments/sms-templates', [\App\Http\Controllers\AppointmentSmsTemplateController::class, 'getAppointmentTemplates'])->name('appointments.sms_templates');
             Route::post('appointments/sms-templates/set-default', [\App\Http\Controllers\AppointmentSmsTemplateController::class, 'setDefaultTemplate'])->name('appointments.sms_templates.set_default');
             Route::get('appointments-by-month/{year}/{month}/{day}', [AppointmentController::class, 'getAppointmentsByMonthAndDay'])
-                ->whereNumber('year')->whereNumber('month')->whereNumber('day');
+                ->whereNumber('year')->whereNumber('month')->whereNumber('day')->name('appointments.by_month_day');
 
             Route::get('appointments-by-month/{year}/{month}', [AppointmentController::class, 'getAppointmentsByMonth'])
-                ->whereNumber('year')->whereNumber('month');
+                ->whereNumber('year')->whereNumber('month')->name('appointments.by_month');
 
             Route::get('appointments', [AppointmentController::class, 'getAppointments']);
 
@@ -273,6 +277,60 @@ Route::middleware('auth:api')->group(function () {
             Route::apiResource('customer-groups', CustomerGroupController::class)->except(['create', 'edit'])->names('customerGroups');
             Route::apiResource('professions', ProfessionController::class)->except(['create', 'edit'])->names('professions');
             Route::apiResource('age-ranges', AgeRangeController::class)->except(['create', 'edit'])->names('ageRanges');
+
+            // Commission Management Routes - سیستم مدیریت پورسانت کارکنان
+            Route::prefix('commissions')->name('commissions.')->group(function () {
+                Route::get('dashboard', [\App\Http\Controllers\CommissionController::class, 'dashboard'])->name('dashboard');
+                Route::get('staff', [\App\Http\Controllers\CommissionController::class, 'staffList'])->name('staff.index');
+                
+                Route::prefix('staff/{staff}')->name('staff.')->group(function () {
+                    Route::get('transactions', [\App\Http\Controllers\CommissionController::class, 'staffTransactions'])->name('transactions');
+                    Route::get('service-settings', [\App\Http\Controllers\CommissionController::class, 'getServiceCommissionSettings'])->name('service_settings.index');
+                    Route::put('service-settings', [\App\Http\Controllers\CommissionController::class, 'updateServiceCommissionSettings'])->name('service_settings.update');
+                    Route::put('settings', [\App\Http\Controllers\CommissionController::class, 'updateStaffCommissionSettings'])->name('settings.update');
+                    Route::post('adjustment', [\App\Http\Controllers\CommissionController::class, 'createAdjustment'])->name('adjustment');
+                    Route::post('payment', [\App\Http\Controllers\CommissionController::class, 'recordPayment'])->name('payment');
+                    Route::post('settle', [\App\Http\Controllers\CommissionController::class, 'bulkSettle'])->name('settle');
+                    Route::post('settle-all', [\App\Http\Controllers\CommissionController::class, 'settleAll'])->name('settle_all');
+                });
+            });
+
+            // Cashbox Management Routes - سیستم مدیریت صندوق‌ها و نقدینگی
+            Route::prefix('cashboxes')->name('cashboxes.')->group(function () {
+                Route::get('dashboard', [\App\Http\Controllers\CashboxController::class, 'dashboard'])->name('dashboard');
+                Route::get('/', [\App\Http\Controllers\CashboxController::class, 'index'])->name('index');
+                Route::post('/', [\App\Http\Controllers\CashboxController::class, 'store'])->name('store');
+                Route::get('transactions', [\App\Http\Controllers\CashboxController::class, 'allTransactions'])->name('all_transactions');
+                Route::get('{cashbox}', [\App\Http\Controllers\CashboxController::class, 'show'])->name('show');
+                Route::put('{cashbox}', [\App\Http\Controllers\CashboxController::class, 'update'])->name('update');
+                Route::delete('{cashbox}', [\App\Http\Controllers\CashboxController::class, 'destroy'])->name('destroy');
+                
+                // تراکنش‌های مالی
+                Route::post('income', [\App\Http\Controllers\CashboxController::class, 'recordIncome'])->name('income');
+                Route::post('expense', [\App\Http\Controllers\CashboxController::class, 'recordExpense'])->name('expense');
+                Route::post('transfer', [\App\Http\Controllers\CashboxController::class, 'transfer'])->name('transfer');
+                
+                // گزارشات
+                Route::get('{cashbox}/transactions', [\App\Http\Controllers\CashboxController::class, 'transactions'])->name('transactions');
+                Route::post('{cashbox}/recalculate', [\App\Http\Controllers\CashboxController::class, 'recalculateBalance'])->name('recalculate');
+            });
+
+            // Transaction Categories Management Routes - مدیریت دسته‌بندی و زیردسته‌بندی تراکنش‌ها
+            Route::prefix('transaction-categories')->name('transaction_categories.')->group(function () {
+                // دسته‌بندی‌ها
+                Route::get('/', [\App\Http\Controllers\TransactionCategoryController::class, 'index'])->name('index');
+                Route::post('/', [\App\Http\Controllers\TransactionCategoryController::class, 'store'])->name('store');
+                Route::get('{category}', [\App\Http\Controllers\TransactionCategoryController::class, 'show'])->name('show');
+                Route::put('{category}', [\App\Http\Controllers\TransactionCategoryController::class, 'update'])->name('update');
+                Route::delete('{category}', [\App\Http\Controllers\TransactionCategoryController::class, 'destroy'])->name('destroy');
+                
+                // زیردسته‌ها
+                Route::get('{category}/subcategories', [\App\Http\Controllers\TransactionCategoryController::class, 'subcategories'])->name('subcategories.index');
+                Route::post('{category}/subcategories', [\App\Http\Controllers\TransactionCategoryController::class, 'storeSubcategory'])->name('subcategories.store');
+                Route::get('{category}/subcategories/{subcategory}', [\App\Http\Controllers\TransactionCategoryController::class, 'showSubcategory'])->name('subcategories.show');
+                Route::put('{category}/subcategories/{subcategory}', [\App\Http\Controllers\TransactionCategoryController::class, 'updateSubcategory'])->name('subcategories.update');
+                Route::delete('{category}/subcategories/{subcategory}', [\App\Http\Controllers\TransactionCategoryController::class, 'destroySubcategory'])->name('subcategories.destroy');
+            });
 
             Route::get('overview/stats', [DashboardController::class, 'getSalonStats'])->name('overview.stats');
 
@@ -321,6 +379,7 @@ Route::middleware('auth:api')->group(function () {
                 Route::get('/', [\App\Http\Controllers\Api\PackageController::class, 'index'])->name('index');
                 Route::get('/active', [\App\Http\Controllers\Api\PackageController::class, 'myPackage'])->name('active');
                 Route::get('/history', [\App\Http\Controllers\Api\PackageController::class, 'myPackages'])->name('history');
+                Route::get('/overview', [\App\Http\Controllers\Api\PackageController::class, 'packageOverview'])->name('overview');
                 Route::get('/{id}', [\App\Http\Controllers\Api\PackageController::class, 'show'])->name('show');
                 Route::post('/{id}/purchase', [\App\Http\Controllers\Api\PackageController::class, 'purchase'])->name('purchase');
                 Route::post('/verify', [\App\Http\Controllers\Api\PackageController::class, 'verify'])->name('verify');
@@ -479,6 +538,10 @@ Route::middleware('auth:api')->prefix('reports')->name('reports.')->group(functi
     Route::get('reservations/preset', [ReportController::class, 'reservationsPreset'])->name('reservations.preset');
     Route::post('reservations/custom', [ReportController::class, 'reservationsCustom'])->name('reservations.custom');
     
+    // Appointment Reports (Custom)
+    Route::get('appointments/preset', [ReportController::class, 'appointmentsPreset'])->name('appointments.preset');
+    Route::post('appointments/custom', [ReportController::class, 'appointmentsCustom'])->name('appointments.custom');
+    
     // Finance Reports
     Route::get('finance/preset', [ReportController::class, 'financePreset'])->name('finance.preset');
     Route::post('finance/custom', [ReportController::class, 'financeCustom'])->name('finance.custom');
@@ -505,6 +568,43 @@ Route::middleware('auth:api')->prefix('reports')->name('reports.')->group(functi
 // Public shared report (no auth required)
 Route::get('reports/shared/{token}', [ReportController::class, 'getSharedReport'])->name('reports.shared');
 Route::get('reports/shared/{token}/pdf', [ReportController::class, 'downloadSharedReportPdf'])->name('reports.shared.pdf');
+
+/*
+|--------------------------------------------------------------------------
+| Salon Admin Management Routes
+|--------------------------------------------------------------------------
+| سیستم مدیریت ادمین‌های سالن با احراز هویت OTP و کنترل دسترسی
+*/
+
+// Public routes for admin authentication
+Route::prefix('admin/auth')->name('admin.auth.')->group(function () {
+    Route::post('send-otp', [AdminAuthController::class, 'sendOtp'])->name('send_otp');
+    Route::post('verify-otp', [AdminAuthController::class, 'verifyOtp'])->name('verify_otp');
+    Route::post('login', [AdminAuthController::class, 'login'])->name('login');
+});
+
+// Protected routes for salon admins
+Route::prefix('admin')->middleware('auth:salon_admin')->name('admin.')->group(function () {
+    Route::get('me', [AdminAuthController::class, 'me'])->name('me');
+    Route::post('logout', [AdminAuthController::class, 'logout'])->name('logout');
+    Route::post('refresh', [AdminAuthController::class, 'refresh'])->name('refresh');
+});
+
+// Routes for managing salon admins (accessible by salon owner)
+Route::prefix('salons/{salonId}/admins')->middleware('auth:api')->name('salon.admins.')->group(function () {
+    // Get available permissions list
+    Route::get('permissions', [PermissionController::class, 'index'])->name('permissions.index');
+    
+    // Complete admin registration after OTP verification
+    Route::post('register', [SalonAdminController::class, 'completeRegistration'])->name('register');
+    
+    // CRUD operations for salon admins
+    Route::get('/', [SalonAdminController::class, 'index'])->name('index');
+    Route::get('/{id}', [SalonAdminController::class, 'show'])->name('show');
+    Route::put('/{id}', [SalonAdminController::class, 'update'])->name('update');
+    Route::delete('/{id}', [SalonAdminController::class, 'destroy'])->name('destroy');
+    Route::post('/{id}/reset-password', [SalonAdminController::class, 'resetPassword'])->name('reset_password');
+});
 
 Route::fallback(function(){
     return response()->json(['message' => 'مسیر API درخواستی یافت نشد یا متد HTTP مجاز نیست.'], 404);

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\WalletPackage;
 use App\Models\WalletTransaction;
+use App\Models\Salon;
 use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -134,7 +135,7 @@ class WalletPackageController extends Controller
     /**
      * Get specific wallet package
      */
-    public function show($salon, WalletPackage $walletPackage)
+    public function show(Salon $salon, WalletPackage $walletPackage)
     {
         try {
             if (!$walletPackage->is_active) {
@@ -177,7 +178,7 @@ class WalletPackageController extends Controller
     /**
      * Purchase wallet package
      */
-    public function purchase(Request $request, $salon, WalletPackage $walletPackage)
+    public function purchase(Request $request, Salon $salon, WalletPackage $walletPackage)
     {
         try {
             $validated = $request->validate([

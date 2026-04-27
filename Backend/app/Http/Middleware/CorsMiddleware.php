@@ -20,6 +20,8 @@ class CorsMiddleware
         $allowedOrigins = [
             'https://ziboxcrm.ir',
             'https://api.ziboxcrm.ir',
+            'https://test.ziboxcrm.ir',
+            'https://stage.ziboxcrm.ir',
         ];
 
         $origin = $request->headers->get('Origin');

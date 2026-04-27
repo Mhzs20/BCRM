@@ -32,7 +32,7 @@ class PrepareAppointmentRequest extends FormRequest
             'service_ids' => ['required', 'array', 'min:1'],
             'service_ids.*' => [
                 'required', 'integer',
-                Rule::exists('services', 'id')->where('salon_id', $salonId)->where('is_active', true)
+                Rule::exists('services', 'id')->where('salon_id', $salonId)->where('is_active', true)->whereNull('deleted_at')
             ],
             'staff_id' => [
                 'required', 'integer',

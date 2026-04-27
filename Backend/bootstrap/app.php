@@ -2,6 +2,8 @@
 
 use App\Http\Middleware\SuperAdminMiddleware;
 use App\Http\Middleware\CheckPackageFeature;
+use App\Http\Middleware\CheckAdminPermission;
+use App\Http\Middleware\CheckAllAdminPermissions;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -30,6 +32,8 @@ $app = Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'superadmin' => SuperAdminMiddleware::class,
             'feature' => CheckPackageFeature::class,
+            'admin.permission' => CheckAdminPermission::class,
+            'admin.permission.all' => CheckAllAdminPermissions::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

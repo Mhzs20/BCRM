@@ -11,6 +11,8 @@ use App\Models\Appointment;
 use App\Observers\AppointmentObserver;
 use App\Models\Salon;
 use App\Observers\SalonObserver;
+use App\Models\Service;
+use App\Observers\ServiceObserver;
 use Illuminate\Pagination\Paginator;
 
 class AppServiceProvider extends ServiceProvider
@@ -32,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
 
         Appointment::observe(AppointmentObserver::class);
         Salon::observe(SalonObserver::class);
+        Service::observe(ServiceObserver::class);
 
         Schema::defaultStringLength(191);
 

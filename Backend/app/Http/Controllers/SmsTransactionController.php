@@ -95,14 +95,13 @@ class SmsTransactionController extends Controller
             $toDate = null;
         }
 
-        // Default to current Jalali month if no dates provided
+        // Default to last 30 Jalali days (one Shamsi month ago until today)
         if (!$fromDate || !$toDate) {
-            $vNow = Verta::now();
             if (!$fromDate) {
-                $fromDate = $vNow->startMonth()->toCarbon()->startOfDay();
+                $fromDate = Verta::now()->subMonth()->toCarbon()->startOfDay();
             }
             if (!$toDate) {
-                $toDate = $vNow->endMonth()->toCarbon()->endOfDay();
+                $toDate = \Carbon\Carbon::now()->endOfDay();
             }
         }
 
@@ -441,15 +440,30 @@ class SmsTransactionController extends Controller
                     });
                 });
 
-                // Purchase transactions (in this project they are stored as SmsTransaction with type = 'purchase' or via Order)
-                $purchaseQuery = (clone $periodBaseQuery)->where(function($q) {
+                // Purchase transactions - فیلتر بر اساس بازه زمانی انتخابی
+                $allTimePurchaseQuery = SmsTransaction::query();
+                if ($salon) {
+                    $allTimePurchaseQuery->where('salon_id', $salon->id);
+                } else {
+                    $allTimePurchaseQuery->where('user_id', $user->id);
+                }
+                $allTimePurchaseQuery->where(function($q) {
+                    $q->where('description', 'NOT LIKE', 'پیامک گروهی توسط ادمین%')
+                      ->orWhereNull('description');
+                });
+                $allTimePurchaseQuery->where(function($q) {
                     $q->where('type', 'purchase')
                       ->orWhere('type', 'gift')
                       ->orWhere('sms_type', 'purchase');
                 });
+                // اعمال فیلتر بازه زمانی
+                $allTimePurchaseQuery->where(function ($q) use ($fromDate, $toDate) {
+                    $q->whereBetween('created_at', [$fromDate, $toDate])
+                      ->orWhereBetween('sent_at', [$fromDate, $toDate]);
+                });
 
                 // محاسبه با در نظر گرفتن تراکنش‌های قدیمی که sms_count ندارند
-                $totalPurchased = (clone $purchaseQuery)->get()->sum(function($t) {
+                $totalPurchased = (clone $allTimePurchaseQuery)->get()->sum(function($t) {
                     if ($t->sms_count !== null) {
                         return $t->sms_count;
                     }
@@ -459,6 +473,7 @@ class SmsTransactionController extends Controller
                     return 0;
                 });
                 
+                // مصرف در بازه زمانی انتخابی - استفاده از consumptionQuery که قبلاً بر اساس periodBaseQuery ساخته شده
                 $totalConsumed = (clone $consumptionQuery)->get()->sum(function($t) {
                     if ($t->sms_count !== null) {
                         return $t->sms_count;
@@ -479,10 +494,12 @@ class SmsTransactionController extends Controller
                     $remainingBalance = null; // Not meaningful across multiple salons
                 }
 
-                // Percent consumed relative to consumed + remaining (avoid division by zero)
+                // Percent consumed relative to purchased in the period (avoid division by zero)
                 $percentConsumed = 0;
-                if (($totalConsumed + ($remainingBalance ?? 0)) > 0) {
-                    $percentConsumed = round(($totalConsumed / ($totalConsumed + ($remainingBalance ?? 0))) * 100);
+                if ($totalPurchased > 0) {
+                    $percentConsumed = min(100, round(($totalConsumed / $totalPurchased) * 100));
+                } elseif ($totalConsumed > 0) {
+                    $percentConsumed = 100;
                 }
 
                 // محاسبه آمار transactions_by_type با در نظر گرفتن sms_count واقعی
@@ -594,9 +611,16 @@ class SmsTransactionController extends Controller
             $query->where('user_id', $user->id);
         }
 
-        // Filter by status if provided
+        // Filter by order status if provided
         if ($request->filled('status')) {
             $query->where('status', $request->status);
+        }
+
+        // Filter by payment status (transaction status)
+        if ($request->filled('payment_status')) {
+            $query->whereHas('transactions', function($q) use ($request) {
+                $q->where('status', $request->payment_status);
+            });
         }
 
         // Filter by date range if provided
@@ -673,6 +697,24 @@ class SmsTransactionController extends Controller
             $summaryQuery->where('user_id', $user->id);
         }
 
+        // Apply filters to summary
+        if ($request->filled('status')) {
+            $summaryQuery->where('status', $request->status);
+        }
+
+        if ($request->filled('payment_status')) {
+            $summaryQuery->whereHas('transactions', function($q) use ($request) {
+                $q->where('status', $request->payment_status);
+            });
+        }
+
+        if ($request->filled('from_date')) {
+            $summaryQuery->whereDate('created_at', '>=', $request->from_date);
+        }
+        if ($request->filled('to_date')) {
+            $summaryQuery->whereDate('created_at', '<=', $request->to_date);
+        }
+
         $summary = [
             'total_orders' => (clone $summaryQuery)->count(),
             'total_amount' => (clone $summaryQuery)->sum('amount'),
@@ -716,7 +758,7 @@ class SmsTransactionController extends Controller
                 'appointment:id,appointment_date,start_time,end_time',
                 'salon:id,name'
             ])
-            ->where('status', 'delivered') // Only delivered messages
+            ->whereIn('status', ['delivered', 'sent']) // Only delivered/sent messages
             ->where('amount', '>', 0) // Only transactions with cost
             ->where('salon_id', $salon->id) // Only for this specific salon
             ->latest();
@@ -824,7 +866,7 @@ class SmsTransactionController extends Controller
 
         // Calculate summary statistics
         $summaryQuery = SmsTransaction::query()
-            ->where('status', 'delivered')
+            ->whereIn('status', ['delivered', 'sent'])
             ->where('amount', '>', 0)
             ->where('salon_id', $salon->id);
 

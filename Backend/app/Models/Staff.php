@@ -37,6 +37,8 @@ class Staff extends Model
         'commission_type',
         'commission_value',
         'total_commission_paid',
+        'monthly_commission_cap',
+        'apply_discount_to_commission',
     ];
 
     /**
@@ -59,6 +61,8 @@ class Staff extends Model
         'total_income' => 'decimal:2',
         'commission_value' => 'decimal:2',
         'total_commission_paid' => 'decimal:2',
+        'monthly_commission_cap' => 'decimal:2',
+        'apply_discount_to_commission' => 'boolean',
     ];
 
     /**
@@ -159,6 +163,22 @@ class Staff extends Model
     }
 
     /**
+     * Get the service commission settings for this staff.
+     */
+    public function serviceCommissions()
+    {
+        return $this->hasMany(StaffServiceCommission::class, 'staff_id');
+    }
+
+    /**
+     * Get the commission transactions for this staff.
+     */
+    public function commissionTransactions()
+    {
+        return $this->hasMany(StaffCommissionTransaction::class, 'staff_id');
+    }
+
+    /**
      * Calculate commission for a given amount.
      */
     public function calculateCommission($amount)
@@ -167,5 +187,15 @@ class Staff extends Model
             return ($amount * $this->commission_value) / 100;
         }
         return $this->commission_value;
+    }
+
+    /**
+     * Get the pending commission balance for this staff.
+     */
+    public function getPendingCommissionBalance(): float
+    {
+        return $this->commissionTransactions()
+            ->where('payment_status', StaffCommissionTransaction::STATUS_PENDING)
+            ->sum('amount');
     }
 }

@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Models\Salon;
 use App\Models\SatisfactionSurveySetting;
 use App\Models\SatisfactionSurveyGroupSetting;
 use App\Models\CustomerGroup;
@@ -9,8 +10,9 @@ use Illuminate\Http\Request;
 class SatisfactionSurveyController extends Controller
 {
     // 1. Get Satisfaction Survey Statistics
-    public function stats($salonId)
+    public function stats(Salon $salon)
     {
+        $salonId = (string) $salon->id;
         $totalGroups = CustomerGroup::where('salon_id', $salonId)->count();
         
         $activeGroups = SatisfactionSurveyGroupSetting::whereHas('satisfactionSurveySetting', function($q) use ($salonId) {
@@ -36,8 +38,9 @@ class SatisfactionSurveyController extends Controller
     }
 
     // 2. Get All Customer Groups with Satisfaction Survey Settings
-    public function groups(Request $request, $salonId)
+    public function groups(Request $request, Salon $salon)
     {
+        $salonId = (string) $salon->id;
         $search = $request->get('search');
         $reminder_status = $request->get('reminder_status');
         $sort_by = $request->get('sort_by', 'name');
@@ -109,9 +112,9 @@ class SatisfactionSurveyController extends Controller
     }
 
     // 4. Get Summary of Satisfaction Survey Settings
-    public function summary($salonId)
+    public function summary(Salon $salon)
     {
-        $setting = SatisfactionSurveySetting::where('salon_id', $salonId)
+        $setting = SatisfactionSurveySetting::where('salon_id', $salon->id)
             ->with('groupSettings.customerGroup')
             ->first();
         
@@ -119,8 +122,9 @@ class SatisfactionSurveyController extends Controller
     }
 
     // 5. Update Satisfaction Survey Settings
-    public function updateSettings(Request $request, $salonId)
+    public function updateSettings(Request $request, Salon $salon)
     {
+        $salonId = (string) $salon->id;
         $data = $request->all();
         
         $setting = SatisfactionSurveySetting::firstOrCreate([
@@ -173,9 +177,9 @@ class SatisfactionSurveyController extends Controller
     }
 
     // 6. Toggle Individual Group Satisfaction Survey
-    public function toggleGroup(Request $request, $salonId, $groupId)
+    public function toggleGroup(Request $request, Salon $salon, $groupId)
     {
-        $setting = SatisfactionSurveySetting::where('salon_id', $salonId)->firstOrFail();
+        $setting = SatisfactionSurveySetting::where('salon_id', $salon->id)->firstOrFail();
         
         $groupSetting = SatisfactionSurveyGroupSetting::where('satisfaction_survey_setting_id', $setting->id)
             ->where('customer_group_id', $groupId)
@@ -188,9 +192,9 @@ class SatisfactionSurveyController extends Controller
     }
 
     // 7. Enable/Disable Global Satisfaction Survey System
-    public function globalToggle(Request $request, $salonId)
+    public function globalToggle(Request $request, Salon $salon)
     {
-        $setting = SatisfactionSurveySetting::where('salon_id', $salonId)->firstOrFail();
+        $setting = SatisfactionSurveySetting::where('salon_id', $salon->id)->firstOrFail();
         
         $setting->is_global_active = $request->input('is_active');
         $setting->save();
@@ -199,9 +203,9 @@ class SatisfactionSurveyController extends Controller
     }
 
     // 8. Delete Satisfaction Survey Settings for a Group
-    public function deleteGroupSettings($salonId, $groupId)
+    public function deleteGroupSettings(Salon $salon, $groupId)
     {
-        $setting = SatisfactionSurveySetting::where('salon_id', $salonId)->firstOrFail();
+        $setting = SatisfactionSurveySetting::where('salon_id', $salon->id)->firstOrFail();
         
         SatisfactionSurveyGroupSetting::where('satisfaction_survey_setting_id', $setting->id)
             ->where('customer_group_id', $groupId)
@@ -211,9 +215,9 @@ class SatisfactionSurveyController extends Controller
     }
 
     // 9. Get Specific Group Settings
-    public function groupSettings($salonId, $groupId)
+    public function groupSettings(Salon $salon, $groupId)
     {
-        $setting = SatisfactionSurveySetting::where('salon_id', $salonId)->firstOrFail();
+        $setting = SatisfactionSurveySetting::where('salon_id', $salon->id)->firstOrFail();
         
         $groupSetting = SatisfactionSurveyGroupSetting::where('satisfaction_survey_setting_id', $setting->id)
             ->where('customer_group_id', $groupId)
