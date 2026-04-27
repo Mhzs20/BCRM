@@ -168,7 +168,7 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 @if($referral->referred)
-                                    <span class="text-blue-600 font-medium">{{ $referral->referred->orders()->count() }}</span>
+                                    <span class="text-blue-600 font-medium">{{ $referral->referred->orders_count ?? 0 }}</span>
                                 @else
                                     <span class="text-gray-400">-</span>
                                 @endif

@@ -12,7 +12,7 @@ class SatisfactionSurveyController extends Controller
     // 1. Get Satisfaction Survey Statistics
     public function stats(Salon $salon)
     {
-        $salonId = $salon->id;
+        $salonId = (string) $salon->id;
         $totalGroups = CustomerGroup::where('salon_id', $salonId)->count();
         
         $activeGroups = SatisfactionSurveyGroupSetting::whereHas('satisfactionSurveySetting', function($q) use ($salonId) {
@@ -40,7 +40,7 @@ class SatisfactionSurveyController extends Controller
     // 2. Get All Customer Groups with Satisfaction Survey Settings
     public function groups(Request $request, Salon $salon)
     {
-        $salonId = $salon->id;
+        $salonId = (string) $salon->id;
         $search = $request->get('search');
         $reminder_status = $request->get('reminder_status');
         $sort_by = $request->get('sort_by', 'name');
@@ -124,7 +124,7 @@ class SatisfactionSurveyController extends Controller
     // 5. Update Satisfaction Survey Settings
     public function updateSettings(Request $request, Salon $salon)
     {
-        $salonId = $salon->id;
+        $salonId = (string) $salon->id;
         $data = $request->all();
         
         $setting = SatisfactionSurveySetting::firstOrCreate([

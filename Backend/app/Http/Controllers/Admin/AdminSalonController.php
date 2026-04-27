@@ -31,7 +31,7 @@ class AdminSalonController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Salon::with(['user', 'city', 'province', 'businessCategory', 'businessSubcategories', 'smsBalance'])
+        $query = Salon::with(['user', 'owner', 'city', 'province', 'businessCategory', 'businessSubcategories', 'smsBalance'])
                       ->leftJoin('sms_transactions', 'salons.id', '=', 'sms_transactions.salon_id')
                       ->selectRaw('salons.id, salons.user_id, salons.name, salons.business_category_id, salons.province_id, salons.city_id, salons.address, salons.mobile, salons.email, salons.website, salons.support_phone_number, salons.bio, salons.instagram, salons.telegram, salons.whatsapp, salons.lat, salons.lang, salons.image, salons.is_active, salons.credit_score, salons.created_at, salons.updated_at,
                                   SUM(CASE WHEN (sms_transactions.type IN ("send", "deduction", "manual_send") 

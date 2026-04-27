@@ -117,6 +117,7 @@
         });
     </script>
 </head>
+@php $smsStats = app('App\Http\Controllers\Admin\DashboardController')->getSmsStatsForHeader(); @endphp
 <body class="font-sans antialiased bg-gray-100 text-gray-900" style="font-family: IRANSansWeb, sans-serif !important;" 
     :class="{ 'sidebar-open': sidebarOpen && window.innerWidth < 1024 }">
     <div x-data="{ 
@@ -200,15 +201,15 @@
                         <div class="flex items-center space-x-1 space-x-reverse">
                             <i class="ri-message-3-line text-yellow-500"></i>
                             <span class="text-gray-600">امروز:</span>
-                            <span class="font-semibold text-gray-800">{{ app('App\Http\Controllers\Admin\DashboardController')->getSmsStatsForHeader()['today'] ?? 0 }}</span>
+                            <span class="font-semibold text-gray-800">{{ $smsStats['today'] ?? 0 }}</span>
                         </div>
                         <div class="flex items-center space-x-1 space-x-reverse">
                             <span class="text-gray-600">این ماه:</span>
-                            <span class="font-semibold text-gray-800">{{ app('App\Http\Controllers\Admin\DashboardController')->getSmsStatsForHeader()['month'] ?? 0 }}</span>
+                            <span class="font-semibold text-gray-800">{{ $smsStats['month'] ?? 0 }}</span>
                         </div>
                         <div class="flex items-center space-x-1 space-x-reverse">
                             <span class="text-gray-600">موجودی:</span>
-                            <span class="font-semibold text-green-600">{{ number_format(app('App\Http\Controllers\Admin\DashboardController')->getSmsStatsForHeader()['balance_count'] ?? 0) }}</span>
+                            <span class="font-semibold text-green-600">{{ number_format($smsStats['balance_count'] ?? 0) }}</span>
                         </div>
                     </div>
                 </div>
@@ -228,21 +229,21 @@
                                 <i class="ri-message-3-line text-yellow-500 text-lg"></i>
                                 <div class="flex flex-col">
                                     <span class="text-xs text-gray-500">ارسال امروز</span>
-                                    <span class="font-semibold text-gray-800">{{ app('App\Http\Controllers\Admin\DashboardController')->getSmsStatsForHeader()['today'] ?? 0 }} پیام</span>
+                                    <span class="font-semibold text-gray-800">{{ $smsStats['today'] ?? 0 }} پیام</span>
                                 </div>
                             </div>
                             <div class="flex items-center space-x-2 space-x-reverse bg-blue-50 px-3 py-2 rounded-lg">
                                 <i class="ri-calendar-line text-blue-500 text-lg"></i>
                                 <div class="flex flex-col">
                                     <span class="text-xs text-gray-500">ارسال این ماه</span>
-                                    <span class="font-semibold text-gray-800">{{ app('App\Http\Controllers\Admin\DashboardController')->getSmsStatsForHeader()['month'] ?? 0 }} پیام</span>
+                                    <span class="font-semibold text-gray-800">{{ $smsStats['month'] ?? 0 }} پیام</span>
                                 </div>
                             </div>
                             <div class="flex items-center space-x-2 space-x-reverse bg-green-50 px-3 py-2 rounded-lg">
                                 <i class="ri-wallet-3-line text-green-500 text-lg"></i>
                                 <div class="flex flex-col">
                                     <span class="text-xs text-gray-500">موجودی کل</span>
-                                    <span class="font-semibold text-green-600">{{ number_format(app('App\Http\Controllers\Admin\DashboardController')->getSmsStatsForHeader()['balance_count'] ?? 0) }} پیامک</span>
+                                    <span class="font-semibold text-green-600">{{ number_format($smsStats['balance_count'] ?? 0) }} پیامک</span>
                                 </div>
                             </div>
                         </div>

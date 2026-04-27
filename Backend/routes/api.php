@@ -243,15 +243,15 @@ Route::middleware('auth:api')->group(function () {
             Route::post('appointments/submit', [AppointmentController::class, 'submitAppointment'])->name('appointments.submit');
             Route::post('appointments/prepare-update', [AppointmentController::class, 'prepareUpdateAppointment'])->name('appointments.prepare_update');
             Route::post('appointments/submit-update', [AppointmentController::class, 'submitUpdateAppointment'])->name('appointments.submit_update');
-            Route::post('appointments/{appointmentId}/prepare-update', [AppointmentController::class, 'prepareUpdate'])->name('appointments.prepare_update');
+            Route::post('appointments/{appointmentId}/prepare-update', [AppointmentController::class, 'prepareUpdate'])->name('appointments.prepare_update_by_id');
             Route::post('appointments/old', [AppointmentController::class, 'storeOldAppointment'])->name('appointments.old');
             Route::get('appointments/sms-templates', [\App\Http\Controllers\AppointmentSmsTemplateController::class, 'getAppointmentTemplates'])->name('appointments.sms_templates');
             Route::post('appointments/sms-templates/set-default', [\App\Http\Controllers\AppointmentSmsTemplateController::class, 'setDefaultTemplate'])->name('appointments.sms_templates.set_default');
             Route::get('appointments-by-month/{year}/{month}/{day}', [AppointmentController::class, 'getAppointmentsByMonthAndDay'])
-                ->whereNumber('year')->whereNumber('month')->whereNumber('day');
+                ->whereNumber('year')->whereNumber('month')->whereNumber('day')->name('appointments.by_month_day');
 
             Route::get('appointments-by-month/{year}/{month}', [AppointmentController::class, 'getAppointmentsByMonth'])
-                ->whereNumber('year')->whereNumber('month');
+                ->whereNumber('year')->whereNumber('month')->name('appointments.by_month');
 
             Route::get('appointments', [AppointmentController::class, 'getAppointments']);
 

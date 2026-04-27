@@ -22,39 +22,41 @@ class DashboardController extends Controller
 {
     public function getSmsStatsForHeader()
     {
-        $today = Carbon::today();
-        
-        $smsSentToday = SmsTransaction::whereHas('salon', function($query) {
-                $query->whereHas('user', function($subQuery) {
+        return cache()->remember('admin_sms_stats_header', 300, function () {
+            $today = Carbon::today();
+
+            $smsSentToday = SmsTransaction::whereHas('salon', function ($query) {
+                $query->whereHas('user', function ($subQuery) {
                     $subQuery->whereNotNull('active_salon_id');
                 });
             })->whereDate('created_at', $today)->count();
-            
-        $smsSentThisMonth = SmsTransaction::whereHas('salon', function($query) {
-                $query->whereHas('user', function($subQuery) {
+
+            $smsSentThisMonth = SmsTransaction::whereHas('salon', function ($query) {
+                $query->whereHas('user', function ($subQuery) {
                     $subQuery->whereNotNull('active_salon_id');
                 });
             })->whereMonth('created_at', $today->month)->count();
-        
-        try {
-            $kavenegarApi = new KavenegarApi(config('services.kavenegar.apikey'));
-            $totalSmsBalanceToman = $kavenegarApi->AccountInfo()->remaincredit;
-        } catch (\Exception $e) {
-            $totalSmsBalanceToman = 0;
-        }
-        
-        // محاسبه تعداد پیامک بر اساس قیمت خرید
-        $smsPurchasePricePerPart = Setting::where('key', 'sms_purchase_price_per_part')->first();
-        $smsPurchasePricePerPartValue = $smsPurchasePricePerPart ? (float)$smsPurchasePricePerPart->value : 135; // میانگین قیمت: 135 تومان
-        
-        $totalSmsCount = $smsPurchasePricePerPartValue > 0 ? floor($totalSmsBalanceToman / $smsPurchasePricePerPartValue) : 0;
-        
-        return [
-            'today' => $smsSentToday,
-            'month' => $smsSentThisMonth,
-            'balance_toman' => $totalSmsBalanceToman,
-            'balance_count' => $totalSmsCount,
-        ];
+
+            try {
+                $kavenegarApi = new KavenegarApi(config('services.kavenegar.apikey'));
+                $totalSmsBalanceToman = $kavenegarApi->AccountInfo()->remaincredit;
+            } catch (\Exception $e) {
+                $totalSmsBalanceToman = 0;
+            }
+
+            // محاسبه تعداد پیامک بر اساس قیمت خرید
+            $smsPurchasePricePerPart = Setting::where('key', 'sms_purchase_price_per_part')->value('value');
+            $smsPurchasePricePerPartValue = $smsPurchasePricePerPart ? (float) $smsPurchasePricePerPart : 135;
+
+            $totalSmsCount = $smsPurchasePricePerPartValue > 0 ? floor($totalSmsBalanceToman / $smsPurchasePricePerPartValue) : 0;
+
+            return [
+                'today'         => $smsSentToday,
+                'month'         => $smsSentThisMonth,
+                'balance_toman' => $totalSmsBalanceToman,
+                'balance_count' => $totalSmsCount,
+            ];
+        });
     }
     
     public function index()
