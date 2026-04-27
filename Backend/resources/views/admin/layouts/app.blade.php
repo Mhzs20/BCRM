@@ -196,7 +196,7 @@
                 </div>
                 
                 <!-- SMS Stats Bar for Mobile -->
-                <div class="mt-2 pt-2 border-t border-gray-100">
+                <!-- <div class="mt-2 pt-2 border-t border-gray-100">
                     <div class="flex items-center justify-between text-xs">
                         <div class="flex items-center space-x-1 space-x-reverse">
                             <i class="ri-message-3-line text-yellow-500"></i>
@@ -212,7 +212,7 @@
                             <span class="font-semibold text-green-600">{{ number_format($smsStats['balance_count'] ?? 0) }}</span>
                         </div>
                     </div>
-                </div>
+                </div> -->
             </div>
 
             <!-- Page Heading -->

@@ -18,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
+use Hekmatinasser\Verta\Verta;
 
 class CustomerFollowUpController extends Controller
 {
@@ -632,23 +633,25 @@ class CustomerFollowUpController extends Controller
         $salonId = $salon->id;
         $perPage = $request->get('per_page', 15);
         $type = $request->get('type'); // manual or automatic
-        $startDate = $request->get('start_date');
-        $endDate = $request->get('end_date');
+        $startDateRaw = $request->get('start_date', $request->get('from_date'));
+        $endDateRaw = $request->get('end_date', $request->get('to_date'));
+        $startDate = $this->parseHistoryDate($startDateRaw, false);
+        $endDate = $this->parseHistoryDate($endDateRaw, true);
 
         $query = CustomerFollowUpHistory::where('salon_id', $salonId)
             ->with(['customer', 'template'])
             ->orderBy('sent_at', 'desc');
 
         if ($type) {
-            $query->where('type', $type);
+            $query->where('type', strtolower(trim((string) $type)));
         }
 
         if ($startDate) {
-            $query->where('sent_at', '>=', Carbon::parse($startDate)->startOfDay());
+            $query->where('sent_at', '>=', $startDate);
         }
 
         if ($endDate) {
-            $query->where('sent_at', '<=', Carbon::parse($endDate)->endOfDay());
+            $query->where('sent_at', '<=', $endDate);
         }
 
         // Log query details for debugging
@@ -687,6 +690,36 @@ class CustomerFollowUpController extends Controller
         });
 
         return response()->json($history);
+    }
+
+    /**
+     * Parse history date filters from either Gregorian or Jalali input.
+     */
+    private function parseHistoryDate($value, bool $endOfDay = false): ?Carbon
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        try {
+            $normalized = str_replace('/', '-', $value);
+
+            // If year looks Jalali (1300-1600), parse through Verta.
+            if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $normalized, $matches)) {
+                $year = (int) $matches[1];
+                if ($year >= 1300 && $year <= 1600) {
+                    $date = Verta::parse(str_replace('-', '/', $normalized))->toCarbon();
+                    return $endOfDay ? $date->endOfDay() : $date->startOfDay();
+                }
+            }
+
+            $date = Carbon::parse($normalized);
+            return $endOfDay ? $date->endOfDay() : $date->startOfDay();
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     // Helper: تولید پیام نمونه

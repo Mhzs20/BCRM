@@ -567,20 +567,23 @@ class AppointmentController extends Controller
             }
 
             $smsSent = false;
-            if ($newStatus === 'confirmed' && $oldStatus !== 'confirmed') {
-                $customer = $appointment->customer;
-                if ($customer) {
-                    $smsService = $this->smsService;
-                    $smsResult = $smsService->sendAppointmentConfirmation($customer, $appointment, $salon);
-                    if (isset($smsResult['status']) && $smsResult['status'] === 'success') {
-                        $smsSent = 'confirmation';
+            // Do not send confirmation/modification SMS when appointment is or becomes completed.
+            if ($oldStatus !== 'completed' && $newStatus !== 'completed') {
+                if ($newStatus === 'confirmed' && $oldStatus !== 'confirmed') {
+                    $customer = $appointment->customer;
+                    if ($customer) {
+                        $smsService = $this->smsService;
+                        $smsResult = $smsService->sendAppointmentConfirmation($customer, $appointment, $salon);
+                        if (isset($smsResult['status']) && $smsResult['status'] === 'success') {
+                            $smsSent = 'confirmation';
+                        }
                     }
-                }
-            } elseif ($appointmentModified && !($newStatus === 'confirmed' && $oldStatus !== 'confirmed')) {
-                $customer = $appointment->customer;
-                if ($customer) {
-                    \App\Jobs\SendAppointmentModificationSms::dispatch($customer, $appointment, $salon);
-                    $smsSent = 'modification';
+                } elseif ($appointmentModified && !($newStatus === 'confirmed' && $oldStatus !== 'confirmed')) {
+                    $customer = $appointment->customer;
+                    if ($customer) {
+                        \App\Jobs\SendAppointmentModificationSms::dispatch($customer, $appointment, $salon);
+                        $smsSent = 'modification';
+                    }
                 }
             }
 
