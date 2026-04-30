@@ -672,7 +672,7 @@ class OnlineBookingController extends Controller
         $epbase = $pYear - ($pYear >= 0 ? 474 : 473);
         $epyear = 474 + ($epbase % 2820);
         $mdays = $pMonth <= 7 ? ($pMonth - 1) * 31 : (($pMonth - 1) * 30) + 6;
-        $jdn = $pDay + $mdays + floor(($epyear * 682 - 110) / 2816) + ($epyear - 1) * 365 + floor($epbase / 2820) * 1029983 + 1948321;
+        $jdn = $pDay + $mdays + floor(($epyear * 682 - 110) / 2816) + ($epyear - 1) * 365 + floor($epbase / 2820) * 1029983 + 1948320;
 
         $j = $jdn + 32044;
         $g = floor($j / 146097);
@@ -690,6 +690,37 @@ class OnlineBookingController extends Controller
         $M = ($m + 2) % 12 + 1;
         $D = $d + 1;
         return sprintf('%04d-%02d-%02d', $Y, $M, $D);
+    }
+
+    /**
+     * Calculate weekday from ISO Gregorian date string without using DateTime objects
+     * Uses Julian Day Number method which is pure mathematical and timezone-independent
+     * Returns Persian weekday: 0=Saturday, 1=Sunday, ..., 6=Friday
+     */
+    private function calculateWeekdayFromGregorian($isoDateString)
+    {
+        if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $isoDateString, $matches)) {
+            return null;
+        }
+        $y = (int)$matches[1];
+        $m = (int)$matches[2];
+        $d = (int)$matches[3];
+
+        // Calculate Julian Day Number using standard algorithm
+        $a = (int)floor((14 - $m) / 12);
+        $y = $y + 4800 - $a;
+        $m = $m + 12 * $a - 3;
+        
+        $jd = $d + (int)floor((153 * $m + 2) / 5) + 365 * $y + (int)floor($y / 4) - (int)floor($y / 100) + (int)floor($y / 400) - 32045;
+        
+        // JD mod 7 gives us: 0=Monday, 1=Tuesday, ..., 6=Sunday
+        $dayOfWeek = $jd % 7;
+        
+        // Convert to Persian convention: 0=Saturday, 1=Sunday, ..., 6=Friday
+        // Mapping: Mon(0)→2, Tue(1)→3, Wed(2)→4, Thu(3)→5, Fri(4)→6, Sat(5)→0, Sun(6)→1
+        $persianWeekday = ($dayOfWeek + 2) % 7;
+        
+        return $persianWeekday;
     }
     /**
      * دریافت داده‌های تقویم از API (Proxy برای جلوگیری از CORS)
@@ -742,9 +773,9 @@ class OnlineBookingController extends Controller
                         $persianMonth = $monthIndex + 1; // 1-based
                         $greg = $this->persianToGregorian($year, $persianMonth, $jalali);
 
-                        $d = new \DateTime($greg . 'T00:00:00');
-                        $jsWeek = (int)$d->format('w'); // 0=Sun .. 6=Sat
-                        $weekdayPersian = ($jsWeek + 1) % 7; // 0=Sat .. 6=Fri
+                        // Calculate weekday mathematically from Gregorian date using a pure algorithm
+                        // This avoids timezone issues that come from using DateTime objects
+                        $weekdayPersian = $this->calculateWeekdayFromGregorian($greg);
 
                         $day['jalali'] = $jalali;
                         $day['gregorian'] = $greg;
