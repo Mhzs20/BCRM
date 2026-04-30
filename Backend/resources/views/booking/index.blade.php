@@ -8,6 +8,11 @@
     $persianYear = $persianDate->year;
     $persianMonth = $persianDate->month;
     $persianDay = $persianDate->day;
+    
+    // Calculate weekday for today (0=Saturday to 6=Friday in Persian convention)
+    $carbonDate = now();
+    $jsWeekday = $carbonDate->dayOfWeek; // 0=Sunday, 1=Monday ... 6=Saturday (Laravel convention)
+    $persianWeekday = ($jsWeekday + 1) % 7; // Convert to Persian: 0=Saturday, 1=Sunday ... 6=Friday
 @endphp
 <!DOCTYPE html>
 <html lang="fa" dir="ltr">
@@ -1091,7 +1096,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Build a robust ISO gregorian date and weekday for each Jalali day using conversion
                 let greg = null;
-                let weekdayPersian = null; // 0=Saturday .. 6=Friday
+                // Prefer API-provided weekday to avoid timezone-dependent Date() conversion
+                let weekdayPersian = (typeof day.weekdayPersian === 'number') ? day.weekdayPersian : null; // 0=Saturday .. 6=Friday
 
                 try {
                     if (jalali !== null) {
@@ -1099,10 +1105,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         // Use the shared helper to compute ISO gregorian date
                         greg = persianToGregorian(persianYear, persianMonth, jalali);
 
-                        const d = new Date(greg + 'T00:00:00');
-                        if (!isNaN(d.getTime())) {
-                            const jsWeek = d.getDay(); // JS getDay(): Sun=0..Sat=6
-                            weekdayPersian = (jsWeek + 1) % 7; // Persian: Sat=0..Fri=6
+                        if (weekdayPersian === null) {
+                            const d = new Date(greg + 'T00:00:00');
+                            if (!isNaN(d.getTime())) {
+                                const jsWeek = d.getDay(); // JS getDay(): Sun=0..Sat=6
+                                weekdayPersian = (jsWeek + 1) % 7; // Persian: Sat=0..Fri=6
+                            }
                         }
                     }
                 } catch (e) {
@@ -1221,6 +1229,14 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentPersianMonth = {{ $persianMonth }} - 1; // Convert to 0-based (0-11)
     let currentPersianDay = {{ $persianDay }};
     
+    // Create a reference object for today's Persian date to avoid client-side timezone issues
+    const serverProvidedToday = {
+        year: {{ $persianYear }},
+        month: {{ $persianMonth }},
+        day: {{ $persianDay }},
+        weekdayPersian: {{ $persianWeekday }} // Pre-calculated on server: 0=Saturday to 6=Friday
+    };
+    
     let startDayOfWeek = 0; // For calendar calculations
     let lastLoadedYear = null; // Track which year's holidays are loaded
     
@@ -1239,7 +1255,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log(`Converting Gregorian date: ${year}-${month}-${day}`);
         
         // Use standard Persian calendar conversion algorithm
-        const PERSIAN_EPOCH = 1948321; // Julian day of 1/1/1 Persian calendar
+        const PERSIAN_EPOCH = 1948320; // Julian day of 1/1/1 Persian calendar
         
         // Calculate Julian day number
         let a = Math.floor((14 - month) / 12);
@@ -1296,8 +1312,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const epbase = pYear - (pYear >= 0 ? 474 : 473);
         const epyear = 474 + (epbase % 2820);
         const mdays = pMonth <= 7 ? (pMonth - 1) * 31 : ((pMonth - 1) * 30) + 6;
-        // Use canonical Persian epoch constant so conversions match the API (1948321)
-        const jdn = pDay + mdays + Math.floor((epyear * 682 - 110) / 2816) + (epyear - 1) * 365 + Math.floor(epbase / 2820) * 1029983 + 1948321;
+        // Use canonical Persian epoch constant so conversions match the API (1948320)
+        const jdn = pDay + mdays + Math.floor((epyear * 682 - 110) / 2816) + (epyear - 1) * 365 + Math.floor(epbase / 2820) * 1029983 + 1948320;
 
         // JDN -> Gregorian
         let j = jdn + 32044;
@@ -1439,11 +1455,10 @@ document.addEventListener('DOMContentLoaded', function() {
         await updateCalendarNavigation();
         generateCalendar();
         
-        // Auto-select today if it's in the current month
+        // Auto-select today if it's in the current month (using server-provided date)
         setTimeout(() => {
-            const todayPersian = gregorianToPersian(new Date());
-            if (todayPersian.year === currentPersianYear && todayPersian.month === (currentPersianMonth + 1)) {
-                const todayCell = document.querySelector(`#calendar-days .calendar-day[data-date="${currentPersianYear}-${currentPersianMonth + 1}-${todayPersian.day}"]`);
+            if (serverProvidedToday.year === currentPersianYear && serverProvidedToday.month === (currentPersianMonth + 1)) {
+                const todayCell = document.querySelector(`#calendar-days .calendar-day[data-date="${currentPersianYear}-${currentPersianMonth + 1}-${serverProvidedToday.day}"]`);
                 if (todayCell && !todayCell.classList.contains('disabled')) {
                     todayCell.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
@@ -1532,9 +1547,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const totalDays = monthArray.length;
         const weeks = Math.ceil((totalDays + startDayOfWeek) / 7);
 
-        const today = new Date();
-        const todayPersian = gregorianToPersian(today);
-        const todayDateZero = new Date(); todayDateZero.setHours(0,0,0,0);
+        // Use server-provided today date to avoid browser timezone issues
+        const todayPersian = serverProvidedToday;
+        
+        // For computing past dates, use server-provided gregorian date (ISO format string)
+        // This avoids timezone conversion issues
+        const todayGregorian = '{{ $serverDate }}';
 
         for (let w = 0; w < weeks; w++) {
             const weekDiv = document.createElement('div');
@@ -1586,16 +1604,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Determine isPast by using gregorian date when available
                 let isPastDate = false;
-                        if (d && d.gregorian) {
+                if (d && d.gregorian) {
                     try {
-                        const gd = new Date(d.gregorian);
-                        gd.setHours(0,0,0,0);
-                        isPastDate = gd.getTime() < todayDateZero.getTime();
+                        // Compare ISO date strings directly (no timezone conversion needed)
+                        isPastDate = d.gregorian < todayGregorian;
                     } catch (e) { isPastDate = false; }
-                        } else {
-                            // missing gregorian from parsed data — log for debugging
-                            console.warn('Calendar cell missing gregorian date (will attempt fallback when selecting):', d);
-                        }
+                } else {
+                    // missing gregorian from parsed data — log for debugging
+                    console.warn('Calendar cell missing gregorian date (will attempt fallback when selecting):', d);
+                }
 
                 const isFriday = (c === 6);
                 const isDayEnabled = enabledDays.includes(c);
@@ -1642,6 +1659,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 cell.appendChild(dayNumber);
                 cell.dataset.day = jalaliDay;
                 cell.dataset.date = `${currentPersianYear}-${currentPersianMonth + 1}-${jalaliDay}`;
+                // Store the weekday to avoid timezone issues with getDay()
+                if (d && typeof d.weekdayPersian === 'number') {
+                    cell.dataset.weekdayPersian = d.weekdayPersian;
+                }
                 // Ensure we always provide a full ISO gregorian date if possible (fallback to conversion)
                 try {
                     if (d && d.gregorian) {
@@ -1757,6 +1778,9 @@ document.addEventListener('DOMContentLoaded', function() {
             year: currentPersianYear,
             month: currentPersianMonth + 1,
             day: parseInt(dayElement.dataset.day),
+            weekdayPersian: dayElement.dataset.weekdayPersian !== undefined && dayElement.dataset.weekdayPersian !== ''
+                ? parseInt(dayElement.dataset.weekdayPersian, 10)
+                : null,
             gregorianDate: gDate,
             gregorianDateString: gregStr // Store the raw string to avoid timezone issues
         };
@@ -1885,9 +1909,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateSelectedDateDisplay() {
         // Use the global selectedDate object which contains Persian date and api-provided gregorianDate
         if (!selectedDate) return;
-        const dayNames = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'];
-        const gregorianDate = selectedDate.gregorianDate;
-        const dayName = gregorianDate ? dayNames[gregorianDate.getDay()] : '';
+        const dayNames = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه'];
+        let dayName = '';
+
+        if (typeof selectedDate.weekdayPersian === 'number' && selectedDate.weekdayPersian >= 0 && selectedDate.weekdayPersian < 7) {
+            dayName = dayNames[selectedDate.weekdayPersian] || '';
+        } else if (selectedDate.gregorianDate) {
+            dayName = dayNames[(selectedDate.gregorianDate.getDay() + 1) % 7] || '';
+        }
 
         // Month name from API if available
         let monthName = '';
