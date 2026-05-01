@@ -320,7 +320,7 @@ class PackageController extends Controller
         // Create a new Order record (same structure as SMS)
         $order = Order::create([
             'user_id' => $user->id,
-            'salon_id' => $salon,
+            'salon_id' => $salon->id,
             'package_id' => $packageId,
             'sms_package_id' => null,
             'sms_count' => 0,
